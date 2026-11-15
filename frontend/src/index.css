@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --eparnio-bg: #f6f7fb;
+  --eparnio-text: #0f172a;
+  --eparnio-sheet-bg: #ffffff;
+  --eparnio-sheet-backdrop: rgba(15, 23, 42, 0.5);
+}
+
+:root.dark {
+  color-scheme: dark;
+  --eparnio-bg: #0f172a;
+  --eparnio-text: #f8fafc;
+  --eparnio-sheet-bg: #1e293b;
+  --eparnio-sheet-backdrop: rgba(2, 6, 23, 0.72);
+}
+
+@layer base {
+  html,
+  body {
+    font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--eparnio-bg);
+    color: var(--eparnio-text);
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+dialog.eparnio-sheet {
+  margin: auto auto 0 auto;
+  padding: 0;
+  border: none;
+  width: 100%;
+  max-width: 28rem;
+  max-height: 90dvh;
+  overflow-y: auto;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background-color: var(--eparnio-sheet-bg);
+  color: var(--eparnio-text);
+  box-shadow: 0 -10px 35px -5px rgba(15, 23, 42, 0.18);
+}
+
+dialog.eparnio-sheet::backdrop {
+  background-color: var(--eparnio-sheet-backdrop);
+  backdrop-filter: blur(2px);
+}
+
+:root.dark input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
