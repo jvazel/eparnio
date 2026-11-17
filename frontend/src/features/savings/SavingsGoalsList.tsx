@@ -12,7 +12,7 @@ import type {
   EnvelopeItem,
   SavingsGoalItem
 } from '../../types/budget.types';
-import { formatCurrency, formatShortDate } from '../../utils/format';
+import { formatCurrency, formatFullDate } from '../../utils/format';
 import { ZeroBasedBanner } from '../budget/ZeroBasedBanner';
 
 export interface SavingsGoalCardProps {
@@ -101,7 +101,7 @@ export function SavingsGoalCard({
             {goal.deadline ? (
               <div>
                 <p className="text-xs font-medium text-slate-400">
-                  Échéance : {formatShortDate(goal.deadline)}
+                  Échéance : {formatFullDate(goal.deadline)}
                 </p>
                 {(() => {
                   const sinkingInfo = computeSinkingFundInfo(
@@ -315,7 +315,7 @@ export function SavingsGoalCard({
                       )}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                      <span>{formatShortDate(contribution.date)}</span>
+                      <span>{formatFullDate(contribution.date)}</span>
                       {isSharedBudget && memberMeta && payerLabel && (
                         <span className="inline-flex items-center gap-1">
                           <span

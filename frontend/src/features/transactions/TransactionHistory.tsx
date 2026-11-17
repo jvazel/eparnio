@@ -1,7 +1,7 @@
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import type { BudgetMember, TransactionItem } from '../../types/budget.types';
-import { formatCurrency, formatShortDate } from '../../utils/format';
+import { formatCurrency, formatFullDate } from '../../utils/format';
 
 export interface TransactionHistoryProps {
   transactions: TransactionItem[];
@@ -75,7 +75,7 @@ export function TransactionHistory({
                   {tx.label}
                 </p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <span>{formatShortDate(tx.date)}</span>
+                  <span>{formatFullDate(tx.date)}</span>
                   {isSharedBudget && payerLabel ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                       <span
