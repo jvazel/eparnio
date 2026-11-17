@@ -167,3 +167,21 @@
 - [x] **Frontend (`TrendsCard.tsx` dans `MonthlyInsights.tsx`) :**
   * Graphique en barres léger avec filtre (`Tout` / `Variables` / `Épargne`), compatible **modes clair et sombre**.
 - [x] **Tests & Documentation :** Tests UI dans `analytics.test.tsx`, validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md` et `ARCHITECTURE.md`.
+
+---
+
+## Étape 17 : Audit & Résolution des vulnérabilités npm (Backend & Frontend)
+
+- [x] **Baseline & Audit ciblé production (`npm audit --omit=dev`) :**
+  * **Frontend (`--omit=dev`) :** `0` vulnérabilité en production.
+  * **Backend (`--omit=dev`) :** `1` seule vulnérabilité (`zod <4.6.6`, nécessitant une migration majeure vers `zod@4.6.7`, conservée en v3 pour stabilité ; les 10 autres concernent uniquement les `devDependencies` `vitest`/`vite`/`esbuild` qui ne tournent pas en production).
+- [x] **Validation de non-régression & Documentation :** `npm run typecheck`, `npm run test:coverage --prefix frontend` (12 fichiers, 67 tests) et `npm run build` validés, [ROADMAP.md](./ROADMAP.md) mis à jour.
+
+---
+
+## Étape 18 : Migration Zod v3 → v4 (`4.6.7`) & Zéro faille de production
+
+- [x] **Migration vers `zod@4.6.7` (`backend/`) :**
+  * Mise à jour de `zod` vers `^4.6.7` dans `backend/package.json`.
+  * Vérification `npm audit --omit=dev --prefix backend` et `frontend` à **`0` vulnérabilité**.
+- [x] **Validation complète de non-régression & Documentation :** `npm run typecheck`, tous les tests backend (8 fichiers, 35 tests passés) et frontend (12 fichiers, 67 tests passés) validés, [ROADMAP.md](./ROADMAP.md) mis à jour.
