@@ -13,6 +13,7 @@ export interface UserProfile {
   displayName: string;
   avatarEmoji: string;
   recoveryKeyHint?: string;
+  hasBiometrics?: boolean;
   hasCompletedOnboarding: boolean;
   preferences: UserPreferences;
   createdAt?: string;

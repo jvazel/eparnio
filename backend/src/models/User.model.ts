@@ -9,6 +9,13 @@ export interface IUserPreferences {
   theme: ThemeMode;
 }
 
+export interface IWebAuthnCredential {
+  credentialId: string;
+  publicKey: string;
+  counter: number;
+  transports?: string[];
+}
+
 export interface IUser extends Document {
   email: string;
   passwordHash: string;
@@ -17,6 +24,9 @@ export interface IUser extends Document {
   resetEmailCodeHash?: string;
   resetEmailCodeExpiresAt?: Date;
   resetEmailCodeAttempts: number;
+  webauthnCredentials: IWebAuthnCredential[];
+  webauthnChallenge?: string;
+  webauthnChallengeExpiresAt?: Date;
   tokenVersion: number;
   displayName: string;
   avatarEmoji: string;
@@ -32,6 +42,7 @@ export interface UserResponse {
   displayName: string;
   avatarEmoji: string;
   recoveryKeyHint?: string;
+  hasBiometrics: boolean;
   hasCompletedOnboarding: boolean;
   preferences: IUserPreferences;
   createdAt: string;
@@ -94,6 +105,25 @@ const userSchema = new Schema<IUser>(
       type: Number,
       default: 0
     },
+    webauthnCredentials: {
+      type: [
+        {
+          credentialId: { type: String, required: true },
+          publicKey: { type: String, required: true },
+          counter: { type: Number, required: true, default: 0 },
+          transports: { type: [String], default: [] }
+        }
+      ],
+      default: []
+    },
+    webauthnChallenge: {
+      type: String,
+      required: false
+    },
+    webauthnChallengeExpiresAt: {
+      type: Date,
+      required: false
+    },
     displayName: {
       type: String,
       required: true,
@@ -133,6 +163,7 @@ export function toUserResponse(user: IUser): UserResponse {
     avatarEmoji: user.avatarEmoji,
     ...(user.recoveryKeyHint ? { recoveryKeyHint: user.recoveryKeyHint } : {}),
     hasCompletedOnboarding: user.hasCompletedOnboarding,
+    hasBiometrics: (user.webauthnCredentials?.length ?? 0) > 0,
     preferences: {
       currency: user.preferences.currency,
       budgetStartDay: user.preferences.budgetStartDay,

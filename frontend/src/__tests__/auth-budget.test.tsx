@@ -10,6 +10,7 @@ import { useBudgetStore } from '../store/useBudgetStore';
 import type { BudgetSpace, UserProfile } from '../types/budget.types';
 
 vi.mock('../services/auth.service', () => ({
+  browserSupportsWebAuthn: () => false,
   registerUser: vi.fn(),
   loginUser: vi.fn(),
   fetchMe: vi.fn(),

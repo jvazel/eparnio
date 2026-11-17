@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  Fingerprint,
   KeyRound,
   LogOut,
   Moon,
@@ -15,7 +16,14 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Button } from '../../components/ui/Button';
 import { getApiErrorMessage } from '../../services/api';
-import { regenerateRecoveryKey, updateMe, updatePassword } from '../../services/auth.service';
+import {
+  browserSupportsWebAuthn,
+  regenerateRecoveryKey,
+  registerBiometrics,
+  removeBiometrics,
+  updateMe,
+  updatePassword
+} from '../../services/auth.service';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useBudgetStore } from '../../store/useBudgetStore';
 import type { ThemeMode } from '../../types/budget.types';
@@ -473,7 +481,48 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
           </Button>
         </div>
 
-        <div className="border-t border-slate-100 pt-4">
+        {typeof browserSupportsWebAuthn === 'function' && browserSupportsWebAuthn() ? (
+          <div className="space-y-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-800 dark:text-slate-100">
+              <Fingerprint className="h-4 w-4 text-violet-600" aria-hidden="true" />
+              Connexion biométrique
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {user?.hasBiometrics
+                ? 'Face ID / Empreinte activée sur cet appareil.'
+                : 'Connectez-vous rapidement avec Face ID ou votre empreinte digitale.'}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              fullWidth
+              onClick={async () => {
+                setProfileStatus(null);
+                setProfileError(null);
+                try {
+                  const res = user?.hasBiometrics
+                    ? await removeBiometrics()
+                    : await registerBiometrics();
+                  updateUser(res.user);
+                  setProfileStatus(
+                    res.user.hasBiometrics
+                      ? 'Connexion biométrique activée.'
+                      : 'Connexion biométrique désactivée.'
+                  );
+                } catch (err) {
+                  setProfileError(
+                    getApiErrorMessage(err, 'Impossible de configurer la biométrie')
+                  );
+                }
+              }}
+            >
+              <Fingerprint className="h-4 w-4 text-violet-600" aria-hidden="true" />
+              {user?.hasBiometrics ? 'Désactiver la biométrie' : 'Activer Face ID / Empreinte'}
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
           <Button variant="danger" fullWidth onClick={handleLogout}>
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Se déconnecter

@@ -6,6 +6,13 @@ import type {
   UserResponsePayload
 } from '../types/api.types';
 import type { CurrencyCode, ThemeMode, UserProfile } from '../types/budget.types';
+import {
+  browserSupportsWebAuthn,
+  startAuthentication,
+  startRegistration,
+  type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON
+} from '@simplewebauthn/browser';
 import { apiClient } from './api';
 
 export interface RegisterPayload {
@@ -74,5 +81,49 @@ export async function updatePassword(
   payload: UpdatePasswordPayload
 ): Promise<PasswordUpdateResponse> {
   const { data } = await apiClient.patch<PasswordUpdateResponse>('/auth/password', payload);
+  return data;
+}
+
+export { browserSupportsWebAuthn };
+
+/**
+ * Enregistre un passkey biométrique (Face ID / Empreinte) pour l'utilisateur connecté.
+ */
+export async function registerBiometrics(): Promise<{ user: UserProfile }> {
+  const { data: optionsData } = await apiClient.post<{
+    options: PublicKeyCredentialCreationOptionsJSON;
+  }>('/auth/webauthn/register/options');
+  const registrationResponse = await startRegistration({ optionsJSON: optionsData.options });
+  const { data } = await apiClient.post<{ user: UserProfile }>('/auth/webauthn/register/verify', {
+    response: registrationResponse
+  });
+  return data;
+}
+
+/**
+ * Supprime les credentials biométriques de l'utilisateur connecté.
+ */
+export async function removeBiometrics(): Promise<{ user: UserProfile }> {
+  const { data } = await apiClient.delete<{ user: UserProfile }>('/auth/webauthn/credentials');
+  return data;
+}
+
+/**
+ * Connecte un utilisateur via son passkey biométrique (Face ID / Empreinte).
+ */
+export async function loginWithBiometrics(
+  email: string
+): Promise<{ token: string; user: UserProfile }> {
+  const { data: optionsData } = await apiClient.post<{
+    options: PublicKeyCredentialRequestOptionsJSON;
+  }>('/auth/webauthn/login/options', { email });
+  const authResponse = await startAuthentication({ optionsJSON: optionsData.options });
+  const { data } = await apiClient.post<{ token: string; user: UserProfile }>(
+    '/auth/webauthn/login/verify',
+    {
+      email,
+      response: authResponse
+    }
+  );
   return data;
 }

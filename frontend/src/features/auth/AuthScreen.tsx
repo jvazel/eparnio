@@ -1,9 +1,16 @@
-import { Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck, Sparkles, User } from 'lucide-react';
+import { Eye, Fingerprint, EyeOff, KeyRound, Lock, Mail, ShieldCheck, Sparkles, User } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { getApiErrorMessage } from '../../services/api';
-import { loginUser, registerUser, requestPasswordResetCode, updatePassword } from '../../services/auth.service';
+import {
+  browserSupportsWebAuthn,
+  loginUser,
+  loginWithBiometrics,
+  registerUser,
+  requestPasswordResetCode,
+  updatePassword
+} from '../../services/auth.service';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useBudgetStore } from '../../store/useBudgetStore';
 import { validateStrongPassword } from '../../utils/format';
@@ -536,6 +543,34 @@ export function AuthScreen() {
                   ? 'Créer mon compte'
                   : 'Mettre à jour mon mot de passe'}
           </Button>
+
+          {mode === 'login' && typeof browserSupportsWebAuthn === 'function' && browserSupportsWebAuthn() ? (
+            <Button
+              type="button"
+              variant="secondary"
+              fullWidth
+              disabled={isSubmitting}
+              onClick={async () => {
+                if (!email.trim()) {
+                  setFieldErrors({ email: 'Saisissez votre e-mail pour la biométrie' });
+                  return;
+                }
+                setSubmitError(null);
+                setIsSubmitting(true);
+                try {
+                  const response = await loginWithBiometrics(email.trim());
+                  setSession(response.token, response.user);
+                } catch (err) {
+                  setSubmitError(getApiErrorMessage(err, 'Connexion biométrique annulée ou échouée'));
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+            >
+              <Fingerprint className="h-4 w-4 text-violet-600" aria-hidden="true" />
+              Se connecter avec Face ID / Empreinte
+            </Button>
+          ) : null}
         </form>
       </Card>
 

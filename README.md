@@ -89,3 +89,4 @@ Toutes les commandes suivantes s'exécutent depuis la racine `Eparnio/` :
 - [Cahier des charges & Design System](./SPECIFICATIONS_FINZEE.md)
 - [Architecture technique & Contrat API](./ARCHITECTURE.md)
 - [Roadmap de développement](./ROADMAP.md)
+- [Guide de déploiement (Render + Vercel + MongoDB Atlas)](./DEPLOY_GUIDE.md)

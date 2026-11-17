@@ -290,3 +290,14 @@ En local, les 3 briques restent strictement découplées tout en offrant un pilo
   * Codes et QR Codes d'invitation dotés d'une expiration configurable (`INVITE_CODE_TTL_HOURS`, `24h` par défaut ; `inviteExpiresAt`, HTTP `410` au-delà, régénérables en 1 clic).
   * Suppression en cascade des périodes, enveloppes, transactions et objectifs liés dans `DELETE /api/budgets/:id`.
   * Port MongoDB local restreint à `127.0.0.1:27017:27017` dans `docker-compose.yml` et validation stricte de `JWT_SECRET` (`>= 32` caractères hors valeur de dev) en mode `production` via `parseEnvConfig`.
+
+---
+
+## 6. Évolutions Mobile & Visualisation (Étapes 9 à 12)
+
+* **Page dédiée Enveloppe (`EnvelopeDetailPage.tsx`) :** Vue plein écran contrôlée par état remplaçant la popin, avec `RingGauge` des dépenses, édition/suppression au tap sur chaque ligne et réglages (`⚙️`).
+* **Détails des enveloppes dans Budget (`EnvelopeBreakdownCard.tsx`) :** Synthèse `Budget réparti`, `Budget consommé`, `Reste à dépenser` et Donut de répartition des dépenses par enveloppe (avec état vide).
+* **Installation PWA Mobile (`usePwaInstall.ts` / `PwaInstallBanner.tsx`) :** Interception de `beforeinstallprompt` (Android/Chrome) et guide iOS Safari (`Partager → Sur l'écran d'accueil`), masqué automatiquement en mode `standalone`.
+* **Connexion Biométrique (`webauthn.controller.ts` / `@simplewebauthn/server` & `@simplewebauthn/browser`) :**
+  * Endpoints `POST /api/auth/webauthn/register/options`, `POST /api/auth/webauthn/register/verify`, `DELETE /api/auth/webauthn/credentials`, `POST /api/auth/webauthn/login/options` et `POST /api/auth/webauthn/login/verify`.
+  * Activation depuis `ProfileSheet` et connexion Face ID / Empreinte depuis `AuthScreen`.

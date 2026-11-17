@@ -13,6 +13,13 @@ import {
   updatePasswordSchema,
   updateProfileSchema
 } from '../controllers/auth.controller';
+import {
+  deleteWebAuthnCredentials,
+  getWebAuthnLoginOptions,
+  getWebAuthnRegisterOptions,
+  verifyWebAuthnLogin,
+  verifyWebAuthnRegister
+} from '../controllers/webauthn.controller';
 import { optionalAuth, requireAuth } from '../middlewares/auth.middleware';
 import { authRateLimiter } from '../middlewares/rateLimit.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -37,5 +44,10 @@ authRouter.patch(
   validate({ body: updatePasswordSchema }),
   updatePassword
 );
+authRouter.post('/webauthn/register/options', requireAuth, getWebAuthnRegisterOptions);
+authRouter.post('/webauthn/register/verify', requireAuth, verifyWebAuthnRegister);
+authRouter.delete('/webauthn/credentials', requireAuth, deleteWebAuthnCredentials);
+authRouter.post('/webauthn/login/options', authRateLimiter, getWebAuthnLoginOptions);
+authRouter.post('/webauthn/login/verify', authRateLimiter, verifyWebAuthnLogin);
 
 export { authRouter };

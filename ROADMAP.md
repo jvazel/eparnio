@@ -105,3 +105,27 @@
   * Graphique **Donut** coloré (part de budget consommé par enveloppe, avec la couleur de chaque enveloppe), légende en pourcentage (`Nom : XX,X %`) et `Total : 100%`, ainsi qu'un **état vide** (`Aucune dépense variable ce mois-ci`) lorsqu'aucune dépense n'a été saisie.
   * Intégration dans `MonthlyInsights.tsx` juste en dessous de `AllocationDonutCard`, avec support complet des **modes clair et sombre**.
 - [x] **Tests & Documentation :** Ajout des tests unitaires dans `analytics.test.tsx`, validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md`.
+
+---
+
+## Étape 11 : Installation PWA sur Mobile (« Installer l'application »)
+
+- [x] **Détection & Hook `usePwaInstall` :**
+  * Interception de l'événement `beforeinstallprompt` (Android / Chrome / Edge) pour déclencher l'installation native en 1 tap.
+  * Détection d'iOS Safari (`!standalone`) pour afficher les instructions guidées (*« Partager → Sur l'écran d'accueil »*).
+  * Masquage automatique dès que l'application est déjà installée (`display-mode: standalone`) ou si l'utilisateur ferme le bandeau (préférence mémorisée).
+- [x] **Frontend — Bandeau / Bouton d'installation :**
+  * Composant `PwaInstallBanner` compatible avec les **modes clair et sombre**, intégré dans `App.tsx`.
+- [x] **Tests & Documentation :** Tests unitaires dans `pwaInstall.test.tsx`, validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md`.
+
+---
+
+## Étape 12 : Connexion Biométrique Mobile (WebAuthn / Passkeys — Face ID & Empreinte)
+
+- [x] **Backend (`User.model.ts`, `webauthn.controller.ts` & `/api/auth/webauthn/*`) :**
+  * Stockage des credentials WebAuthn (`credentialId`, `publicKey`, `counter`, `transports`) sur `User`.
+  * Endpoints d'enregistrement (`register/options`, `register/verify`, `DELETE /credentials` protégés par JWT) et de connexion (`login/options`, `login/verify` avec challenge temporaire et génération du JWT) via `@simplewebauthn/server`.
+- [x] **Frontend (`ProfileSheet` & `AuthScreen`) :**
+  * Activation / suppression de la biométrie depuis `ProfileSheet` (« Activer Face ID / Empreinte » / « Désactiver la biométrie »).
+  * Bouton « Se connecter avec Face ID / Empreinte » sur `AuthScreen` (affiché si l'appareil supporte WebAuthn) via `@simplewebauthn/browser`.
+- [x] **Tests & Documentation :** Tests API (`backend/src/__tests__/webauthn.test.ts`) + tests UI (`frontend/src/__tests__/webauthn.test.tsx`), validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md`.

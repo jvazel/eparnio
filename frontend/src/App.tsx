@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import type { TabId } from './components/layout/BottomNav';
 import { BudgetSwitcherOverlay } from './components/layout/BudgetSwitcher';
+import { PwaInstallBanner } from './components/pwa/PwaInstallBanner';
 import { MobileShell } from './components/layout/MobileShell';
 import { BottomSheet } from './components/ui/BottomSheet';
 import { Button } from './components/ui/Button';
@@ -937,6 +938,7 @@ export function App() {
         onProfileClick={() => setIsProfileOpen(true)}
         onBudgetSwitcherClick={() => setIsSwitcherOpen(true)}
       >
+        <PwaInstallBanner />
         {periodQuery.isLoading && !activePeriod ? (
           <div className="space-y-4" aria-busy="true" aria-label="Chargement de la période">
             <Card className="h-44 animate-pulse bg-slate-100/70">
