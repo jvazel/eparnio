@@ -72,7 +72,8 @@ export function TrendsCard({ items }: TrendsCardProps) {
 
       <div className="grid grid-cols-6 gap-2 pt-2" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => {
-          const shortMonth = item.label.split(' ')[0]?.slice(0, 4) ?? `${item.month}`;
+          const monthWord = item.label.split(' ')[0] ?? `${item.month}`;
+          const shortMonth = items.length <= 3 ? monthWord : `${monthWord.slice(0, 3)}.`;
           const bars =
             filter === 'variables'
               ? [{ key: 'var', value: item.spentVariables, color: '#3B82F6', label: 'Variables' }]
@@ -91,15 +92,17 @@ export function TrendsCard({ items }: TrendsCardProps) {
                 style={{ height: `${chartHeight}px` }}
               >
                 {bars.map((bar) => {
-                  const heightPx = Math.max(4, Math.round((bar.value / maxValue) * chartHeight));
+                  const heightPx =
+                    bar.value <= 0 ? 3 : Math.max(8, Math.round((bar.value / maxValue) * chartHeight));
                   return (
                     <div
                       key={bar.key}
                       title={`${bar.label} (${item.label}) : ${formatCurrency(bar.value)}`}
-                      className="w-2.5 rounded-t-md transition-all"
+                      className="w-3 rounded-t-md transition-all"
                       style={{
                         height: `${heightPx}px`,
-                        backgroundColor: bar.color
+                        backgroundColor: bar.color,
+                        opacity: bar.value <= 0 ? 0.25 : 1
                       }}
                     />
                   );

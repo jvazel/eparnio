@@ -415,8 +415,8 @@ describe('Onglet Budget — Composants analytiques Finzee', () => {
       />
     );
     expect(screen.getByText('Évolution sur 2 mois')).toBeInTheDocument();
-    expect(screen.getByText('Octo')).toBeInTheDocument();
-    expect(screen.getByText('Nove')).toBeInTheDocument();
+    expect(screen.getByText('Octobre')).toBeInTheDocument();
+    expect(screen.getByText('Novembre')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
     expect(screen.queryByText('Fixes')).not.toBeInTheDocument();
