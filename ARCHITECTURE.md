@@ -301,3 +301,7 @@ En local, les 3 briques restent strictement découplées tout en offrant un pilo
 * **Connexion Biométrique (`webauthn.controller.ts` / `@simplewebauthn/server` & `@simplewebauthn/browser`) :**
   * Endpoints `POST /api/auth/webauthn/register/options`, `POST /api/auth/webauthn/register/verify`, `DELETE /api/auth/webauthn/credentials`, `POST /api/auth/webauthn/login/options` et `POST /api/auth/webauthn/login/verify`.
   * Activation depuis `ProfileSheet` et connexion Face ID / Empreinte depuis `AuthScreen`.
+* **Anticipation des dépenses annuelles (*Sinking Funds*, `sinkingFund.ts`) :** Calcul automatique de la mensualité conseillée selon l'échéance (`deadline`) dans `GoalFormSheet` et affichage du badge (`Conseillé`, `Objectif atteint`, `Échéance dépassée`) sur `SavingsGoalCard`.
+* **Rappels & Notifications PWA (`useReminders.ts`) :** Activation/désactivation des rappels locaux de saisie (quotidien / hebdomadaire) depuis `ProfileSheet` via l'API `Notification`.
+* **Mode Hors-Ligne (`offlineQueue.ts`, `useOfflineSync.ts`, `OfflineBanner.tsx`) :** Détection réseau, mise en file locale des actions hors-ligne et synchronisation automatique au retour de la connexion.
+* **Tendances multi-mois (`GET /api/budgets/:budgetId/trends?months=N`, `TrendsCard.tsx`) :** Historique mensuel paramétrable depuis le frontend (`1` à `36` mois) avec graphique en barres et filtres (`Tout` / `Variables` / `Épargne`).

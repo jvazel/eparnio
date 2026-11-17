@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { computeSinkingFundInfo } from '../features/savings/sinkingFund';
 import { App } from '../App';
 import { GoalContributionSheet, GoalFormSheet } from '../features/savings/GoalDetailSheet';
 import { SavingsGoalsList } from '../features/savings/SavingsGoalsList';
@@ -568,5 +569,23 @@ describe('Intégration App — Onglet Epargne complet', () => {
           node?.tagName === 'SPAN' && normalizeSpaces(node.textContent ?? '') === '+ 150,00 €'
       )
     ).toBeInTheDocument();
+  });
+
+  it('calcule correctement les mensualités Sinking Funds (active, completed, overdue, none)', () => {
+    const refDate = new Date('2026-01-10T12:00:00.000Z');
+    const active = computeSinkingFundInfo(1200, 200, '2026-11-10T12:00:00.000Z', refDate);
+    expect(active.status).toBe('active');
+    expect(active.monthsRemaining).toBe(10);
+    expect(active.monthlySuggestedAmount).toBe(100);
+
+    const completed = computeSinkingFundInfo(1000, 1000, '2026-11-10T12:00:00.000Z', refDate);
+    expect(completed.status).toBe('completed');
+
+    const overdue = computeSinkingFundInfo(1000, 400, '2025-12-01T12:00:00.000Z', refDate);
+    expect(overdue.status).toBe('overdue');
+    expect(overdue.remainingAmount).toBe(600);
+
+    const none = computeSinkingFundInfo(1000, 0, null, refDate);
+    expect(none.status).toBe('none');
   });
 });

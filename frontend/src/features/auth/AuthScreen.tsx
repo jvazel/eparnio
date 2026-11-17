@@ -24,7 +24,10 @@ interface FieldErrors {
   password?: string;
 }
 
-const AVATAR_EMOJIS = ['🧑', '👩', '👨', '🦊', '🐱', '🚀'];
+const AVATAR_EMOJIS = [
+  '🧑', '👩', '👨', '🧔', '👩‍💻', '👨‍💻', '🦊', '🐱',
+  '🐶', '🐼', '🦁', '🦉', '🚀', '🌟', '💼', '🎯'
+];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**

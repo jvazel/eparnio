@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getBudgetTrends } from '../controllers/analytics.controller';
 import {
   budgetIdParamsSchema,
   contributionSplitBodySchema,
@@ -52,5 +53,7 @@ budgetRouter.patch(
   updateBudget
 );
 budgetRouter.delete('/:id', validate({ params: budgetIdParamsSchema }), deleteBudget);
+
+budgetRouter.get('/:budgetId/trends', requireAuth, getBudgetTrends);
 
 export { budgetRouter };

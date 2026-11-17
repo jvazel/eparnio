@@ -1,6 +1,7 @@
 import { Calendar, PiggyBank, RefreshCw, Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useId, useMemo, useState } from 'react';
 import { BottomSheet } from '../../components/ui/BottomSheet';
+import { computeSinkingFundInfo } from './sinkingFund';
 import { Button } from '../../components/ui/Button';
 import {
   formatAmountToKeypadString,
@@ -258,9 +259,27 @@ export function GoalFormSheet({
                 type="date"
                 value={deadlineValue}
                 onChange={(event) => setDeadlineValue(event.target.value)}
-                className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 focus:border-violet-500 focus:outline-none"
+                className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 focus:border-violet-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               />
             </div>
+            {(() => {
+              if (!deadlineValue || numericTarget <= 0) {
+                return null;
+              }
+              const info = computeSinkingFundInfo(
+                numericTarget,
+                initialGoal?.currentAmount ?? numericInitial,
+                `${deadlineValue}T12:00:00.000Z`
+              );
+              if (info.status === 'active') {
+                return (
+                  <p className="mt-2 rounded-xl bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+                    Mensualité conseillée : {formatCurrency(info.monthlySuggestedAmount)} / mois
+                  </p>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <IconAppearanceCard

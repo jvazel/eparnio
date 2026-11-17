@@ -84,6 +84,13 @@ Toutes les commandes suivantes s'exécutent depuis la racine `Eparnio/` :
 | `npm run test:coverage` | Exécute les tests de non-régression avec rapport de couverture (`@vitest/coverage-v8`). |
 | `npm run build` | Compile les builds de production backend et frontend. |
 
+## Nouveautés récentes (Étapes 9 à 16)
+
+- **Page dédiée Enveloppe** (`EnvelopeDetailPage`) avec jauge circulaire, édition/suppression au tap et réglages (`⚙️`).
+- **Détails des enveloppes & Tendances multi-mois** dans l'onglet *Budget* (`EnvelopeBreakdownCard` & `TrendsCard`).
+- **PWA Mobile** : installation guidée (Android / iOS Safari), **connexion biométrique** (Face ID / Empreinte via WebAuthn), **rappels locaux** et **mode hors-ligne** avec file de synchronisation.
+- **Sinking Funds** : calcul automatique de la mensualité conseillée selon l'échéance des objectifs d'épargne.
+
 ## Documentation
 
 - [Cahier des charges & Design System](./SPECIFICATIONS_FINZEE.md)

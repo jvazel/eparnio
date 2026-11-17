@@ -1,5 +1,6 @@
 import { Scale } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import type { BudgetTrendItem } from '../../services/analytics.service';
 import type { EnvelopeItem, PeriodAnalytics } from '../../types/budget.types';
 import { ZeroBasedBanner } from '../budget/ZeroBasedBanner';
 import { AllocationDonutCard } from './AllocationDonut';
@@ -7,10 +8,12 @@ import { CashFlowSummaryCard } from './CashFlowSummaryCard';
 import { DailyBudgetCard } from './DailyBudgetCard';
 import { EnvelopeBreakdownCard } from './EnvelopeBreakdownCard';
 import { MemberBreakdownCard } from './MemberBreakdownCard';
+import { TrendsCard } from './TrendsCard';
 
 export interface MonthlyInsightsProps {
   analytics: PeriodAnalytics;
   envelopes?: EnvelopeItem[];
+  trends?: BudgetTrendItem[];
   currentUserId?: string;
   onOpenCalculator?: () => void;
 }
@@ -23,6 +26,7 @@ export interface MonthlyInsightsProps {
 export function MonthlyInsights({
   analytics,
   envelopes = [],
+  trends = [],
   currentUserId,
   onOpenCalculator
 }: MonthlyInsightsProps) {
@@ -42,6 +46,8 @@ export function MonthlyInsights({
         remainingToAllocate={analytics.zeroBased.remainingToAllocate}
         plannedIncome={analytics.zeroBased.plannedIncome}
       />
+
+      <TrendsCard items={trends} />
 
       {isSharedBudget && (
         <div className="space-y-3">

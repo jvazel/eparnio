@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import type { TabId } from './components/layout/BottomNav';
 import { BudgetSwitcherOverlay } from './components/layout/BudgetSwitcher';
+import { OfflineBanner } from './components/pwa/OfflineBanner';
 import { PwaInstallBanner } from './components/pwa/PwaInstallBanner';
 import { MobileShell } from './components/layout/MobileShell';
 import { BottomSheet } from './components/ui/BottomSheet';
@@ -24,6 +25,7 @@ import { ContributionCalculatorSheet } from './features/shared-budget/Contributi
 import { InvitePartnerSheet } from './features/shared-budget/InvitePartnerSheet';
 import {
   buildClientPeriodAnalytics,
+  fetchBudgetTrends,
   getPeriodAnalytics
 } from './services/analytics.service';
 import {
@@ -305,6 +307,12 @@ export function App() {
     () => ['analytics', activePeriod?.id ?? null] as const,
     [activePeriod?.id]
   );
+
+  const trendsQuery = useQuery({
+    queryKey: ['trends', activeBudget?.id, 6],
+    queryFn: () => fetchBudgetTrends(activeBudget!.id, 6),
+    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
+  });
 
   const analyticsQuery = useQuery({
     queryKey: analyticsQueryKey,
@@ -849,6 +857,7 @@ export function App() {
       <MonthlyInsights
         analytics={resolvedAnalytics}
         envelopes={envelopes}
+        trends={trendsQuery.data?.items ?? []}
         currentUserId={user.id}
         onOpenCalculator={
           activeBudget ? () => setCalculatorBudget(activeBudget) : undefined
@@ -938,6 +947,7 @@ export function App() {
         onProfileClick={() => setIsProfileOpen(true)}
         onBudgetSwitcherClick={() => setIsSwitcherOpen(true)}
       >
+        <OfflineBanner />
         <PwaInstallBanner />
         {periodQuery.isLoading && !activePeriod ? (
           <div className="space-y-4" aria-busy="true" aria-label="Chargement de la période">

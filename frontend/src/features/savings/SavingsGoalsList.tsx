@@ -1,6 +1,7 @@
 import { ChevronDown, MoreVertical, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Button } from '../../components/ui/Button';
+import { computeSinkingFundInfo } from './sinkingFund';
 import { Card } from '../../components/ui/Card';
 import { DonutSummaryCard, type DonutSegmentItem } from '../../components/ui/DonutChart';
 import { resolvePastelTheme } from '../../components/ui/PastelEnvelopeCard';
@@ -98,9 +99,40 @@ export function SavingsGoalCard({
           <div className="min-w-0">
             <h3 className="truncate text-base font-bold text-slate-900 dark:text-slate-50">{goal.name}</h3>
             {goal.deadline ? (
-              <p className="text-xs font-medium text-slate-400">
-                Échéance : {formatShortDate(goal.deadline)}
-              </p>
+              <div>
+                <p className="text-xs font-medium text-slate-400">
+                  Échéance : {formatShortDate(goal.deadline)}
+                </p>
+                {(() => {
+                  const sinkingInfo = computeSinkingFundInfo(
+                    goal.targetAmount,
+                    goal.currentAmount,
+                    goal.deadline
+                  );
+                  if (sinkingInfo.status === 'completed') {
+                    return (
+                      <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        Objectif atteint
+                      </span>
+                    );
+                  }
+                  if (sinkingInfo.status === 'overdue') {
+                    return (
+                      <span className="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                        Échéance dépassée — Reste {formatCurrency(sinkingInfo.remainingAmount)}
+                      </span>
+                    );
+                  }
+                  if (sinkingInfo.status === 'active') {
+                    return (
+                      <span className="mt-1 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+                        Conseillé : {formatCurrency(sinkingInfo.monthlySuggestedAmount)}/mois
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             ) : (
               <p className="text-xs font-medium text-slate-400">Projet d’épargne</p>
             )}

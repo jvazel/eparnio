@@ -10,9 +10,12 @@ import {
   LogOut,
   Moon,
   RefreshCw,
-  Sun
+  Sun,
+  Bell
 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
+import { useReminders } from '../../hooks/useReminders';
+import packageJson from '../../../../package.json';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Button } from '../../components/ui/Button';
 import { getApiErrorMessage } from '../../services/api';
@@ -34,7 +37,10 @@ export interface ProfileSheetProps {
   onClose: () => void;
 }
 
-const PROFILE_EMOJIS = ['🧑', '👩', '👨', '🦊', '🐱', '🚀', '🌟', '💼'];
+const PROFILE_EMOJIS = [
+  '🧑', '👩', '👨', '🧔', '👩‍💻', '👨‍💻', '🦊', '🐱',
+  '🐶', '🐼', '🦁', '🦉', '🚀', '🌟', '💼', '🎯'
+];
 
 /**
  * Tiroir de profil utilisateur (ouvert via l'avatar violet du TopHeader) :
@@ -81,6 +87,15 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
       setProfileError(null);
     }
   }, [isOpen, user]);
+
+  const {
+    isSupported: isNotificationsSupported,
+    enabled: remindersEnabled,
+    frequency: reminderFrequency,
+    enableReminders,
+    disableReminders,
+    setFrequency: setReminderFrequency
+  } = useReminders();
 
   useEffect(() => {
     if (!isOpen) {
@@ -481,6 +496,56 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
           </Button>
         </div>
 
+        {isNotificationsSupported ? (
+          <div className="space-y-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-800 dark:text-slate-100">
+              <Bell className="h-4 w-4 text-violet-600" aria-hidden="true" />
+              Rappels &amp; Notifications
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {remindersEnabled
+                ? `Rappel local actif (${reminderFrequency === 'daily' ? 'quotidien' : 'hebdomadaire'}).`
+                : 'Recevez un rappel local pour penser à saisir vos dépenses.'}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                onClick={async () => {
+                  if (remindersEnabled) {
+                    disableReminders();
+                    setProfileStatus('Rappels désactivés.');
+                    return;
+                  }
+                  const ok = await enableReminders(reminderFrequency);
+                  if (ok) {
+                    setProfileStatus('Rappels activés.');
+                  } else {
+                    setProfileError('Permission de notification refusée par le navigateur.');
+                  }
+                }}
+              >
+                <Bell className="h-4 w-4 text-violet-600" aria-hidden="true" />
+                {remindersEnabled ? 'Désactiver les rappels' : 'Activer les rappels'}
+              </Button>
+              {remindersEnabled ? (
+                <select
+                  aria-label="Fréquence des rappels"
+                  value={reminderFrequency}
+                  onChange={(e) =>
+                    setReminderFrequency(e.target.value === 'weekly' ? 'weekly' : 'daily')
+                  }
+                  className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  <option value="daily">Quotidien</option>
+                  <option value="weekly">Hebdomadaire</option>
+                </select>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         {typeof browserSupportsWebAuthn === 'function' && browserSupportsWebAuthn() ? (
           <div className="space-y-2 border-t border-slate-100 pt-4 dark:border-slate-800">
             <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-800 dark:text-slate-100">
@@ -527,6 +592,9 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Se déconnecter
           </Button>
+          <p className="mt-3 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">
+            Eparnio v{packageJson.version}
+          </p>
         </div>
       </div>
     </BottomSheet>

@@ -129,3 +129,41 @@
   * Activation / suppression de la biométrie depuis `ProfileSheet` (« Activer Face ID / Empreinte » / « Désactiver la biométrie »).
   * Bouton « Se connecter avec Face ID / Empreinte » sur `AuthScreen` (affiché si l'appareil supporte WebAuthn) via `@simplewebauthn/browser`.
 - [x] **Tests & Documentation :** Tests API (`backend/src/__tests__/webauthn.test.ts`) + tests UI (`frontend/src/__tests__/webauthn.test.tsx`), validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md`.
+
+---
+
+## Étape 13 : Anticipation des dépenses annuelles (*Sinking Funds*)
+
+- [x] **Backend (`SavingsGoal.model.ts` & `goal.controller.ts`) :**
+  * Champ optionnel `deadline` déjà supporté sur `SavingsGoal` et les routes `POST/PATCH /api/budgets/:budgetId/goals`.
+- [x] **Frontend (`sinkingFund.ts`, `GoalDetailSheet` & `SavingsGoalsList`) :**
+  * Champ optionnel **« Échéance »** dans `GoalFormSheet` avec aperçu en direct de la mensualité à provisionner (`Mensualité conseillée : X € / mois`).
+  * Affichage du badge `Conseillé : X €/mois` sur `SavingsGoalCard` (`Objectif atteint` en vert si `currentAmount >= targetAmount`, ou `Échéance dépassée — Reste X €` en orange si l'échéance est passée), compatible **modes clair et sombre**.
+- [x] **Tests & Documentation :** Tests unitaires dans `savings.test.tsx`, validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md`.
+
+---
+
+## Étape 14 : Rappels & Notifications PWA
+
+- [x] **Notifications PWA locales configurables (`useReminders.ts` & `ProfileSheet`) :**
+  * Option dans `ProfileSheet` pour activer/désactiver les rappels locaux de saisie (fréquence : quotidien ou hebdomadaire) via l'API `Notification` et persistance `localStorage`.
+- [x] **Tests & Documentation :** Tests unitaires dans `reminders.test.tsx`, validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md` et `ARCHITECTURE.md`.
+
+---
+
+## Étape 15 : Mode Hors-Ligne avec file de synchronisation (PWA)
+
+- [x] **File d'attente hors-ligne (`offlineQueue.ts`, `useOfflineSync.ts` & `OfflineBanner.tsx`) :**
+  * Détection de l'état réseau (`navigator.onLine` + événements `online`/`offline`) avec bandeau discret « Mode hors-ligne — X action(s) en attente ».
+  * Mise en file locale (`localStorage`) des actions effectuées sans réseau et synchronisation automatique dès le retour de la connexion.
+- [x] **Tests & Documentation :** Tests unitaires dans `offlineSync.test.tsx`, validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md` et `ARCHITECTURE.md`.
+
+---
+
+## Étape 16 : Tendances multi-mois (onglet « Budget »)
+
+- [x] **Backend (`GET /api/budgets/:budgetId/trends?months=6`) :**
+  * Endpoint paramétrable par le frontend (`months` validé par Zod, `1` à `36`, `6` par défaut) retournant l'historique mensuel (`Revenus`, `Dépenses fixes`, `Dépenses variables`, `Épargne`).
+- [x] **Frontend (`TrendsCard.tsx` dans `MonthlyInsights.tsx`) :**
+  * Graphique en barres léger avec filtre (`Tout` / `Variables` / `Épargne`), compatible **modes clair et sombre**.
+- [x] **Tests & Documentation :** Tests UI dans `analytics.test.tsx`, validation `npm run typecheck && npm run test:coverage && npm run build` et mise à jour de `ROADMAP.md` et `ARCHITECTURE.md`.

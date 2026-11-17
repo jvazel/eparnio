@@ -163,3 +163,64 @@ describe('Services API & Intercepteur JWT', () => {
     expect(link.download).toBe('eparnio-cle-recuperation.txt');
   });
 });
+
+import {
+  createEnvelope,
+  deleteEnvelope,
+  reorderEnvelopes,
+  updateEnvelope
+} from '../services/envelope.service';
+import { createGoal, deleteGoal, updateGoal } from '../services/goal.service';
+import { getPeriodByMonth } from '../services/period.service';
+import {
+  createTransaction,
+  deleteTransaction,
+  updateTransaction
+} from '../services/transaction.service';
+
+describe('Services API (envelopes, goals, periods, transactions)', () => {
+  it('appelle correctement les endpoints envelope, goal, period et transaction', async () => {
+    const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValue({ data: {} });
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });
+    const patchSpy = vi.spyOn(apiClient, 'patch').mockResolvedValue({ data: {} });
+    const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValue({ data: {} });
+
+    await createEnvelope('p-1', {
+      pillar: 'variable_envelope',
+      name: 'Courses',
+      icon: '🛒',
+      color: '#16A34A',
+      allocatedAmount: 300,
+      date: '2026-11-01',
+      isRecurring: false
+    });
+    await updateEnvelope('p-1', 'e-1', { allocatedAmount: 350 });
+    await reorderEnvelopes('p-1', ['e-1']);
+    await deleteEnvelope('p-1', 'e-1');
+
+    await createGoal('b-1', {
+      name: 'Vacances',
+      icon: '✈️',
+      color: '#38BDF8',
+      targetAmount: 1000
+    });
+    await updateGoal('b-1', 'g-1', { targetAmount: 1200 });
+    await deleteGoal('b-1', 'g-1');
+
+    await getPeriodByMonth('b-1', 2026, 11);
+
+    await createTransaction('p-1', {
+      envelopeId: 'e-1',
+      label: 'Pain',
+      amount: 2.5,
+      date: '2026-11-02'
+    });
+    await updateTransaction('p-1', 't-1', { amount: 3 });
+    await deleteTransaction('p-1', 't-1');
+
+    expect(getSpy).toHaveBeenCalled();
+    expect(postSpy).toHaveBeenCalled();
+    expect(patchSpy).toHaveBeenCalled();
+    expect(deleteSpy).toHaveBeenCalled();
+  });
+});

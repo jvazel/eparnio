@@ -194,3 +194,25 @@ export function buildClientPeriodAnalytics(
     memberBreakdown
   };
 }
+
+export interface BudgetTrendItem {
+  periodId: string;
+  year: number;
+  month: number;
+  label: string;
+  plannedIncome: number;
+  plannedFixedCharges: number;
+  spentVariables: number;
+  plannedSavings: number;
+}
+
+export async function fetchBudgetTrends(
+  budgetId: string,
+  months: number = 6
+): Promise<{ months: number; items: BudgetTrendItem[] }> {
+  const { data } = await apiClient.get<{ months: number; items: BudgetTrendItem[] }>(
+    `/budgets/${budgetId}/trends`,
+    { params: { months } }
+  );
+  return data;
+}

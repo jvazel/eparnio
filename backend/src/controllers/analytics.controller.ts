@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { z } from 'zod';
-import { type IBudgetPeriodSummary } from '../models/BudgetPeriod.model';
+import { BudgetPeriodModel, type IBudgetPeriodSummary } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, type IEnvelope } from '../models/Envelope.model';
 import { TransactionModel, type ITransaction } from '../models/Transaction.model';
 import { UserModel } from '../models/User.model';
@@ -320,6 +320,46 @@ export async function getPeriodAnalytics(
         memberBreakdown
       }
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const trendsQuerySchema = z.object({
+  months: z.coerce.number().int().min(1).max(36).default(6)
+});
+
+/**
+ * GET /api/budgets/:budgetId/trends?months=6
+ * Retourne l'historique mensuel (Revenus, Fixes, Variables, Épargne) sur N mois.
+ */
+export async function getBudgetTrends(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const budgetId = String(req.params.budgetId);
+    const { months } = trendsQuerySchema.parse(req.query);
+
+    const periods = await BudgetPeriodModel.find({ budgetId })
+      .sort({ year: -1, month: -1 })
+      .limit(months);
+
+    const items = periods
+      .reverse()
+      .map((p) => ({
+        periodId: p._id.toString(),
+        year: p.year,
+        month: p.month,
+        label: p.label,
+        plannedIncome: p.summary.plannedIncome,
+        plannedFixedCharges: p.summary.plannedFixedCharges,
+        spentVariables: p.summary.spentVariables,
+        plannedSavings: p.summary.plannedSavings
+      }));
+
+    res.json({ months, items });
   } catch (err) {
     next(err);
   }

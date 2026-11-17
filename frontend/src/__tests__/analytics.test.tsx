@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
@@ -8,6 +8,7 @@ import { CashFlowSummaryCard } from '../features/analytics/CashFlowSummaryCard';
 import { DailyBudgetCard } from '../features/analytics/DailyBudgetCard';
 import { MemberBreakdownCard } from '../features/analytics/MemberBreakdownCard';
 import { MonthlyInsights } from '../features/analytics/MonthlyInsights';
+import { TrendsCard } from '../features/analytics/TrendsCard';
 import { EnvelopeBreakdownCard } from '../features/analytics/EnvelopeBreakdownCard';
 import { ZeroBasedBanner } from '../features/budget/ZeroBasedBanner';
 import * as analyticsService from '../services/analytics.service';
@@ -384,6 +385,44 @@ describe('Onglet Budget — Composants analytiques Finzee', () => {
       />
     );
     expect(screen.getByText('Aucune dépense variable ce mois-ci')).toBeInTheDocument();
+  });
+
+  it('affiche TrendsCard et permet de filtrer Tout / Variables / Épargne', () => {
+    render(
+      <TrendsCard
+        items={[
+          {
+            periodId: 'p-1',
+            year: 2026,
+            month: 10,
+            label: 'Octobre 2026',
+            plannedIncome: 3000,
+            plannedFixedCharges: 1000,
+            spentVariables: 500,
+            plannedSavings: 300
+          },
+          {
+            periodId: 'p-2',
+            year: 2026,
+            month: 11,
+            label: 'Novembre 2026',
+            plannedIncome: 3000,
+            plannedFixedCharges: 1050,
+            spentVariables: 450,
+            plannedSavings: 400
+          }
+        ]}
+      />
+    );
+    expect(screen.getByText('Évolution sur 2 mois')).toBeInTheDocument();
+    expect(screen.getByText('Octo')).toBeInTheDocument();
+    expect(screen.getByText('Nove')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+    expect(screen.queryByText('Fixes')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Épargne' }));
+    expect(screen.queryByText('Variables', { selector: 'span' })).not.toBeInTheDocument();
   });
 
   it('calcule correctement buildClientPeriodAnalytics en repli hors-ligne', () => {
