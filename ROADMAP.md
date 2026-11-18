@@ -185,3 +185,80 @@
   * Mise à jour de `zod` vers `^4.6.7` dans `backend/package.json`.
   * Vérification `npm audit --omit=dev --prefix backend` et `frontend` à **`0` vulnérabilité**.
 - [x] **Validation complète de non-régression & Documentation :** `npm run typecheck`, tous les tests backend (8 fichiers, 35 tests passés) et frontend (12 fichiers, 67 tests passés) validés, [ROADMAP.md](./ROADMAP.md) mis à jour.
+
+---
+
+## Étape 19 : Rollover des Enveloppes Variables (Report Positif & Négatif entre Mois)
+
+- [x] **Modèle de données (`Envelope.model.ts`) :**
+  * Ajouter `rolloverEnabled: boolean` (défaut `false`, activable par enveloppe pour les *Sinking Funds* / enveloppes d'anticipation), `rolloverMode: 'positive_only' | 'both'` (défaut `'positive_only'`), `rolloverAmount: number` (défaut `0`, positif ou négatif) et `previousEnvelopeId?: ObjectId` (chaînage fiable entre mois même en cas de renommage).
+  * Conserver `allocatedAmount` strictement pour la dotation du mois en cours (ne jamais y fusionner le report).
+- [x] **Moteur de calcul & Règles Base Zéro (`zeroBasedBudget.service.ts`, `remainingToLive.service.ts`, `periodRollover.service.ts`) :**
+  * Calculer le disponible d'une enveloppe : `allocatedAmount + rolloverAmount`, et le restant : `(allocatedAmount + rolloverAmount) - spentOrPaidAmount`.
+  * Exclure `rolloverAmount` du calcul `remainingToAllocate` (Reste à répartir) pour éviter tout double comptage avec les revenus du mois précédent, tout en l'incluant dans le « Reste dans les enveloppes ».
+  * Lors de la reconduction (`periodRollover.service.ts`), calculer `rolloverAmount` du mois $M+1$ selon `rolloverMode` (`positive_only` : `Math.max(0, restant_M)` ; `both` : `restant_M`).
+  * **Propagation dynamique :** si le mois $M+1$ existe déjà et qu'une dépense ou dotation est modifiée en mois $M$, recalculer et propager automatiquement `rolloverAmount` vers $M+1$ (et les mois suivants chaînés via `previousEnvelopeId`) sans jamais altérer l'historique du mois $M-1$.
+- [x] **Frontend & UX Mobile-First (`CreationFormModal`, `PastelEnvelopeCard`, `EnvelopeDetailPage`) :**
+  * Ajouter le toggle `Reporter le solde au mois suivant` (+ choix *Positif uniquement* / *Positif et négatif*) dans la création/édition d'enveloppe.
+  * Afficher un badge discret sur `PastelEnvelopeCard` lorsque `rolloverAmount !== 0` (`+40 € reportés` en vert doux ou `-15 € reportés` en rouge doux).
+  * Afficher la décomposition claire dans `EnvelopeDetailPage` (`Budget du mois` + `Report mois préc.` − `Dépensé` = `Restant`).
+- [x] **Tests & Documentation :**
+  * Tests unitaires et API sur le calcul de `rolloverAmount` (`positive_only` vs `both`), la non-régression du `remainingToAllocate` (Base Zéro), le renommage avec `previousEnvelopeId` et la propagation dynamique $M \rightarrow M+1$.
+  * Tests UI (`PastelEnvelopeCard`, `EnvelopeDetailPage`, `CreationFormModal`) et validation `npm run typecheck && npm run test:coverage && npm run build`.
+
+---
+
+## Étape 20 : Filtres & Tri rapide sur les Dépenses Fixes et Variables
+
+- [x] **Composant réutilisable (`ListFilterBar.tsx`) :** Barre de recherche instantanée avec bouton `✕`, pills de tri, pills de filtre optionnelles et sous-total dynamique avec bouton `Réinitialiser`.
+- [x] **Dépenses fixes (`FixedChargesList.tsx`) :** Recherche par nom, tri (`Ordre`, `Montant ↓`, `Montant ↑`) en complément du filtre `Toutes / À venir / Payées`, et sous-total filtré.
+- [x] **Dépenses variables (`EnvelopeDetailPage.tsx`) :** Recherche par libellé, tri (`Plus récentes`, `Plus anciennes`, `Montant ↓`, `Montant ↑`), filtre par membre (`Payé par…`) en budget partagé, et sous-total filtré.
+- [x] **Validation :** `npm run typecheck`, `npm test --prefix frontend` (12 fichiers, 67 tests) et `npm run build` validés.
+
+---
+
+## Étape 21 : Projection de Fin de Mois & Rythme de Dépense (Burn Rate)
+
+- [x] **Calcul du rythme de dépense (`analytics.controller.ts` / helper dédié côté frontend) :**
+  * Calculer `elapsedDays = Math.max(1, jours écoulés depuis startDate jusqu'à aujourd'hui)` et `burnRate = spentVariables / elapsedDays`.
+  * Calculer `daysUntilNegative = remainingToLive / burnRate`, la date estimée de passage en négatif (`today + Math.floor(daysUntilNegative)`), et le solde projeté en fin de cycle (`remainingToLive - burnRate * remainingDays`).
+- [x] **Frontend (`PaceProjectionCard.tsx` dans l'onglet `Budget`, sous `DailyBudgetCard`) :**
+  * 🟢 **Rythme maîtrisé** (projection $\ge 0$) : *« À ce rythme (`X €/jour`), tu termineras le cycle avec `+Y €` d'avance. »*
+  * 🟠 **Alerte de dépassement** (projection $< 0$ et `remainingToLive >= 0`) : *« À l'allure actuelle (`X €/jour`), tu passeras en négatif à partir du **JJ mois** (dans **N jours**). »*
+  * 🔴 **Déjà en négatif** (`remainingToLive < 0`) : *« Ton reste à vivre est déjà dépassé de `-Y €` sur ce cycle. »*
+  * ⚪ **Début de cycle / aucune dépense** (`spentVariables === 0`) : message neutre (*« Pas encore assez de dépenses pour estimer ton rythme »*).
+  * Compatible **modes clair et sombre**.
+- [x] **Tests & Documentation :**
+  * Tests unitaires sur le calcul de projection (rythme maîtrisé, passage en négatif avec date exacte, déjà en négatif, 0 € dépensé) et tests UI de `PaceProjectionCard` dans `paceProjection.test.tsx`.
+  * Mise à jour de `ROADMAP.md` et `ARCHITECTURE.md`, puis validation `npm run typecheck && npm run test:coverage && npm run build`.
+
+---
+
+## Étape 22 : Indicateurs Avancés de Pilotage (Onglet « Budget »)
+
+- [x] **Avancement du mois vs consommation des enveloppes (`MonthVsEnvelopesCard.tsx`) :**
+  * Comparer `% du mois écoulé` (`elapsedDays / totalDays`) vs `% des enveloppes variables consommées` (`spentVariables / plannedEnvelopes`) avec double barre de progression visuelle.
+- [x] **Taux d'épargne du mois & Matelas de sécurité (`SavingsHealthCard.tsx`) :**
+  * Calculer le **taux d'épargne** (`plannedSavings / plannedIncome * 100`) avec repère visuel (`< 10 %`, `10–20 %`, `> 20 %`).
+  * Calculer le **matelas de sécurité** en mois de charges fixes (`totalSavingsGoals / plannedFixedCharges`, ex. *« 3,2 mois de charges fixes d'avance »*).
+- [x] **Top enveloppes en tension (`EnvelopesAtRiskCard.tsx`) :**
+  * Identifier et afficher les 2 à 3 enveloppes dont le taux de consommation dépasse le plus l'avancement du mois.
+- [x] **Tests & Documentation :**
+  * Tests unitaires sur les formules et tests UI des 3 cartes (modes clair et sombre) dans `advancedIndicators.test.tsx`.
+  * Mise à jour de `ROADMAP.md`, `ARCHITECTURE.md` et `README.md`, puis validation `npm run typecheck && npm run test:coverage && npm run build`.
+
+---
+
+## Étape 23 : Améliorations Budget Commun (Équilibrage, Apports 1-Tap, Charges Fixes & Activité)
+
+- [x] **« Qui doit à qui » & Régularisation (`MemberBreakdownCard.tsx`, `analytics.controller.ts`) :**
+  * Calculer et afficher la phrase de régularisation entre membres (*« X doit Y € à Z pour équilibrer le mois »*) avec bouton **« Marquer comme réglé »**.
+- [ ] **Génération en 1 tap des apports depuis le calculateur (`ContributionCalculatorSheet.tsx`) :**
+  * Permettre d'appliquer directement la répartition 50/50 ou Prorata en créant/mettant à jour les lignes d'apports (`income`) de chaque membre sur la période active.
+- [x] **« Payé par… » sur les dépenses fixes (`CreationFormModal.tsx`, `analytics.controller.ts`) :**
+  * Associer un membre payeur sur les `fixed_charge` en budget commun et l'intégrer dans `memberBreakdown`.
+- [x] **Fil d'activité récente du foyer (`SharedActivityCard.tsx`) :**
+  * Afficher les dernières actions du foyer (*ajout de dépense, versement, pointage*) dans l'onglet `Budget`.
+- [x] **Tests & Documentation :**
+  * Tests UI sur l'équilibrage (`computeSettlementSuggestion`, `MemberBreakdownCard`) et `SharedActivityCard` dans `sharedSettlementAndActivity.test.tsx`.
+  * Mise à jour de `ROADMAP.md` et `ARCHITECTURE.md`, puis validation `npm test --prefix frontend && npm run build`.

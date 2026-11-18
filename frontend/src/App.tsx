@@ -858,6 +858,7 @@ export function App() {
         analytics={resolvedAnalytics}
         envelopes={envelopes}
         trends={trendsQuery.data?.items ?? []}
+        totalSavingsGoals={goals.reduce((sum, goal) => sum + goal.currentAmount, 0)}
         currentUserId={user.id}
         onOpenCalculator={
           activeBudget ? () => setCalculatorBudget(activeBudget) : undefined

@@ -92,6 +92,8 @@ export interface BudgetPeriod {
   updatedAt?: string;
 }
 
+export type RolloverMode = 'positive_only' | 'both';
+
 export interface EnvelopeItem {
   id: string;
   budgetId: string;
@@ -102,6 +104,10 @@ export interface EnvelopeItem {
   color: string;
   allocatedAmount: number;
   spentOrPaidAmount: number;
+  rolloverEnabled?: boolean;
+  rolloverMode?: RolloverMode;
+  rolloverAmount?: number;
+  previousEnvelopeId?: string;
   date: string;
   isRecurring: boolean;
   isPaid: boolean;

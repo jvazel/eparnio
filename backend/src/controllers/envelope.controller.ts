@@ -16,6 +16,7 @@ import {
   recalculateSavingsGoalCurrentAmount
 } from '../services/remainingToLive.service';
 import { roundCurrency } from '../services/zeroBasedBudget.service';
+import { propagateEnvelopeRollover } from '../services/periodRollover.service';
 
 const objectIdSchema = z
   .string()
@@ -49,6 +50,8 @@ export const createEnvelopeBodySchema = z.object({
   date: z.coerce.date().optional(),
   isRecurring: z.boolean().optional(),
   isPaid: z.boolean().optional(),
+  rolloverEnabled: z.boolean().optional(),
+  rolloverMode: z.enum(['positive_only', 'both']).optional(),
   memberId: objectIdSchema.optional(),
   linkedGoalId: objectIdSchema.optional()
 });
@@ -61,6 +64,8 @@ export const updateEnvelopeBodySchema = z.object({
   date: z.coerce.date().optional(),
   isRecurring: z.boolean().optional(),
   isPaid: z.boolean().optional(),
+  rolloverEnabled: z.boolean().optional(),
+  rolloverMode: z.enum(['positive_only', 'both']).optional(),
   order: z.coerce.number().int().min(0).optional(),
   memberId: objectIdSchema.nullable().optional(),
   linkedGoalId: objectIdSchema.nullable().optional()
@@ -144,6 +149,9 @@ export async function createEnvelope(
       date: payload.date ?? new Date(),
       isRecurring: payload.isRecurring ?? false,
       isPaid: payload.isPaid ?? false,
+      rolloverEnabled: payload.pillar === 'variable_envelope' ? (payload.rolloverEnabled ?? false) : false,
+      rolloverMode: payload.rolloverMode ?? 'positive_only',
+      rolloverAmount: 0,
       memberId: payload.memberId,
       linkedGoalId: payload.linkedGoalId,
       order: (lastInPillar?.order ?? -1) + 1
@@ -206,6 +214,8 @@ export async function updateEnvelope(
     if (payload.date !== undefined) envelope.date = payload.date;
     if (payload.isRecurring !== undefined) envelope.isRecurring = payload.isRecurring;
     if (payload.isPaid !== undefined) envelope.isPaid = payload.isPaid;
+    if (payload.rolloverEnabled !== undefined) envelope.rolloverEnabled = payload.rolloverEnabled;
+    if (payload.rolloverMode !== undefined) envelope.rolloverMode = payload.rolloverMode;
     if (payload.order !== undefined) envelope.order = payload.order;
     if (payload.memberId !== undefined) {
       envelope.memberId = payload.memberId ? new Types.ObjectId(payload.memberId) : undefined;
@@ -217,6 +227,7 @@ export async function updateEnvelope(
     }
 
     await envelope.save();
+    await propagateEnvelopeRollover(envelope._id);
     const updatedPeriod = await recalculatePeriodSummary(period._id);
 
     let updatedGoal: ISavingsGoal | null = null;

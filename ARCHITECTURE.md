@@ -297,6 +297,11 @@ En local, les 3 briques restent strictement découplées tout en offrant un pilo
 
 * **Page dédiée Enveloppe (`EnvelopeDetailPage.tsx`) :** Vue plein écran contrôlée par état remplaçant la popin, avec `RingGauge` des dépenses, édition/suppression au tap sur chaque ligne et réglages (`⚙️`).
 * **Détails des enveloppes dans Budget (`EnvelopeBreakdownCard.tsx`) :** Synthèse `Budget réparti`, `Budget consommé`, `Reste à dépenser` et Donut de répartition des dépenses par enveloppe (avec état vide).
+* **Rollover des enveloppes variables (`periodRollover.service.ts`) :** Report optionnel du solde d'un mois sur l'autre (`rolloverEnabled`, `rolloverMode`: `positive_only` | `both`, `rolloverAmount`, `previousEnvelopeId`), exclu du `Reste à répartir` (Base Zéro) et propagé dynamiquement en cas de modification rétroactive.
+* **Filtres & tri rapide (`ListFilterBar.tsx`) :** Recherche instantanée, tri et sous-total dynamique sur les dépenses fixes (`FixedChargesList.tsx`) et les dépenses variables (`EnvelopeDetailPage.tsx`, avec filtre par membre en budget partagé).
+* **Projection de fin de mois (`PaceProjectionCard.tsx`) :** Calcul du rythme de dépense (`burnRate`), date estimée de passage en négatif et solde projeté en fin de cycle dans l'onglet `Budget`.
+* **Indicateurs avancés de pilotage (`MonthVsEnvelopesCard.tsx`, `SavingsHealthCard.tsx`, `EnvelopesAtRiskCard.tsx`) :** Comparatif avancement du mois vs enveloppes, taux d'épargne, matelas de sécurité et top enveloppes en tension dans l'onglet `Budget`.
+* **Équilibrage & activité partagée (`MemberBreakdownCard.tsx`, `SharedActivityCard.tsx`) :** Calcul « Qui doit à qui » (`computeSettlementSuggestion`) avec bouton *Marquer comme réglé* et fil d'activité récente du foyer dans l'onglet `Budget`.
 * **Installation PWA Mobile (`usePwaInstall.ts` / `PwaInstallBanner.tsx`) :** Interception de `beforeinstallprompt` (Android/Chrome) et guide iOS Safari (`Partager → Sur l'écran d'accueil`), masqué automatiquement en mode `standalone`.
 * **Connexion Biométrique (`webauthn.controller.ts` / `@simplewebauthn/server` & `@simplewebauthn/browser`) :**
   * Endpoints `POST /api/auth/webauthn/register/options`, `POST /api/auth/webauthn/register/verify`, `DELETE /api/auth/webauthn/credentials`, `POST /api/auth/webauthn/login/options` et `POST /api/auth/webauthn/login/verify`.

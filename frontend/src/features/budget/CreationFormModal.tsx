@@ -120,6 +120,8 @@ export function CreationFormModal({
   const [name, setName] = useState('');
   const [dateValue, setDateValue] = useState(resolvedDefaultDate);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [rolloverEnabled, setRolloverEnabled] = useState(false);
+  const [rolloverMode, setRolloverMode] = useState<'positive_only' | 'both'>('positive_only');
   const [icon, setIcon] = useState(defaultIcon);
   const [color, setColor] = useState<string>(defaultColor);
   const [memberId, setMemberId] = useState<string | undefined>(currentUserId);
@@ -137,6 +139,8 @@ export function CreationFormModal({
       setName(initialItem.name);
       setDateValue(toDateInputValue(initialItem.date));
       setIsRecurring(initialItem.isRecurring);
+      setRolloverEnabled(initialItem.rolloverEnabled ?? false);
+      setRolloverMode(initialItem.rolloverMode ?? 'positive_only');
       setIcon(initialItem.icon || defaultIcon);
       setColor(initialItem.color || defaultColor);
       setMemberId(initialItem.memberId ?? currentUserId);
@@ -193,6 +197,9 @@ export function CreationFormModal({
         date: new Date(`${dateValue}T12:00:00.000Z`).toISOString(),
         isRecurring: pillar === 'variable_envelope' ? true : isRecurring,
         isPaid: initialItem?.isPaid ?? false,
+        ...(pillar === 'variable_envelope'
+          ? { rolloverEnabled, rolloverMode }
+          : {}),
         ...(isSharedBudget && memberId ? { memberId } : {})
       });
       onClose();
@@ -303,6 +310,54 @@ export function CreationFormModal({
                 />
               </label>
             </>
+          )}
+
+          {pillar === 'variable_envelope' && (
+            <div className="space-y-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-900">
+              <label className="flex cursor-pointer items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                    Reporter le solde au mois suivant
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Utile pour les budgets annuels ou imprévus
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={rolloverEnabled}
+                  onChange={(event) => setRolloverEnabled(event.target.checked)}
+                  className="h-5 w-5 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                />
+              </label>
+
+              {rolloverEnabled && (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setRolloverMode('positive_only')}
+                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      rolloverMode === 'positive_only'
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    Positif uniquement
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRolloverMode('both')}
+                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      rolloverMode === 'both'
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    Positif et négatif
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {isSharedBudget && (

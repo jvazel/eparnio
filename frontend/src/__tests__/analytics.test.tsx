@@ -289,9 +289,9 @@ describe('Onglet Budget — Composants analytiques Finzee', () => {
 
     expect(screen.getByText('Bilan par membre')).toBeInTheDocument();
     expect(screen.getByText('Budget partagé')).toBeInTheDocument();
-    expect(screen.getByText('Johann')).toBeInTheDocument();
+    expect(screen.getAllByText('Johann').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Moi')).toBeInTheDocument();
-    expect(screen.getByText('Camille')).toBeInTheDocument();
+    expect(screen.getAllByText('Camille').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('65.1%')).toBeInTheDocument();
     expect(screen.getByText('71.0%')).toBeInTheDocument();
 
@@ -311,7 +311,7 @@ describe('Onglet Budget — Composants analytiques Finzee', () => {
         }}
       />
     );
-    expect(screen.queryByText('Camille')).toBeInTheDocument(); // toujours présent dans le render précédent
+    expect(screen.getAllByText('Camille').length).toBeGreaterThanOrEqual(1); // toujours présent dans le render précédent
   });
 
   it('affiche EnvelopeBreakdownCard avec Budget réparti, Budget consommé, Reste et Donut', () => {
@@ -644,6 +644,6 @@ describe('Intégration App — Onglet Budget (sans FAB +, analyses API & Bilan M
     expect(screen.getByText('Part des dépenses par rapport aux revenus')).toBeInTheDocument();
     expect(screen.getByText('83.7%')).toBeInTheDocument();
     expect(screen.getByText('Bilan par membre')).toBeInTheDocument();
-    expect(screen.getByText('Camille')).toBeInTheDocument();
+    expect(screen.getAllByText('Camille').length).toBeGreaterThanOrEqual(1);
   });
 });

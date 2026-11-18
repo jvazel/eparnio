@@ -1,9 +1,10 @@
 import { ArrowLeft, ArrowLeftRight, Pencil, Settings, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { QuickAddButton } from '../../components/layout/QuickAddButton';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { ListFilterBar } from '../../components/ui/ListFilterBar';
 import { RingGauge } from '../../components/ui/RingGauge';
 import type { BudgetMember, EnvelopeItem, TransactionItem } from '../../types/budget.types';
 import { formatCurrency } from '../../utils/format';
@@ -60,10 +61,42 @@ export function EnvelopeDetailPage({
   const [rebalanceAmount, setRebalanceAmount] = useState('');
   const [rebalanceError, setRebalanceError] = useState<string | null>(null);
   const [confirmDeleteEnvelope, setConfirmDeleteEnvelope] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc'>(
+    'date_desc'
+  );
+  const [memberFilter, setMemberFilter] = useState<string>('all');
+
+  const filteredTransactions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = transactions.filter((tx) => {
+      if (isSharedBudget && memberFilter !== 'all' && tx.paidByUserId !== memberFilter) {
+        return false;
+      }
+      if (query && !tx.label.toLowerCase().includes(query)) {
+        return false;
+      }
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'date_asc') return new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (sortBy === 'amount_desc') return b.amount - a.amount;
+      if (sortBy === 'amount_asc') return a.amount - b.amount;
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [isSharedBudget, memberFilter, searchQuery, sortBy, transactions]);
+
+  const filteredTotal = useMemo(
+    () => filteredTransactions.reduce((acc, tx) => acc + tx.amount, 0),
+    [filteredTransactions]
+  );
 
   const allocated = envelope.allocatedAmount;
+  const rollover = envelope.rolloverAmount ?? 0;
+  const available = Number((allocated + rollover).toFixed(2));
   const spent = envelope.spentOrPaidAmount;
-  const remaining = Number((allocated - spent).toFixed(2));
+  const remaining = Number((available - spent).toFixed(2));
   const isOver = remaining < 0;
   const accentColor = isOver ? '#EF4444' : envelope.color;
 
@@ -176,6 +209,13 @@ export function EnvelopeDetailPage({
                 </p>
               </div>
             </div>
+            {rollover !== 0 ? (
+              <p className="mt-2.5 text-center text-[11px] text-slate-500 dark:text-slate-400">
+                Budget du mois {formatCurrency(allocated)}{' '}
+                {rollover > 0 ? `+ ${formatCurrency(rollover)}` : `− ${formatCurrency(Math.abs(rollover))}`}{' '}
+                reportés − {formatCurrency(spent)} dépensés
+              </p>
+            ) : null}
           </div>
         </Card>
 
@@ -184,8 +224,48 @@ export function EnvelopeDetailPage({
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
             Historique des dépenses
           </h2>
+          {transactions.length > 0 ? (
+            <ListFilterBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Rechercher une dépense…"
+              sortOptions={[
+                { value: 'date_desc', label: 'Plus récentes' },
+                { value: 'date_asc', label: 'Plus anciennes' },
+                { value: 'amount_desc', label: 'Montant ↓' },
+                { value: 'amount_asc', label: 'Montant ↑' }
+              ]}
+              sortBy={sortBy}
+              onSortChange={(val) =>
+                setSortBy(val as 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc')
+              }
+              filterPills={
+                isSharedBudget
+                  ? [
+                      { value: 'all', label: 'Tous' },
+                      ...members.map((m) => ({
+                        value: m.userId,
+                        label: `${m.avatarEmoji} ${m.displayName}`
+                      }))
+                    ]
+                  : undefined
+              }
+              filterValue={memberFilter}
+              onFilterChange={setMemberFilter}
+              isFilterActive={Boolean(
+                searchQuery.trim() || memberFilter !== 'all' || sortBy !== 'date_desc'
+              )}
+              resultCount={filteredTransactions.length}
+              resultTotalFormatted={formatCurrency(filteredTotal)}
+              onReset={() => {
+                setSearchQuery('');
+                setMemberFilter('all');
+                setSortBy('date_desc');
+              }}
+            />
+          ) : null}
           <TransactionHistory
-            transactions={transactions}
+            transactions={filteredTransactions}
             members={members}
             currentUserId={currentUserId}
             isSharedBudget={isSharedBudget}

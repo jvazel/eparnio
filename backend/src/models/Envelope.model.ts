@@ -1,6 +1,7 @@
 import mongoose, { type Document, Schema, type Types } from 'mongoose';
 
 export type EnvelopePillar = 'income' | 'fixed_charge' | 'variable_envelope' | 'savings';
+export type RolloverMode = 'positive_only' | 'both';
 
 export interface IEnvelope extends Document {
   budgetId: Types.ObjectId;
@@ -11,6 +12,10 @@ export interface IEnvelope extends Document {
   color: string;
   allocatedAmount: number;
   spentOrPaidAmount: number;
+  rolloverEnabled: boolean;
+  rolloverMode: RolloverMode;
+  rolloverAmount: number;
+  previousEnvelopeId?: Types.ObjectId;
   date: Date;
   isRecurring: boolean;
   isPaid: boolean;
@@ -31,6 +36,10 @@ export interface EnvelopeResponse {
   color: string;
   allocatedAmount: number;
   spentOrPaidAmount: number;
+  rolloverEnabled: boolean;
+  rolloverMode: RolloverMode;
+  rolloverAmount: number;
+  previousEnvelopeId?: string;
   date: string;
   isRecurring: boolean;
   isPaid: boolean;
@@ -83,6 +92,23 @@ const envelopeSchema = new Schema<IEnvelope>(
       default: 0,
       min: 0
     },
+    rolloverEnabled: {
+      type: Boolean,
+      default: false
+    },
+    rolloverMode: {
+      type: String,
+      enum: ['positive_only', 'both'],
+      default: 'positive_only'
+    },
+    rolloverAmount: {
+      type: Number,
+      default: 0
+    },
+    previousEnvelopeId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Envelope'
+    },
     date: {
       type: Date,
       default: Date.now
@@ -129,6 +155,12 @@ export function toEnvelopeResponse(envelope: IEnvelope): EnvelopeResponse {
     color: envelope.color,
     allocatedAmount: envelope.allocatedAmount,
     spentOrPaidAmount: envelope.spentOrPaidAmount,
+    rolloverEnabled: envelope.rolloverEnabled ?? false,
+    rolloverMode: envelope.rolloverMode ?? 'positive_only',
+    rolloverAmount: envelope.rolloverAmount ?? 0,
+    ...(envelope.previousEnvelopeId
+      ? { previousEnvelopeId: envelope.previousEnvelopeId.toString() }
+      : {}),
     date: envelope.date.toISOString(),
     isRecurring: envelope.isRecurring,
     isPaid: envelope.isPaid,

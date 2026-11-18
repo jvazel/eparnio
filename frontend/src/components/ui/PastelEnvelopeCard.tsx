@@ -44,11 +44,13 @@ export interface PastelEnvelopeCardProps {
  */
 export function PastelEnvelopeCard({ envelope, onSelect }: PastelEnvelopeCardProps) {
   const theme = resolvePastelTheme(envelope.color);
-  const remaining = Math.round((envelope.allocatedAmount - envelope.spentOrPaidAmount) * 100) / 100;
+  const rollover = envelope.rolloverAmount ?? 0;
+  const available = Math.round((envelope.allocatedAmount + rollover) * 100) / 100;
+  const remaining = Math.round((available - envelope.spentOrPaidAmount) * 100) / 100;
 
   const usageRatio =
-    envelope.allocatedAmount > 0
-      ? envelope.spentOrPaidAmount / envelope.allocatedAmount
+    available > 0
+      ? envelope.spentOrPaidAmount / available
       : envelope.spentOrPaidAmount > 0
         ? 1
         : 0;
@@ -119,9 +121,21 @@ export function PastelEnvelopeCard({ envelope, onSelect }: PastelEnvelopeCardPro
             <span className="mt-0.5 inline-block rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
               Dépassée
             </span>
-          ) : usageRatio >= 0.95 && envelope.allocatedAmount > 0 ? (
+          ) : usageRatio >= 0.95 && available > 0 ? (
             <span className="mt-0.5 inline-block rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
               Presque vide
+            </span>
+          ) : null}
+          {rollover !== 0 ? (
+            <span
+              className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                rollover > 0
+                  ? 'bg-emerald-500/15 text-emerald-800'
+                  : 'bg-red-500/15 text-red-700'
+              }`}
+            >
+              {rollover > 0 ? '+' : ''}
+              {formatCurrency(rollover)} reportés
             </span>
           ) : null}
         </div>

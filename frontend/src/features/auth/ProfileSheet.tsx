@@ -333,9 +333,11 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
             </p>
           ) : null}
 
-          <Button type="submit" variant="violet" fullWidth disabled={isSavingProfile}>
-            {isSavingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
-          </Button>
+          <div className="sticky bottom-0 z-10 -mx-1 bg-white/95 px-1 pb-2 pt-3 backdrop-blur dark:bg-slate-900/95">
+            <Button type="submit" variant="violet" fullWidth disabled={isSavingProfile}>
+              {isSavingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
+            </Button>
+          </div>
         </form>
 
         <div className="border-t border-slate-100 pt-4">

@@ -16,6 +16,10 @@ Application **Mobile-First (PWA)** de gestion budgétaire personnelle et partag�
 - **Multi-Budgets & Budget Commun 100 % gratuit (`0 €`) :** Sélecteur d'espace (`BudgetSwitcherOverlay`), invitation par lien unique (valable 24h), application SMS native du téléphone (`sms:`) et **QR Code SVG généré 100 % côté client** (sans API tierce payante), pastilles membres *« Payé par / Apporté par »*, bilan comparatif par membre et calculateur d'apport **50/50 ou au prorata des revenus**.
 - **Sécurité & Protection des comptes :** Mots de passe robustes hachés via `bcryptjs`, clé de récupération personnelle gratuite (`EPAR-XXXX-XXXX` téléchargeable en `.txt`), envoi gratuit d'un code à 6 chiffres par e-mail via **SMTP Gmail** (`15 min`), jetons JWT `24h` révocables (`tokenVersion`), limitation de débit anti-brute-force (`429`), en-têtes Helmet et MongoDB local restreint à `127.0.0.1:27017`.
 - **Thème Clair (par défaut) & Mode Sombre :** Bascule instantanée entre le thème clair et le mode sombre depuis le profil utilisateur (`ProfileSheet`), avec sauvegarde des préférences côté serveur et tests automatisés de non-régression pour les deux thèmes.
+- **Rollover des enveloppes variables :** Report optionnel du solde d'un mois sur l'autre (*Positif uniquement* ou *Positif et négatif*) avec chaînage entre périodes et propagation dynamique en cas de modification rétroactive.
+- **Filtres & tri rapide :** Recherche instantanée, tri (date/montant) et sous-total dynamique sur les dépenses fixes et variables (avec filtre par membre en budget partagé).
+- **Projection de fin de mois (Burn Rate) :** Indicateur de rythme de dépense dans l'onglet `Budget` estimant le solde de fin de cycle et la date éventuelle de passage en négatif.
+- **Indicateurs avancés de pilotage :** Comparatif avancement du mois vs consommation des enveloppes, taux d'épargne, matelas de sécurité (en mois de charges fixes) et top enveloppes en tension.
 
 ## Prérequis
 

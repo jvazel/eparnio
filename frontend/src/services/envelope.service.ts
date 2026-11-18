@@ -16,6 +16,8 @@ export interface CreateEnvelopePayload {
   date?: string;
   isRecurring?: boolean;
   isPaid?: boolean;
+  rolloverEnabled?: boolean;
+  rolloverMode?: 'positive_only' | 'both';
   memberId?: string;
   linkedGoalId?: string;
 }
@@ -28,6 +30,8 @@ export interface UpdateEnvelopePayload {
   date?: string;
   isRecurring?: boolean;
   isPaid?: boolean;
+  rolloverEnabled?: boolean;
+  rolloverMode?: 'positive_only' | 'both';
   order?: number;
   memberId?: string | null;
   linkedGoalId?: string | null;

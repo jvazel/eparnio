@@ -1,5 +1,6 @@
 import type { Types } from 'mongoose';
 import { AppError } from '../middlewares/error.middleware';
+import { propagateEnvelopeRollover } from './periodRollover.service';
 import { BudgetPeriodModel, type IBudgetPeriod } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, type IEnvelope } from '../models/Envelope.model';
 import { type ISavingsGoal, SavingsGoalModel } from '../models/SavingsGoal.model';
@@ -123,6 +124,10 @@ export async function recalculateEnvelopeAndPeriod(
 
   if (!envelope) {
     throw new AppError('Poste budgétaire introuvable', 404);
+  }
+
+  if (envelope.pillar === 'variable_envelope') {
+    await propagateEnvelopeRollover(envelope._id);
   }
 
   const period = await recalculatePeriodSummary(periodId);

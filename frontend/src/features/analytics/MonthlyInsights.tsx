@@ -7,13 +7,19 @@ import { AllocationDonutCard } from './AllocationDonut';
 import { CashFlowSummaryCard } from './CashFlowSummaryCard';
 import { DailyBudgetCard } from './DailyBudgetCard';
 import { EnvelopeBreakdownCard } from './EnvelopeBreakdownCard';
+import { EnvelopesAtRiskCard } from './EnvelopesAtRiskCard';
 import { MemberBreakdownCard } from './MemberBreakdownCard';
+import { MonthVsEnvelopesCard } from './MonthVsEnvelopesCard';
+import { PaceProjectionCard } from './PaceProjectionCard';
+import { SavingsHealthCard } from './SavingsHealthCard';
+import { SharedActivityCard } from './SharedActivityCard';
 import { TrendsCard } from './TrendsCard';
 
 export interface MonthlyInsightsProps {
   analytics: PeriodAnalytics;
   envelopes?: EnvelopeItem[];
   trends?: BudgetTrendItem[];
+  totalSavingsGoals?: number;
   currentUserId?: string;
   onOpenCalculator?: () => void;
 }
@@ -27,6 +33,7 @@ export function MonthlyInsights({
   analytics,
   envelopes = [],
   trends = [],
+  totalSavingsGoals = 0,
   currentUserId,
   onOpenCalculator
 }: MonthlyInsightsProps) {
@@ -37,6 +44,33 @@ export function MonthlyInsights({
       <CashFlowSummaryCard cashFlow={analytics.cashFlow} />
 
       <DailyBudgetCard dailyBudget={analytics.dailyBudget} />
+
+      <PaceProjectionCard
+        remainingToLive={analytics.cashFlow.remainingToLive}
+        spentVariables={analytics.cashFlow.spentVariables}
+        remainingDays={analytics.dailyBudget.daysRemaining}
+        startDate={analytics.dailyBudget.startDate}
+      />
+
+      <MonthVsEnvelopesCard
+        totalDays={analytics.dailyBudget.totalDays}
+        daysRemaining={analytics.dailyBudget.daysRemaining}
+        spentVariables={analytics.cashFlow.spentVariables}
+        plannedEnvelopes={analytics.cashFlow.plannedEnvelopes}
+      />
+
+      <SavingsHealthCard
+        plannedIncome={analytics.cashFlow.plannedIncome}
+        plannedSavings={analytics.cashFlow.plannedSavings}
+        plannedFixedCharges={analytics.cashFlow.plannedFixedCharges}
+        totalSavingsGoals={totalSavingsGoals}
+      />
+
+      <EnvelopesAtRiskCard
+        envelopes={envelopes}
+        totalDays={analytics.dailyBudget.totalDays}
+        daysRemaining={analytics.dailyBudget.daysRemaining}
+      />
 
       <AllocationDonutCard allocation={analytics.allocation} />
 
@@ -55,6 +89,7 @@ export function MonthlyInsights({
             members={analytics.memberBreakdown}
             currentUserId={currentUserId}
           />
+          <SharedActivityCard envelopes={envelopes} />
           {onOpenCalculator ? (
             <Button type="button" variant="secondary" fullWidth onClick={onOpenCalculator}>
               <Scale className="h-4 w-4 text-violet-600" aria-hidden="true" />

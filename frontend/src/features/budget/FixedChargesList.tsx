@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { CheckableListCard } from '../../components/ui/CheckableListCard';
+import { ListFilterBar } from '../../components/ui/ListFilterBar';
 import { RingGauge } from '../../components/ui/RingGauge';
 import type { BudgetPeriodSummary, EnvelopeItem } from '../../types/budget.types';
 import { formatCurrency } from '../../utils/format';
@@ -61,11 +62,30 @@ export function FixedChargesList({
     [sortedItems]
   );
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'order' | 'amount_desc' | 'amount_asc'>('order');
+
   const visibleItems = useMemo(() => {
-    if (filter === 'upcoming') return sortedItems.filter((item) => !item.isPaid);
-    if (filter === 'paid') return sortedItems.filter((item) => item.isPaid);
-    return sortedItems;
-  }, [filter, sortedItems]);
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = sortedItems.filter((item) => {
+      if (filter === 'upcoming' && item.isPaid) return false;
+      if (filter === 'paid' && !item.isPaid) return false;
+      if (query && !item.name.toLowerCase().includes(query)) return false;
+      return true;
+    });
+    if (sortBy === 'amount_desc') {
+      return [...filtered].sort((a, b) => b.allocatedAmount - a.allocatedAmount);
+    }
+    if (sortBy === 'amount_asc') {
+      return [...filtered].sort((a, b) => a.allocatedAmount - b.allocatedAmount);
+    }
+    return filtered;
+  }, [filter, searchQuery, sortBy, sortedItems]);
+
+  const filteredTotal = useMemo(
+    () => visibleItems.reduce((acc, item) => acc + item.allocatedAmount, 0),
+    [visibleItems]
+  );
 
   const handleMove = (index: number, direction: -1 | 1) => {
     const orderedIds = buildReorderedIds(sortedItems, index, direction);
@@ -156,6 +176,29 @@ export function FixedChargesList({
           manageButtonLabel="Gérer l’ordre et supprimer des dépenses fixes"
           onToggleManageMode={() => setIsManageMode((previous) => !previous)}
         />
+
+        {sortedItems.length > 0 ? (
+          <ListFilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Rechercher une dépense fixe…"
+            sortOptions={[
+              { value: 'order', label: 'Ordre' },
+              { value: 'amount_desc', label: 'Montant ↓' },
+              { value: 'amount_asc', label: 'Montant ↑' }
+            ]}
+            sortBy={sortBy}
+            onSortChange={(val) => setSortBy(val as 'order' | 'amount_desc' | 'amount_asc')}
+            isFilterActive={Boolean(searchQuery.trim() || filter !== 'all' || sortBy !== 'order')}
+            resultCount={visibleItems.length}
+            resultTotalFormatted={formatCurrency(filteredTotal)}
+            onReset={() => {
+              setSearchQuery('');
+              setFilter('all');
+              setSortBy('order');
+            }}
+          />
+        ) : null}
 
         {sortedItems.length === 0 ? (
           <Card className="text-center">
