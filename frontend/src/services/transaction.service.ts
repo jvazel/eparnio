@@ -168,3 +168,41 @@ export async function splitTransaction(
   }>(`/periods/${periodId}/transactions/split`, payload);
   return data;
 }
+
+
+export interface DetectedAnomalyItem {
+  transactionId: string;
+  envelopeId: string;
+  envelopeName: string;
+  label: string;
+  amount: number;
+  date: string;
+  severity: 'info' | 'warning';
+  reason: string;
+}
+
+export interface EnvelopeAnomalyThreshold {
+  median: number;
+  historyCount: number;
+  warningThreshold: number | null;
+}
+
+export interface PeriodAnomaliesResponse {
+  status: 'ok';
+  anomalies: DetectedAnomalyItem[];
+  envelopeThresholds: Record<string, EnvelopeAnomalyThreshold>;
+}
+
+export async function getPeriodAnomalies(periodId: string): Promise<PeriodAnomaliesResponse> {
+  const { data } = await apiClient.get<PeriodAnomaliesResponse>(
+    `/periods/${periodId}/transactions/anomalies`
+  );
+  return data;
+}
+
+export async function dismissTransactionAnomaly(
+  periodId: string,
+  transactionId: string
+): Promise<void> {
+  await apiClient.patch(`/periods/${periodId}/transactions/${transactionId}/dismiss-anomaly`);
+}

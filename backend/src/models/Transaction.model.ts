@@ -14,6 +14,7 @@ export interface ITransaction extends Document {
   date: Date;
   notes?: string;
   splitGroupId?: string;
+  isAnomalyDismissed?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +91,10 @@ const transactionSchema = new Schema<ITransaction>(
     splitGroupId: {
       type: String,
       index: true
+    },
+    isAnomalyDismissed: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -99,6 +104,7 @@ const transactionSchema = new Schema<ITransaction>(
 
 transactionSchema.index({ budgetPeriodId: 1, date: -1 });
 transactionSchema.index({ envelopeId: 1, date: -1 });
+transactionSchema.index({ budgetId: 1, date: -1 });
 
 /**
  * Sérialise une transaction Mongoose pour la réponse JSON de l'API.

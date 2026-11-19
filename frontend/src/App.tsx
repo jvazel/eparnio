@@ -13,12 +13,19 @@ import { BalanceReconcileSheet } from './features/budget/BalanceReconcileSheet';
 import { CsvImportSheet } from './features/transactions/CsvImportSheet';
 import { QuickAddExpenseSheet } from './features/transactions/QuickAddExpenseSheet';
 import { createQuickTemplate, deleteQuickTemplate } from './services/budget.service';
-import { getTransactionSuggestions, splitTransaction } from './services/transaction.service';
+import {
+  dismissTransactionAnomaly,
+  getPeriodAnomalies,
+  getTransactionSuggestions,
+  splitTransaction
+} from './services/transaction.service';
 import { AuthScreen } from './features/auth/AuthScreen';
 import { OnboardingWizard } from './features/auth/OnboardingWizard';
 import { ProfileSheet } from './features/auth/ProfileSheet';
 import { BudgetSettingsSheet } from './features/budget/BudgetSettingsSheet';
 import { CreationFormModal } from './features/budget/CreationFormModal';
+import { GlobalSearchModal } from './features/budget/GlobalSearchModal';
+import type { GlobalSearchItem } from './services/search.service';
 import { EnvelopesList } from './features/budget/EnvelopesList';
 import { FixedChargesList } from './features/budget/FixedChargesList';
 import { IncomeList } from './features/budget/IncomeList';
@@ -182,6 +189,7 @@ export function App() {
     pillar: 'fixed_charge',
     item: null
   });
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string | null>(null);
   const [expenseEditorState, setExpenseEditorState] = useState<{
     isOpen: boolean;
@@ -316,6 +324,12 @@ export function App() {
   });
 
   const activePeriod = periodQuery.data?.period ?? null;
+
+  const anomaliesQuery = useQuery({
+    queryKey: ['period-anomalies', activePeriod?.id],
+    queryFn: () => getPeriodAnomalies(activePeriod!.id),
+    enabled: Boolean(canLoadApp && activePeriod?.id)
+  });
   const envelopes = periodQuery.data?.envelopes ?? [];
   const summary = activePeriod?.summary ?? EMPTY_SUMMARY;
 
@@ -1081,6 +1095,15 @@ export function App() {
         onOpenMonthClosing={activePeriod ? () => setIsClosingWizardOpen(true) : undefined}
         onOpenCsvImport={activePeriod ? () => setIsCsvImportOpen(true) : undefined}
         onOpenBalanceReconcile={activePeriod ? () => setIsBalanceReconcileOpen(true) : undefined}
+        anomalies={anomaliesQuery.data?.anomalies ?? []}
+        onDismissAnomaly={
+          activePeriod
+            ? async (txId) => {
+                await dismissTransactionAnomaly(activePeriod.id, txId);
+                void queryClient.invalidateQueries({ queryKey: ['period-anomalies'] });
+              }
+            : undefined
+        }
         onExportCsv={
           activeBudget
             ? () =>
@@ -1242,6 +1265,7 @@ export function App() {
             : undefined
         }
         onProfileClick={() => setIsProfileOpen(true)}
+        onSearchClick={() => setIsSearchOpen(true)}
         onBudgetSwitcherClick={() => setIsSwitcherOpen(true)}
       >
         <OfflineBanner />
@@ -1489,6 +1513,7 @@ export function App() {
             currentUserId={user.id}
             quickTemplates={activeBudget?.quickTemplates ?? []}
             suggestions={suggestionsQuery.data ?? []}
+            anomalyThresholds={anomaliesQuery.data?.envelopeThresholds ?? {}}
             onSaveQuickTemplate={
               activeBudget
                 ? async (payload) => {
@@ -1521,6 +1546,29 @@ export function App() {
             }}
           />
         </>
+      )}
+
+      {activeBudget && (
+        <GlobalSearchModal
+          isOpen={isSearchOpen}
+          budgetId={activeBudget.id}
+          isSharedBudget={activeBudget.type === 'shared'}
+          members={activeBudget.members}
+          onClose={() => setIsSearchOpen(false)}
+          onSelectResult={(item: GlobalSearchItem) => {
+            setReferenceDate(new Date(item.year, item.month - 1, 1));
+            if (item.kind === 'income') {
+              setSelectedEnvelopeId(null);
+              setActiveTab('revenus');
+            } else if (item.kind === 'fixed_charge') {
+              setSelectedEnvelopeId(null);
+              setActiveTab('depenses');
+            } else {
+              setActiveTab('enveloppes');
+              setSelectedEnvelopeId(item.envelopeId);
+            }
+          }}
+        />
       )}
     </>
   );

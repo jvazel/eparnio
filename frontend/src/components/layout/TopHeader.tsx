@@ -1,10 +1,11 @@
-import { CreditCard } from 'lucide-react';
+import { CreditCard, Search } from 'lucide-react';
 
 export interface TopHeaderProps {
   firstName: string;
   avatarEmoji?: string;
   activeBudgetName?: string;
   onProfileClick?: () => void;
+  onSearchClick?: () => void;
   onBudgetSwitcherClick?: () => void;
 }
 
@@ -16,6 +17,7 @@ export function TopHeader({
   avatarEmoji = '🧑',
   activeBudgetName,
   onProfileClick,
+  onSearchClick,
   onBudgetSwitcherClick
 }: TopHeaderProps) {
   return (
@@ -44,14 +46,27 @@ export function TopHeader({
         </div>
       </button>
 
-      <button
-        type="button"
-        onClick={onBudgetSwitcherClick}
-        aria-label="Changer d'espace budget"
-        className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-card transition-transform active:scale-95 dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-      >
-        <CreditCard className="h-5 w-5" />
-      </button>
+      <div className="flex items-center gap-2">
+        {onSearchClick ? (
+          <button
+            type="button"
+            onClick={onSearchClick}
+            aria-label="Rechercher dans le budget"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-card transition-transform active:scale-95 dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <Search className="h-5 w-5" />
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={onBudgetSwitcherClick}
+          aria-label="Changer d'espace budget"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-card transition-transform active:scale-95 dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        >
+          <CreditCard className="h-5 w-5" />
+        </button>
+      </div>
     </header>
   );
 }

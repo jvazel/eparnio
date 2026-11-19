@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Check, RefreshCw, Trash2 } from 'lucide-react';
+import { triggerHaptic } from '../../utils/haptics';
 import {
   getRecurrenceBadges,
   getRecurrenceFrequencyLabel
@@ -128,7 +129,10 @@ export function CheckableListCard({
 
       <button
         type="button"
-        onClick={() => onTogglePaid(item)}
+        onClick={() => {
+          triggerHaptic('medium');
+          onTogglePaid(item);
+        }}
         aria-pressed={item.isPaid}
         aria-label={paidActionLabel}
         className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center"

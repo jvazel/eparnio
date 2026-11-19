@@ -1,5 +1,6 @@
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { type FormEvent, useEffect, useId, useMemo, useState } from 'react';
+import { triggerHaptic } from '../../utils/haptics';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Button } from '../../components/ui/Button';
 import {
@@ -265,6 +266,7 @@ export function CreationFormModal({
           : {}),
         ...(isSharedBudget && memberId ? { memberId } : {})
       });
+      triggerHaptic('success');
       onClose();
     } catch (error) {
       setErrorMessage(
@@ -280,6 +282,7 @@ export function CreationFormModal({
     setErrorMessage(null);
     try {
       await onDelete(initialItem.id);
+      triggerHaptic('success');
       onClose();
     } catch (error) {
       setErrorMessage(

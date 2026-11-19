@@ -8,6 +8,8 @@ import type { EnvelopeItem, PeriodAnalytics, SavingsGoalItem } from '../../types
 import { formatFullDate } from '../../utils/format';
 import { ExportActionsCard } from '../budget/ExportActionsCard';
 import { ZeroBasedBanner, type ZeroBasedQuickActions } from '../budget/ZeroBasedBanner';
+import type { DetectedAnomalyItem } from '../../services/transaction.service';
+import { AnomalousExpensesCard } from './AnomalousExpensesCard';
 import { AllocationDonutCard } from './AllocationDonut';
 import { CashFlowSummaryCard } from './CashFlowSummaryCard';
 import { DailyBudgetCard } from './DailyBudgetCard';
@@ -73,6 +75,8 @@ export interface MonthlyInsightsProps
   onOpenCalculator?: () => void;
   onOpenCsvImport?: () => void;
   onOpenBalanceReconcile?: () => void;
+  anomalies?: DetectedAnomalyItem[];
+  onDismissAnomaly?: (transactionId: string) => void;
 }
 
 /**
@@ -95,6 +99,8 @@ export function MonthlyInsights({
   onOpenCalculator,
   onOpenCsvImport,
   onOpenBalanceReconcile,
+  anomalies = [],
+  onDismissAnomaly,
   goals = [],
   isAutoBalancing = false,
   onAutoBalanceToEnvelope,
@@ -247,6 +253,10 @@ export function MonthlyInsights({
             />
 
             <AllocationDonutCard allocation={analytics.allocation} />
+
+            {anomalies.length > 0 && onDismissAnomaly && (
+              <AnomalousExpensesCard anomalies={anomalies} onDismiss={onDismissAnomaly} />
+            )}
 
             {(onOpenCsvImport || onOpenBalanceReconcile) && (
               <Card className="space-y-2.5">

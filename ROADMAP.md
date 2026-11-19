@@ -416,3 +416,35 @@
 - [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests :** Ajouter les tests API (`POST /transactions/split`, recalcul multi-enveloppes + propagation `rolloverAmount`, `DELETE ?scope=group` vs `single` avec nettoyage automatique du `splitGroupId` orphelin) et les tests UI (`AddExpenseSheet`/`QuickAddExpenseSheet` mode fractionné, reste à répartir `0,00 €`, badge `✂️ Ticket partagé` dans `TransactionHistory`, choix de suppression part/ticket, modes clair et sombre).
   * **Non-régression & Documentation :** Exécuter l'ensemble des suites existantes backend + frontend avec couverture (`npm run typecheck && npm run test:coverage && npm run build`), vérifier zéro régression et mettre à jour `ROADMAP.md` et `ARCHITECTURE.md`.
+
+
+---
+
+## Étape 34 : Détection des Dépenses Atypiques & Alertes Préventives *(Pilotage intelligent)*
+
+- [x] **Backend (`anomalyDetection.service.ts`, `transaction.controller.ts`, `analytics.controller.ts`) :**
+  * Créer un service `anomalyDetection.service.ts` analysant l'historique des 3 à 6 derniers mois du budget selon 4 signaux déterministes : pic statistique par rapport à la médiane/moyenne de l'enveloppe (minimum 5 transactions d'historique), impact brutal (`> 50 %` du restant de l'enveloppe ou passage en négatif), nouveau libellé à montant élevé, et dérive de fréquence/vélocité.
+  * Exposer `GET /api/periods/:periodId/transactions/anomalies` (et/ou intégrer le résumé dans `GET /api/periods/:periodId/analytics`) avec score de sévérité (`info` | `warning`) et message explicatif, ainsi qu'une option pour ignorer/acquitter une alerte sur une transaction (`isAnomalyDismissed?: boolean`).
+- [x] **Frontend (`QuickAddExpenseSheet.tsx`, `AddExpenseSheet.tsx`, `AnomalousExpensesCard.tsx`, `MonthlyInsights.tsx`) :**
+  * Afficher un bandeau d'avertissement non bloquant en temps réel lors de la saisie si le montant dépasse le seuil habituel de l'enveloppe.
+  * Ajouter une carte **« Dépenses atypiques du mois »** dans l'onglet `Budget` listant les opérations détectées avec leur explication et un bouton **« C'est normal »** pour masquer l'alerte, en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Ajouter les tests unitaires sur `anomalyDetection.service.ts` (médiane, seuil, impact plafond, nouveau libellé), les tests API (`GET /transactions/anomalies`, acquittement d'alerte) et les tests UI (bandeau préventif en saisie, `AnomalousExpensesCard`, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter l'ensemble des suites existantes backend + frontend avec couverture (`npm run typecheck && npm run test:coverage && npm run build`), vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 35 : Recherche Globale Multi-Mois *(Quotidien & Historique)*
+
+- [x] **Backend (`search.service.ts`, `search.controller.ts`, `budget.routes.ts`) :**
+  * Créer l'endpoint `GET /api/budgets/:budgetId/search?q=...&type=...&limit=...` protégé par JWT et vérification d'appartenance au budget.
+  * Interroger en parallèle `TransactionModel` (`label`, `notes`, `amount`) et `EnvelopeModel` (`name`, `allocatedAmount` pour `income` et `fixed_charge`), enrichis avec les informations de période (`month`, `year`) et d'enveloppe parente, triés par date décroissante.
+  * Ajouter les index MongoDB composés `{ budgetId: 1, date: -1 }` si nécessaires pour garantir des temps de réponse rapides sur l'historique multi-mois.
+- [x] **Frontend (`GlobalSearchModal.tsx`, `TopHeader.tsx`) :**
+  * Ajouter un bouton loupe (`🔍`) dans `TopHeader` ouvrant la modale/vue plein écran `GlobalSearchModal` avec champ auto-focus, debounce (250–300 ms) et gestion des 5 dernières recherches en `localStorage` par budget.
+  * Proposer des filtres rapides (`Tout`, `Dépenses variables`, `Dépenses fixes`, `Revenus`, `Notes`) et grouper les résultats par mois/année avec pastille membre en budget commun.
+  * Au tap sur un résultat, basculer automatiquement le `PeriodSelector` sur le mois correspondant et ouvrir l'enveloppe (`EnvelopeDetailPage`) ou l'onglet concerné, en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests API sur `GET /api/budgets/:budgetId/search` (recherche par mot-clé, note, montant, filtre par type, contrôle d'accès JWT) + tests UI (`GlobalSearchModal`, filtres rapides, navigation vers la période/enveloppe).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.

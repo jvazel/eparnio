@@ -1,6 +1,7 @@
 import { Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { triggerHaptic } from '../../utils/haptics';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import {
   formatAmountToKeypadString,
@@ -9,6 +10,7 @@ import {
 } from '../../components/ui/NumericKeypad';
 import type {
   CreateTransactionPayload,
+  EnvelopeAnomalyThreshold,
   SplitTransactionPayload,
   TransactionSuggestion
 } from '../../services/transaction.service';
@@ -40,6 +42,7 @@ export interface QuickAddExpenseSheetProps {
   }) => Promise<void>;
   onDeleteQuickTemplate?: (templateId: string) => Promise<void>;
   onSplitSubmit?: (payload: SplitTransactionPayload) => Promise<void>;
+  anomalyThresholds?: Record<string, EnvelopeAnomalyThreshold>;
   onSubmit: (payload: CreateTransactionPayload) => Promise<void>;
 }
 
@@ -56,6 +59,7 @@ export function QuickAddExpenseSheet({
   onSaveQuickTemplate,
   onDeleteQuickTemplate,
   onSplitSubmit,
+  anomalyThresholds = {},
   onSubmit
 }: QuickAddExpenseSheetProps) {
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>(envelopes[0]?.id ?? '');
@@ -201,6 +205,7 @@ export function QuickAddExpenseSheet({
       setAmountInput('');
       setLabel('');
       setIsSplitMode(false);
+      triggerHaptic('success');
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossible d’enregistrer la dépense');
@@ -294,6 +299,18 @@ export function QuickAddExpenseSheet({
               Restant dans {selectedEnvelope.name} : {formatCurrency(liveRemaining)}
             </p>
           )}
+          {!isSplitMode &&
+            selectedEnvelope &&
+            anomalyThresholds[selectedEnvelope.id]?.warningThreshold &&
+            parsedAmount > anomalyThresholds[selectedEnvelope.id]!.warningThreshold! && (
+              <p
+                role="status"
+                className="mt-2 rounded-xl bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+              >
+                Montant inhabituel : supérieur à la médiane habituelle (
+                {formatCurrency(anomalyThresholds[selectedEnvelope.id]!.median)})
+              </p>
+            )}
         </div>
 
         <NumericKeypad value={amountInput} onChange={setAmountInput} />

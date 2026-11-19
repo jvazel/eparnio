@@ -1,6 +1,7 @@
 import { ArrowUpRight, RotateCcw, Trash2 } from 'lucide-react';
 import { Star } from 'lucide-react';
 import { type FormEvent, useEffect, useId, useMemo, useState } from 'react';
+import { triggerHaptic } from '../../utils/haptics';
 import type { SplitTransactionPayload, TransactionSuggestion } from '../../services/transaction.service';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Button } from '../../components/ui/Button';
@@ -177,6 +178,7 @@ export function AddExpenseSheet({
         ...(isSharedBudget && paidByUserId ? { paidByUserId } : {}),
         ...(shouldSendNotes ? { notes: trimmedNotes } : {})
       });
+      triggerHaptic('success');
       onClose();
     } catch (error) {
       setErrorMessage(
@@ -192,6 +194,7 @@ export function AddExpenseSheet({
     setErrorMessage(null);
     try {
       await onDelete(initialTransaction.id);
+      triggerHaptic('success');
       onClose();
     } catch (error) {
       setErrorMessage(

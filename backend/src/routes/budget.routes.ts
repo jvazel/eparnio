@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { getBudgetTrends } from '../controllers/analytics.controller';
 import {
+  searchBudget,
+  searchBudgetParamsSchema
+} from '../controllers/search.controller';
+import {
   getTransactionSuggestions,
   transactionSuggestionsParamsSchema
 } from '../controllers/transaction.controller';
@@ -63,6 +67,12 @@ budgetRouter.patch(
 budgetRouter.delete('/:id', validate({ params: budgetIdParamsSchema }), deleteBudget);
 
 budgetRouter.get('/:budgetId/trends', requireAuth, getBudgetTrends);
+
+budgetRouter.get(
+  '/:id/search',
+  validate({ params: searchBudgetParamsSchema }),
+  searchBudget
+);
 
 budgetRouter.get(
   '/:id/transactions/suggestions',

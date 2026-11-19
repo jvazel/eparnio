@@ -571,3 +571,59 @@ export async function splitTransaction(
     next(err);
   }
 }
+
+
+export async function getPeriodAnomalies(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodId } = req.params as z.infer<typeof transactionPeriodParamsSchema>;
+    const { budget, period } = await assertPeriodAccess(periodId, req.user?.id, {
+      requireWrite: false
+    });
+
+    const { detectPeriodAnomalies } = await import('../services/anomalyDetection.service');
+    const result = await detectPeriodAnomalies({
+      budgetId: budget._id,
+      periodId: period._id
+    });
+
+    res.status(200).json({
+      status: 'ok',
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function dismissTransactionAnomaly(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodId, id } = req.params as z.infer<typeof transactionItemParamsSchema>;
+    const { period } = await assertPeriodAccess(periodId, req.user?.id, {
+      requireWrite: true
+    });
+
+    const transaction = await TransactionModel.findOne({ _id: id, budgetPeriodId: period._id });
+    if (!transaction) {
+      throw new AppError('Transaction introuvable', 404);
+    }
+
+    transaction.isAnomalyDismissed = true;
+    await transaction.save();
+
+    res.status(200).json({
+      status: 'ok',
+      transactionId: id,
+      isAnomalyDismissed: true
+    });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -66,6 +66,7 @@ Revenus du mois − Dépenses fixes − Enveloppes variables − Épargne = 0 �
 ### 3.5. Onglet « Budget » (*Synthèse, Analyses & Outils*)
 - **Entrées et sorties d'argent** & **Budget quotidien** (*X jours restants & Y € à dépenser par jour*).
 - **Part des dépenses par rapport aux revenus** (Donut Fixe / Variable / Épargne).
+- **Dépenses atypiques du mois :** Eparnio détecte automatiquement les dépenses inhabituelles (pic par rapport à votre médiane, impact `> 50 %` sur une enveloppe ou nouveau libellé élevé) avec un bandeau préventif à la saisie et une carte dédiée dans l'onglet `Budget` (acquittable en 1 tap via **« C'est normal »**).
 - **Import manuel de relevé CSV / OFX (Boîte de tri) :**
   - Appuyez sur **« Importer un relevé CSV »** : lecture 100 % locale dans votre navigateur (zéro connexion bancaire), détection des doublons, exclusion en 1 tap et affectation rapide aux enveloppes.
 - **Réconciliation de solde bancaire :**

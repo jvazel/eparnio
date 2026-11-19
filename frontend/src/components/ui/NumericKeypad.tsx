@@ -1,5 +1,6 @@
 import { Delete } from 'lucide-react';
 import { useState } from 'react';
+import { triggerHaptic } from '../../utils/haptics';
 
 export interface NumericKeypadProps {
   value: string;
@@ -154,6 +155,7 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
   const [expression, setExpression] = useState('');
 
   const handleOperator = (op: (typeof OPERATOR_KEYS)[number]) => {
+    triggerHaptic('light');
     if (op === '=') {
       if (!expression) return;
       const fullExpr = `${expression}${value || '0'}`;
@@ -211,7 +213,10 @@ export function NumericKeypad({ value, onChange }: NumericKeypadProps) {
             <button
               key={key}
               type="button"
-              onClick={() => onChange(applyKeypadInput(value, key))}
+              onClick={() => {
+                triggerHaptic('light');
+                onChange(applyKeypadInput(value, key));
+              }}
               aria-label={isBackspace ? 'Effacer un chiffre' : `Chiffre ${key}`}
               className="flex min-h-11 items-center justify-center rounded-xl bg-white text-base font-bold tabular-nums text-slate-900 shadow-sm transition-transform active:scale-95 active:bg-slate-50 dark:bg-slate-800 dark:text-slate-50 dark:active:bg-slate-700"
             >

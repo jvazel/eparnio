@@ -21,7 +21,7 @@ Application **Mobile-First (PWA)** de gestion budgétaire personnelle et partag�
 - **Rollover des enveloppes variables :** Report optionnel du solde d'un mois sur l'autre (*Positif uniquement* ou *Positif et négatif*) avec chaînage entre périodes et propagation dynamique en cas de modification rétroactive.
 - **Filtres & tri rapide :** Recherche instantanée, tri (date/montant) et sous-total dynamique sur les dépenses fixes et variables (avec filtre par membre en budget partagé).
 - **Projection de fin de mois (Burn Rate) :** Indicateur de rythme de dépense dans l'onglet `Budget` estimant le solde de fin de cycle et la date éventuelle de passage en négatif.
-- **Indicateurs avancés de pilotage :** Comparatif avancement du mois vs consommation des enveloppes, taux d'épargne, matelas de sécurité (en mois de charges fixes) et top enveloppes en tension.
+- **Indicateurs avancés de pilotage :** Comparatif avancement du mois vs consommation des enveloppes, taux d'épargne, matelas de sécurité (en mois de charges fixes), top enveloppes en tension et **détection des dépenses atypiques** (alertes préventives).
 
 ## Prérequis
 

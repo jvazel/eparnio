@@ -21,6 +21,7 @@ export interface MobileShellProps {
   quickAddLabel?: string;
   fabMenuActions?: QuickAddMenuAction[];
   onProfileClick?: () => void;
+  onSearchClick?: () => void;
   onBudgetSwitcherClick?: () => void;
   children: ReactNode;
 }
@@ -44,6 +45,7 @@ export function MobileShell({
   quickAddLabel,
   fabMenuActions,
   onProfileClick,
+  onSearchClick,
   onBudgetSwitcherClick,
   children
 }: MobileShellProps) {
@@ -56,6 +58,7 @@ export function MobileShell({
         avatarEmoji={avatarEmoji}
         activeBudgetName={activeBudgetName}
         onProfileClick={onProfileClick}
+        onSearchClick={onSearchClick}
         onBudgetSwitcherClick={onBudgetSwitcherClick}
       />
 

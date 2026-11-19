@@ -158,6 +158,7 @@ const envelopeSchema = new Schema<IEnvelope>(
 );
 
 envelopeSchema.index({ budgetPeriodId: 1, pillar: 1, order: 1 });
+envelopeSchema.index({ budgetId: 1, date: -1 });
 
 /**
  * Sérialise une enveloppe ou ligne budgétaire Mongoose pour la réponse JSON de l'API.

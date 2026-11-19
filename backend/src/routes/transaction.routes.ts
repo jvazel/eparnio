@@ -3,6 +3,8 @@ import {
   createTransaction,
   createTransactionBodySchema,
   deleteTransaction,
+  dismissTransactionAnomaly,
+  getPeriodAnomalies,
   importTransactions,
   importTransactionsBodySchema,
   listTransactions,
@@ -57,6 +59,17 @@ transactionRouter.delete(
   '/:id',
   validate({ params: transactionItemParamsSchema }),
   deleteTransaction
+);
+
+transactionRouter.get(
+  '/anomalies',
+  validate({ params: transactionPeriodParamsSchema }),
+  getPeriodAnomalies
+);
+transactionRouter.patch(
+  '/:id/dismiss-anomaly',
+  validate({ params: transactionItemParamsSchema }),
+  dismissTransactionAnomaly
 );
 
 export { transactionRouter };
