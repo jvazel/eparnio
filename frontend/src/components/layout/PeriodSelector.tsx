@@ -1,7 +1,8 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 
 export interface PeriodSelectorProps {
   label: string;
+  isClosed?: boolean;
   onPrevious: () => void;
   onNext: () => void;
 }
@@ -9,7 +10,12 @@ export interface PeriodSelectorProps {
 /**
  * Sélecteur de cycle mensuel sous forme de pilule blanche `< Mois Année >`.
  */
-export function PeriodSelector({ label, onPrevious, onNext }: PeriodSelectorProps) {
+export function PeriodSelector({
+  label,
+  isClosed = false,
+  onPrevious,
+  onNext
+}: PeriodSelectorProps) {
   return (
     <div className="px-4 py-2">
       <div className="flex items-center justify-between rounded-2xl border border-slate-100/80 bg-white px-3 py-1.5 shadow-card dark:border-slate-800 dark:bg-slate-900">
@@ -33,6 +39,15 @@ export function PeriodSelector({ label, onPrevious, onNext }: PeriodSelectorProp
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
+
+      {isClosed ? (
+        <div className="mt-1.5 flex justify-center">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <Lock className="h-3 w-3" aria-hidden="true" />
+            Clôturé
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

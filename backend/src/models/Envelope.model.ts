@@ -2,6 +2,7 @@ import mongoose, { type Document, Schema, type Types } from 'mongoose';
 
 export type EnvelopePillar = 'income' | 'fixed_charge' | 'variable_envelope' | 'savings';
 export type RolloverMode = 'positive_only' | 'both';
+export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'semiannual' | 'yearly';
 
 export interface IEnvelope extends Document {
   budgetId: Types.ObjectId;
@@ -18,6 +19,9 @@ export interface IEnvelope extends Document {
   previousEnvelopeId?: Types.ObjectId;
   date: Date;
   isRecurring: boolean;
+  recurrenceFrequency: RecurrenceFrequency;
+  recurrenceEndDate?: Date;
+  recurrenceRemainingCount?: number;
   isPaid: boolean;
   memberId?: Types.ObjectId;
   linkedGoalId?: Types.ObjectId;
@@ -42,6 +46,9 @@ export interface EnvelopeResponse {
   previousEnvelopeId?: string;
   date: string;
   isRecurring: boolean;
+  recurrenceFrequency: RecurrenceFrequency;
+  recurrenceEndDate?: string;
+  recurrenceRemainingCount?: number;
   isPaid: boolean;
   memberId?: string;
   linkedGoalId?: string;
@@ -89,8 +96,7 @@ const envelopeSchema = new Schema<IEnvelope>(
     },
     spentOrPaidAmount: {
       type: Number,
-      default: 0,
-      min: 0
+      default: 0
     },
     rolloverEnabled: {
       type: Boolean,
@@ -116,6 +122,18 @@ const envelopeSchema = new Schema<IEnvelope>(
     isRecurring: {
       type: Boolean,
       default: false
+    },
+    recurrenceFrequency: {
+      type: String,
+      enum: ['monthly', 'quarterly', 'semiannual', 'yearly'],
+      default: 'monthly'
+    },
+    recurrenceEndDate: {
+      type: Date
+    },
+    recurrenceRemainingCount: {
+      type: Number,
+      min: 1
     },
     isPaid: {
       type: Boolean,
@@ -163,6 +181,13 @@ export function toEnvelopeResponse(envelope: IEnvelope): EnvelopeResponse {
       : {}),
     date: envelope.date.toISOString(),
     isRecurring: envelope.isRecurring,
+    recurrenceFrequency: envelope.recurrenceFrequency ?? 'monthly',
+    ...(envelope.recurrenceEndDate
+      ? { recurrenceEndDate: envelope.recurrenceEndDate.toISOString() }
+      : {}),
+    ...(typeof envelope.recurrenceRemainingCount === 'number'
+      ? { recurrenceRemainingCount: envelope.recurrenceRemainingCount }
+      : {}),
     isPaid: envelope.isPaid,
     ...(envelope.memberId ? { memberId: envelope.memberId.toString() } : {}),
     ...(envelope.linkedGoalId ? { linkedGoalId: envelope.linkedGoalId.toString() } : {}),

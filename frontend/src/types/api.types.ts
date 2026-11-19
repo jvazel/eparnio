@@ -91,6 +91,15 @@ export interface PeriodWithEnvelopesResponse {
   envelopes: EnvelopeItem[];
 }
 
+export interface ClosePeriodResponse {
+  status: 'ok';
+  closedPeriod: BudgetPeriod;
+  nextPeriod: BudgetPeriod;
+  nextEnvelopes: EnvelopeItem[];
+  updatedGoals: SavingsGoalItem[];
+  transferredTotal: number;
+}
+
 export interface EnvelopesListResponse {
   status: 'ok';
   envelopes: EnvelopeItem[];
@@ -150,6 +159,12 @@ export interface GoalMutationResponse {
 export interface GoalDeleteResponse {
   status: 'ok';
   deletedId: string;
+}
+
+export interface GoalWithdrawalDeleteResponse {
+  status: 'ok';
+  deletedId: string;
+  goal: SavingsGoalItem;
 }
 
 export interface PeriodAnalyticsResponse {

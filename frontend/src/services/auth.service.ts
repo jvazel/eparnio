@@ -35,6 +35,7 @@ export interface UpdateProfilePayload {
   budgetStartDay?: number;
   theme?: ThemeMode;
   currency?: CurrencyCode;
+  defaultTab?: import('../types/budget.types').DefaultTabId;
 }
 
 export interface UpdatePasswordPayload {

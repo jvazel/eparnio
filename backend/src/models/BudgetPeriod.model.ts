@@ -17,6 +17,7 @@ export interface IBudgetPeriod extends Document {
   label: string;
   startDate: Date;
   endDate: Date;
+  closedAt?: Date;
   summary: IBudgetPeriodSummary;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +31,7 @@ export interface BudgetPeriodResponse {
   label: string;
   startDate: string;
   endDate: string;
+  closedAt?: string;
   summary: IBudgetPeriodSummary;
   createdAt: string;
   updatedAt: string;
@@ -80,6 +82,9 @@ const budgetPeriodSchema = new Schema<IBudgetPeriod>(
       type: Date,
       required: true
     },
+    closedAt: {
+      type: Date
+    },
     summary: {
       type: summarySchema,
       default: () => ({
@@ -113,6 +118,7 @@ export function toBudgetPeriodResponse(period: IBudgetPeriod): BudgetPeriodRespo
     label: period.label,
     startDate: period.startDate.toISOString(),
     endDate: period.endDate.toISOString(),
+    ...(period.closedAt ? { closedAt: period.closedAt.toISOString() } : {}),
     summary: {
       plannedIncome: period.summary.plannedIncome,
       plannedFixedCharges: period.summary.plannedFixedCharges,

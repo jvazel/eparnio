@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { PillarInfoPopover } from '../ui/PillarInfoPopover';
 import { BottomNav, type TabId } from './BottomNav';
 import { PeriodSelector } from './PeriodSelector';
-import { QuickAddButton } from './QuickAddButton';
+import { QuickAddButton, type QuickAddMenuAction } from './QuickAddButton';
 import { TopHeader } from './TopHeader';
 
 export interface MobileShellProps {
@@ -10,6 +10,7 @@ export interface MobileShellProps {
   avatarEmoji?: string;
   activeBudgetName?: string;
   periodLabel: string;
+  isPeriodClosed?: boolean;
   activeTab: TabId;
   sectionTitle: string;
   sectionDescription: string;
@@ -18,6 +19,7 @@ export interface MobileShellProps {
   onNextPeriod: () => void;
   onQuickAdd?: () => void;
   quickAddLabel?: string;
+  fabMenuActions?: QuickAddMenuAction[];
   onProfileClick?: () => void;
   onBudgetSwitcherClick?: () => void;
   children: ReactNode;
@@ -31,6 +33,7 @@ export function MobileShell({
   avatarEmoji,
   activeBudgetName,
   periodLabel,
+  isPeriodClosed = false,
   activeTab,
   sectionTitle,
   sectionDescription,
@@ -39,6 +42,7 @@ export function MobileShell({
   onNextPeriod,
   onQuickAdd,
   quickAddLabel,
+  fabMenuActions,
   onProfileClick,
   onBudgetSwitcherClick,
   children
@@ -57,6 +61,7 @@ export function MobileShell({
 
       <PeriodSelector
         label={periodLabel}
+        isClosed={isPeriodClosed}
         onPrevious={onPreviousPeriod}
         onNext={onNextPeriod}
       />
@@ -71,6 +76,7 @@ export function MobileShell({
         visible={showFab}
         onClick={() => onQuickAdd?.()}
         ariaLabel={quickAddLabel ?? `Ajouter dans ${sectionTitle}`}
+        menuActions={fabMenuActions}
       />
 
       <BottomNav activeTab={activeTab} onChange={onTabChange} />

@@ -6,7 +6,9 @@ import { App } from '../App';
 import { CreationFormModal } from '../features/budget/CreationFormModal';
 import { EnvelopesList } from '../features/budget/EnvelopesList';
 import { AddExpenseSheet } from '../features/transactions/AddExpenseSheet';
+import { EnvelopeDetailPage } from '../features/transactions/EnvelopeDetailPage';
 import { EnvelopeDetailSheet } from '../features/transactions/EnvelopeDetailSheet';
+import { TransactionHistory } from '../features/transactions/TransactionHistory';
 import * as budgetService from '../services/budget.service';
 import * as envelopeService from '../services/envelope.service';
 import * as periodService from '../services/period.service';
@@ -130,6 +132,7 @@ afterEach(() => {
   useAuthStore.getState().clearSession();
   useBudgetStore.getState().setActiveBudgetId(null);
   localStorage.clear();
+  document.documentElement.classList.remove('dark');
   vi.clearAllMocks();
 });
 
@@ -218,11 +221,292 @@ describe('Saisie au pouce — AddExpenseSheet, NumericKeypad & EnvelopeDetailShe
 
     expect(onSubmit).toHaveBeenCalledWith({
       envelopeId: 'env-courses',
+      type: 'expense',
       amount: 30,
       label: 'Primeur',
       date: '2026-11-12T12:00:00.000Z',
       paidByUserId: 'user-2'
     });
+  });
+
+  it('inclut le rolloverAmount (positif et négatif) dans le calcul live d’AddExpenseSheet', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    const { rerender } = render(
+      <AddExpenseSheet
+        isOpen
+        onClose={onClose}
+        envelope={{ ...coursesEnvelope, rolloverAmount: 50 }}
+        defaultDate="2026-11-12"
+        onSubmit={vi.fn()}
+      />
+    );
+
+    // 400 + 50 (rollover) - 120 (dépensé) = 330,00 €
+    const liveBanner = screen.getByTestId('live-remaining-in-envelope');
+    expect(normalizeSpaces(liveBanner.textContent ?? '')).toContain('330,00 €');
+
+    await user.type(screen.getByLabelText('Montant en euros'), '30');
+    expect(normalizeSpaces(liveBanner.textContent ?? '')).toContain('300,00 €');
+
+    // Rollover négatif (-20 €) : 400 - 20 - 120 = 260,00 € ; -30 -> 230,00 €
+    rerender(
+      <AddExpenseSheet
+        isOpen
+        onClose={onClose}
+        envelope={{ ...coursesEnvelope, rolloverAmount: -20 }}
+        defaultDate="2026-11-12"
+        onSubmit={vi.fn()}
+      />
+    );
+    expect(normalizeSpaces(screen.getByTestId('live-remaining-in-envelope').textContent ?? '')).toContain(
+      '230,00 €'
+    );
+  });
+
+  it('permet de saisir un remboursement avec note, puis de modifier et effacer la note en édition', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <AddExpenseSheet
+        isOpen
+        onClose={vi.fn()}
+        envelope={coursesEnvelope}
+        defaultDate="2026-11-12"
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Remboursement' }));
+    expect(screen.getByRole('dialog', { name: 'Ajouter un remboursement · Courses' })).toBeInTheDocument();
+    expect(screen.getByText('Reçu par')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Montant en euros'), '35');
+    // 280 + 35 = 315,00 €
+    expect(normalizeSpaces(screen.getByTestId('live-remaining-in-envelope').textContent ?? '')).toContain(
+      '315,00 €'
+    );
+
+    await user.type(screen.getByLabelText('Nom'), 'Avoir magasin');
+    await user.type(screen.getByLabelText('Note (optionnel)'), 'Ticket retour #12');
+    expect(screen.getByText('17 / 300')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      envelopeId: 'env-courses',
+      type: 'income',
+      amount: 35,
+      label: 'Avoir magasin',
+      date: '2026-11-12T12:00:00.000Z',
+      paidByUserId: 'user-1',
+      notes: 'Ticket retour #12'
+    });
+
+    const existingRefund: TransactionItem = {
+      id: 'tx-refund-1',
+      budgetId: 'budget-1',
+      budgetPeriodId: 'period-1',
+      envelopeId: 'env-courses',
+      authorId: 'user-1',
+      paidByUserId: 'user-2',
+      type: 'income',
+      amount: 35,
+      label: 'Avoir magasin',
+      date: '2026-11-12T12:00:00.000Z',
+      notes: 'Ticket retour #12'
+    };
+
+    const onEditSubmit = vi.fn().mockResolvedValue(undefined);
+    rerender(
+      <AddExpenseSheet
+        isOpen
+        onClose={vi.fn()}
+        envelope={coursesEnvelope}
+        initialTransaction={existingRefund}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget
+        onSubmit={onEditSubmit}
+      />
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Modifier le remboursement' })).toBeInTheDocument();
+    const notesField = screen.getByLabelText('Note (optionnel)');
+    expect(notesField).toHaveValue('Ticket retour #12');
+
+    await user.clear(notesField);
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    expect(onEditSubmit).toHaveBeenCalledWith({
+      envelopeId: 'env-courses',
+      type: 'income',
+      amount: 35,
+      label: 'Avoir magasin',
+      date: '2026-11-12T12:00:00.000Z',
+      paidByUserId: 'user-2',
+      notes: ''
+    });
+  });
+
+  it('affiche les remboursements (+ X € et badge) et les notes dans TransactionHistory en modes clair et sombre', () => {
+    const mixedTransactions: TransactionItem[] = [
+      ...sampleTransactions,
+      {
+        id: 'tx-refund',
+        budgetId: 'budget-1',
+        budgetPeriodId: 'period-1',
+        envelopeId: 'env-courses',
+        authorId: 'user-1',
+        paidByUserId: 'user-1',
+        type: 'income',
+        amount: 25.5,
+        label: 'Remboursement mutuelle',
+        date: '2026-11-10T12:00:00.000Z',
+        notes: 'Dossier optique'
+      }
+    ];
+
+    const { rerender } = render(
+      <TransactionHistory
+        transactions={mixedTransactions}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget
+        onEditTransaction={vi.fn()}
+        onDeleteTransaction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Remboursement')).toBeInTheDocument();
+    expect(screen.getByText('Dossier optique')).toBeInTheDocument();
+    const refundAmount = screen.getByText((_, node) =>
+      normalizeSpaces(node?.textContent ?? '') === '+25,50 €'
+    );
+    expect(refundAmount.className).toContain('text-emerald-600');
+    expect(refundAmount.className).toContain('dark:text-emerald-400');
+
+    // Vérification en mode sombre
+    document.documentElement.classList.add('dark');
+    rerender(
+      <TransactionHistory
+        transactions={mixedTransactions}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget
+        onEditTransaction={vi.fn()}
+        onDeleteTransaction={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Remboursement')).toHaveClass('dark:text-emerald-300');
+    expect(screen.getByText('Dossier optique')).toBeInTheDocument();
+  });
+
+  it('filtre aussi par note et calcule le sous-total net dans EnvelopeDetailPage', async () => {
+    const user = userEvent.setup();
+    const detailTxs: TransactionItem[] = [
+      {
+        id: 'tx-a',
+        budgetId: 'budget-1',
+        budgetPeriodId: 'period-1',
+        envelopeId: 'env-courses',
+        authorId: 'user-1',
+        paidByUserId: 'user-1',
+        type: 'expense',
+        amount: 100,
+        label: 'Pharmacie',
+        date: '2026-11-08T12:00:00.000Z',
+        notes: 'Ordonnance optique'
+      },
+      {
+        id: 'tx-b',
+        budgetId: 'budget-1',
+        budgetPeriodId: 'period-1',
+        envelopeId: 'env-courses',
+        authorId: 'user-1',
+        paidByUserId: 'user-1',
+        type: 'income',
+        amount: 40,
+        label: 'Mutuelle',
+        date: '2026-11-09T12:00:00.000Z',
+        notes: 'Remboursement optique'
+      },
+      {
+        id: 'tx-c',
+        budgetId: 'budget-1',
+        budgetPeriodId: 'period-1',
+        envelopeId: 'env-courses',
+        authorId: 'user-1',
+        paidByUserId: 'user-1',
+        type: 'expense',
+        amount: 20,
+        label: 'Boulangerie',
+        date: '2026-11-10T12:00:00.000Z'
+      }
+    ];
+
+    render(
+      <EnvelopeDetailPage
+        envelope={{ ...coursesEnvelope, spentOrPaidAmount: 80 }}
+        allEnvelopes={[coursesEnvelope]}
+        transactions={detailTxs}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget={false}
+        onBack={vi.fn()}
+        onAddExpense={vi.fn()}
+        onEditExpense={vi.fn()}
+        onDeleteExpense={vi.fn()}
+        onEditEnvelope={vi.fn()}
+        onRebalanceEnvelope={vi.fn()}
+        onDeleteEnvelope={vi.fn()}
+      />
+    );
+
+    // Recherche par texte dans `notes` ("optique") -> Pharmacie (100 €) + Mutuelle (-40 €) = net 60,00 €
+    const searchInput = screen.getByPlaceholderText('Rechercher une dépense…');
+    await user.type(searchInput, 'optique');
+
+    expect(screen.getByText('Pharmacie')).toBeInTheDocument();
+    expect(screen.getByText('Mutuelle')).toBeInTheDocument();
+    expect(screen.queryByText('Boulangerie')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, node) =>
+          node?.tagName.toLowerCase() === 'span' &&
+          normalizeSpaces(node.textContent ?? '') === '2 éléments · Total : 60,00 €'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('affiche la jauge verte en crédit net sur EnvelopeDetailPage lorsque les remboursements dépassent les dépenses', () => {
+    render(
+      <EnvelopeDetailPage
+        envelope={{ ...coursesEnvelope, spentOrPaidAmount: -25 }}
+        allEnvelopes={[coursesEnvelope]}
+        transactions={[]}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget={false}
+        onBack={vi.fn()}
+        onAddExpense={vi.fn()}
+        onEditExpense={vi.fn()}
+        onDeleteExpense={vi.fn()}
+        onEditEnvelope={vi.fn()}
+        onRebalanceEnvelope={vi.fn()}
+        onDeleteEnvelope={vi.fn()}
+      />
+    );
+
+    const gaugeValue = screen.getByText(
+      (_, node) =>
+        node?.tagName.toLowerCase() === 'span' &&
+        normalizeSpaces(node.textContent ?? '') === '-25,00 €'
+    );
+    expect(gaugeValue.className).toContain('text-emerald-600');
   });
 
   it('permet de rééquilibrer une enveloppe et de gérer l’historique des dépenses', async () => {

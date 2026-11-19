@@ -12,6 +12,14 @@ export interface IBudgetMember {
   joinedAt: Date;
 }
 
+export interface IQuickTemplate {
+  _id: mongoose.Types.ObjectId;
+  label: string;
+  envelopeName: string;
+  defaultAmount?: number;
+  order: number;
+}
+
 export interface IBudget extends Document {
   name: string;
   type: BudgetType;
@@ -21,6 +29,7 @@ export interface IBudget extends Document {
   inviteCode?: string;
   inviteExpiresAt?: Date;
   budgetStartDay: number;
+  quickTemplates: IQuickTemplate[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +61,13 @@ export interface BudgetResponse {
   inviteCode?: string;
   inviteExpiresAt?: string;
   budgetStartDay: number;
+  quickTemplates: Array<{
+    id: string;
+    label: string;
+    envelopeName: string;
+    defaultAmount?: number;
+    order: number;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -114,6 +130,20 @@ const budgetSchema = new Schema<IBudget>(
     inviteCode: {
       type: String
     },
+    quickTemplates: {
+      type: [
+        new Schema<IQuickTemplate>(
+          {
+            label: { type: String, required: true, trim: true },
+            envelopeName: { type: String, required: true, trim: true },
+            defaultAmount: { type: Number, min: 0 },
+            order: { type: Number, default: 0 }
+          },
+          { _id: true }
+        )
+      ],
+      default: []
+    },
     inviteExpiresAt: {
       type: Date
     },
@@ -162,6 +192,13 @@ export function toBudgetResponse(
     ...(budget.inviteCode ? { inviteCode: budget.inviteCode } : {}),
     ...(budget.inviteExpiresAt ? { inviteExpiresAt: budget.inviteExpiresAt.toISOString() } : {}),
     budgetStartDay: budget.budgetStartDay,
+    quickTemplates: (budget.quickTemplates ?? []).map((tpl) => ({
+      id: tpl._id.toString(),
+      label: tpl.label,
+      envelopeName: tpl.envelopeName,
+      ...(tpl.defaultAmount !== undefined ? { defaultAmount: tpl.defaultAmount } : {}),
+      order: tpl.order
+    })),
     createdAt: budget.createdAt.toISOString(),
     updatedAt: budget.updatedAt.toISOString()
   };

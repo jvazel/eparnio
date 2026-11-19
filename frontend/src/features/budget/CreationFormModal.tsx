@@ -8,8 +8,14 @@ import {
   parseAmountString
 } from '../../components/ui/NumericKeypad';
 import type { CreateEnvelopePayload } from '../../services/envelope.service';
-import type { BudgetMember, EnvelopeItem, PillarType } from '../../types/budget.types';
+import type {
+  BudgetMember,
+  EnvelopeItem,
+  PillarType,
+  RecurrenceFrequency
+} from '../../types/budget.types';
 import { formatCurrency, toDateInputValue } from '../../utils/format';
+import { RECURRENCE_FREQUENCY_OPTIONS } from './recurrence';
 import {
   AmountHeroField,
   ColorSwatchPicker,
@@ -120,6 +126,10 @@ export function CreationFormModal({
   const [name, setName] = useState('');
   const [dateValue, setDateValue] = useState(resolvedDefaultDate);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly');
+  const [recurrenceLimitMode, setRecurrenceLimitMode] = useState<'none' | 'count' | 'end_date'>('none');
+  const [remainingCountInput, setRemainingCountInput] = useState('3');
+  const [endDateValue, setEndDateValue] = useState('');
   const [rolloverEnabled, setRolloverEnabled] = useState(false);
   const [rolloverMode, setRolloverMode] = useState<'positive_only' | 'both'>('positive_only');
   const [icon, setIcon] = useState(defaultIcon);
@@ -130,6 +140,10 @@ export function CreationFormModal({
 
   const nameInputId = useId();
   const recurringCheckboxId = useId();
+  const remainingCountInputId = useId();
+  const remainingCountHintId = useId();
+  const endDateInputId = useId();
+  const endDateHintId = useId();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -139,6 +153,20 @@ export function CreationFormModal({
       setName(initialItem.name);
       setDateValue(toDateInputValue(initialItem.date));
       setIsRecurring(initialItem.isRecurring);
+      setRecurrenceFrequency(initialItem.recurrenceFrequency ?? 'monthly');
+      if (typeof initialItem.recurrenceRemainingCount === 'number') {
+        setRecurrenceLimitMode('count');
+        setRemainingCountInput(String(initialItem.recurrenceRemainingCount));
+        setEndDateValue('');
+      } else if (initialItem.recurrenceEndDate) {
+        setRecurrenceLimitMode('end_date');
+        setEndDateValue(toDateInputValue(initialItem.recurrenceEndDate));
+        setRemainingCountInput('3');
+      } else {
+        setRecurrenceLimitMode('none');
+        setRemainingCountInput('3');
+        setEndDateValue('');
+      }
       setRolloverEnabled(initialItem.rolloverEnabled ?? false);
       setRolloverMode(initialItem.rolloverMode ?? 'positive_only');
       setIcon(initialItem.icon || defaultIcon);
@@ -149,6 +177,12 @@ export function CreationFormModal({
       setName('');
       setDateValue(resolvedDefaultDate);
       setIsRecurring(false);
+      setRecurrenceFrequency('monthly');
+      setRecurrenceLimitMode('none');
+      setRemainingCountInput('3');
+      setEndDateValue('');
+      setRolloverEnabled(false);
+      setRolloverMode('positive_only');
       setIcon(defaultIcon);
       setColor(defaultColor);
       setMemberId(currentUserId);
@@ -187,6 +221,28 @@ export function CreationFormModal({
       return;
     }
 
+    let parsedRemainingCount: number | null = null;
+    let resolvedEndDateIso: string | null = null;
+
+    if (showScheduleCards && isRecurring) {
+      if (recurrenceLimitMode === 'count') {
+        const parsed = Number.parseInt(remainingCountInput, 10);
+        if (!remainingCountInput || Number.isNaN(parsed) || parsed < 1 || parsed > 600) {
+          setErrorMessage('Veuillez saisir un nombre de mensualités valide (1 à 600).');
+          return;
+        }
+        parsedRemainingCount = parsed;
+      } else if (recurrenceLimitMode === 'end_date') {
+        if (!endDateValue || endDateValue < dateValue) {
+          setErrorMessage(
+            'La date de fin doit être renseignée et postérieure ou égale à la date de début.'
+          );
+          return;
+        }
+        resolvedEndDateIso = new Date(`${endDateValue}T23:59:59.999Z`).toISOString();
+      }
+    }
+
     try {
       await onSubmit({
         pillar,
@@ -196,6 +252,13 @@ export function CreationFormModal({
         allocatedAmount: numericAmount,
         date: new Date(`${dateValue}T12:00:00.000Z`).toISOString(),
         isRecurring: pillar === 'variable_envelope' ? true : isRecurring,
+        ...(showScheduleCards
+          ? {
+              recurrenceFrequency: isRecurring ? recurrenceFrequency : 'monthly',
+              recurrenceRemainingCount: isRecurring ? parsedRemainingCount : null,
+              recurrenceEndDate: isRecurring ? resolvedEndDateIso : null
+            }
+          : {}),
         isPaid: initialItem?.isPaid ?? false,
         ...(pillar === 'variable_envelope'
           ? { rolloverEnabled, rolloverMode }
@@ -231,6 +294,7 @@ export function CreationFormModal({
     <BottomSheet isOpen={isOpen} onClose={onClose} title={modalTitle}>
       <form
         method="post"
+        noValidate
         onSubmit={handleFormSubmit}
         className="space-y-4 rounded-3xl bg-gradient-to-b from-violet-50/75 via-blue-50/45 to-slate-50/60 p-3.5 dark:from-slate-800/80 dark:via-slate-900/90 dark:to-slate-900"
       >
@@ -286,29 +350,164 @@ export function CreationFormModal({
             <>
               <DateCardField value={dateValue} onChange={setDateValue} />
 
-              <label
-                htmlFor={recurringCheckboxId}
-                className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-card dark:border-slate-800 dark:bg-slate-900"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Ajouter chaque mois</p>
-                    <p className="text-xs text-slate-500">
-                      {config.recurringLabel} · Inclus gratuitement
-                    </p>
+              <div className="space-y-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-card dark:border-slate-800 dark:bg-slate-900">
+                <label
+                  htmlFor={recurringCheckboxId}
+                  className="flex min-h-11 cursor-pointer items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300">
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                        Ajouter chaque mois
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {config.recurringLabel} · Inclus gratuitement
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <input
-                  id={recurringCheckboxId}
-                  type="checkbox"
-                  checked={isRecurring}
-                  onChange={(event) => setIsRecurring(event.target.checked)}
-                  className="h-5 w-5 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-                />
-              </label>
+                  <input
+                    id={recurringCheckboxId}
+                    type="checkbox"
+                    checked={isRecurring}
+                    onChange={(event) => setIsRecurring(event.target.checked)}
+                    className="h-5 w-5 rounded border-slate-300 text-violet-600 focus:ring-violet-500 dark:border-slate-600 dark:bg-slate-800"
+                  />
+                </label>
+
+                {isRecurring && (
+                  <div className="space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <fieldset>
+                      <legend className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        Fréquence
+                      </legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        {RECURRENCE_FREQUENCY_OPTIONS.map((option) => {
+                          const isSelected = recurrenceFrequency === option.value;
+                          return (
+                            <label
+                              key={option.value}
+                              className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-within:ring-2 focus-within:ring-violet-500 ${
+                                isSelected
+                                  ? 'border-violet-600 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-200'
+                                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="recurrenceFrequency"
+                                value={option.value}
+                                checked={isSelected}
+                                onChange={() => setRecurrenceFrequency(option.value)}
+                                className="sr-only"
+                              />
+                              <span>{option.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+
+                    <fieldset>
+                      <legend className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        Limite optionnelle
+                      </legend>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(
+                          [
+                            { value: 'none', label: 'Aucune' },
+                            { value: 'count', label: 'Mensualités' },
+                            { value: 'end_date', label: 'Date de fin' }
+                          ] as const
+                        ).map((modeOption) => {
+                          const isSelected = recurrenceLimitMode === modeOption.value;
+                          return (
+                            <label
+                              key={modeOption.value}
+                              className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-2 py-2 text-center text-xs font-semibold transition-colors focus-within:ring-2 focus-within:ring-violet-500 ${
+                                isSelected
+                                  ? 'border-violet-600 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-200'
+                                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="recurrenceLimitMode"
+                                value={modeOption.value}
+                                checked={isSelected}
+                                onChange={() => setRecurrenceLimitMode(modeOption.value)}
+                                className="sr-only"
+                              />
+                              <span>{modeOption.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+
+                    {recurrenceLimitMode === 'count' && (
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={remainingCountInputId}
+                          className="block text-xs font-semibold text-slate-600 dark:text-slate-300"
+                        >
+                          Nombre de mensualités restantes
+                        </label>
+                        <input
+                          id={remainingCountInputId}
+                          name="recurrenceRemainingCount"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={3}
+                          value={remainingCountInput}
+                          onChange={(event) =>
+                            setRemainingCountInput(event.target.value.replace(/\D+/g, ''))
+                          }
+                          aria-describedby={remainingCountHintId}
+                          placeholder="Ex. 3"
+                          className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold tabular-nums text-slate-900 focus:border-violet-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50"
+                        />
+                        <p
+                          id={remainingCountHintId}
+                          className="text-[11px] text-slate-500 dark:text-slate-400"
+                        >
+                          Échéance en cours incluse (ex. 3 pour un paiement en 3x).
+                        </p>
+                      </div>
+                    )}
+
+                    {recurrenceLimitMode === 'end_date' && (
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={endDateInputId}
+                          className="block text-xs font-semibold text-slate-600 dark:text-slate-300"
+                        >
+                          Date de fin de récurrence
+                        </label>
+                        <input
+                          id={endDateInputId}
+                          name="recurrenceEndDate"
+                          type="date"
+                          min={dateValue}
+                          value={endDateValue}
+                          onChange={(event) => setEndDateValue(event.target.value)}
+                          aria-describedby={endDateHintId}
+                          className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900 focus:border-violet-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50"
+                        />
+                        <p
+                          id={endDateHintId}
+                          className="text-[11px] text-slate-500 dark:text-slate-400"
+                        >
+                          Dernier jour inclus pour la reconduction automatique.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
@@ -383,7 +582,7 @@ export function CreationFormModal({
         {errorMessage && (
           <p
             role="alert"
-            className="rounded-2xl bg-red-50 px-3.5 py-2.5 text-xs font-semibold text-red-600"
+            className="rounded-2xl bg-red-50 px-3.5 py-2.5 text-xs font-semibold text-red-600 dark:bg-red-950/60 dark:text-red-300"
           >
             {errorMessage}
           </p>

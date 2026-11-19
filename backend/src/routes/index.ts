@@ -8,6 +8,12 @@ import {
   periodAnalyticsParamsSchema,
   periodAnalyticsQuerySchema
 } from '../controllers/analytics.controller';
+import {
+  exportBudgetCsv,
+  exportBudgetJson,
+  exportBudgetParamsSchema,
+  exportCsvQuerySchema
+} from '../controllers/export.controller';
 import { authRouter } from './auth.routes';
 import { budgetRouter } from './budget.routes';
 import { envelopeRouter } from './envelope.routes';
@@ -40,6 +46,18 @@ apiRouter.post('/health/echo', validate({ body: echoBodySchema }), (req, res) =>
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/budgets', budgetRouter);
+apiRouter.get(
+  '/budgets/:budgetId/export/csv',
+  requireAuth,
+  validate({ params: exportBudgetParamsSchema, query: exportCsvQuerySchema }),
+  exportBudgetCsv
+);
+apiRouter.get(
+  '/budgets/:budgetId/export/json',
+  requireAuth,
+  validate({ params: exportBudgetParamsSchema }),
+  exportBudgetJson
+);
 apiRouter.use('/budgets/:budgetId/goals', goalRouter);
 apiRouter.use('/budgets/:budgetId/periods', periodRouter);
 apiRouter.use('/periods/:periodId/envelopes', envelopeRouter);

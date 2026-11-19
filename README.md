@@ -2,6 +2,8 @@
 
 Application **Mobile-First (PWA)** de gestion budgétaire personnelle et partagée, reposant sur la méthode du **Budget Base Zéro** et la saisie manuelle proactive.
 
+> 📖 **Manuel Utilisateur :** Consultez [USER_GUIDE.md](./USER_GUIDE.md) pour le guide complet d'utilisation d'Eparnio (pas à pas, fonctionnalités avancées, budget commun, exports et mode hors-ligne).
+
 ## Architecture
 
 - `frontend/` : Web App Mobile-First / PWA (React 18, TypeScript, Vite, Tailwind CSS, TanStack Query, Zustand).

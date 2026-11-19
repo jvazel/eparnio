@@ -20,7 +20,7 @@ export function MonthVsEnvelopesCard({
   const elapsedDays = Math.min(safeTotalDays, Math.max(1, safeTotalDays - Math.max(0, daysRemaining)));
   const monthProgress = Math.round((elapsedDays / safeTotalDays) * 100);
   const envelopesProgress =
-    plannedEnvelopes > 0 ? Math.round((spentVariables / plannedEnvelopes) * 100) : 0;
+    plannedEnvelopes > 0 ? Math.max(0, Math.round((spentVariables / plannedEnvelopes) * 100)) : 0;
 
   const isAheadOfPace = envelopesProgress > monthProgress + 10;
 

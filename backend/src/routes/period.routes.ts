@@ -2,6 +2,8 @@ import { Router } from 'express';
 import {
   budgetPeriodParamsSchema,
   byMonthQuerySchema,
+  closePeriod,
+  closePeriodBodySchema,
   createPeriod,
   createPeriodBodySchema,
   getCurrentPeriod,
@@ -31,6 +33,11 @@ periodRouter.post(
   '/:periodId/rollover',
   validate({ params: periodRolloverParamsSchema }),
   triggerRollover
+);
+periodRouter.post(
+  '/:periodId/close',
+  validate({ params: periodRolloverParamsSchema, body: closePeriodBodySchema }),
+  closePeriod
 );
 
 export { periodRouter };

@@ -68,6 +68,7 @@ export const updateProfileSchema = z.object({
   hasCompletedOnboarding: z.boolean().optional(),
   budgetStartDay: z.coerce.number().int().min(1).max(31).optional(),
   theme: z.enum(['light', 'dark']).optional(),
+  defaultTab: z.enum(['revenus', 'depenses', 'enveloppes', 'epargne', 'budget']).optional(),
   currency: z.literal('EUR').optional()
 });
 
@@ -235,6 +236,9 @@ export async function updateMe(req: Request, res: Response, next: NextFunction):
     }
     if (payload.currency !== undefined) {
       user.preferences.currency = payload.currency;
+    }
+    if (payload.defaultTab !== undefined) {
+      user.preferences.defaultTab = payload.defaultTab;
     }
 
     await user.save();

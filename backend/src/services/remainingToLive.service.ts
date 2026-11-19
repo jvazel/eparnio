@@ -76,7 +76,11 @@ export async function recalculateSavingsGoalCurrentAmount(
   });
 
   const totalContributions = linkedEnvelopes.reduce((acc, env) => acc + env.allocatedAmount, 0);
-  goal.currentAmount = Math.max(0, roundCurrency((goal.initialAmount ?? 0) + totalContributions));
+  const totalWithdrawals = (goal.withdrawals ?? []).reduce((acc, item) => acc + item.amount, 0);
+  goal.currentAmount = Math.max(
+    0,
+    roundCurrency((goal.initialAmount ?? 0) + totalContributions - totalWithdrawals)
+  );
   await goal.save();
   return goal;
 }
@@ -108,7 +112,11 @@ export async function recalculateEnvelopeAndPeriod(
     return tx.type === 'income' ? acc - tx.amount : acc + tx.amount;
   }, 0);
 
-  const spentOrPaidAmount = Math.max(0, roundCurrency(rawTotal));
+  const roundedTotal = roundCurrency(rawTotal);
+  const spentOrPaidAmount =
+    existingEnvelope.pillar === 'variable_envelope'
+      ? roundedTotal
+      : Math.max(0, roundedTotal);
   const updateSet: { spentOrPaidAmount: number; allocatedAmount?: number } = {
     spentOrPaidAmount
   };

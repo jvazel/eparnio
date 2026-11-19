@@ -9,6 +9,9 @@ import { EnvelopeModel } from '../models/Envelope.model';
 import { UserModel } from '../models/User.model';
 import {
   computeCycleBounds,
+  computeMonthsDifference,
+  computeNextRecurrenceRemainingCount,
+  isRolloverCandidate,
   resolveCycleYearMonthForDate
 } from '../services/periodRollover.service';
 import { calculateRemainingToLive } from '../services/remainingToLive.service';
@@ -51,6 +54,128 @@ describe('Services financiers Base Zéro, Reste à vivre & Cycles', () => {
 
     const cycleOct10 = resolveCycleYearMonthForDate(new Date('2025-10-10T10:00:00.000Z'), 28);
     expect(cycleOct10).toEqual({ year: 2025, month: 10 });
+  });
+
+  it('évalue isRolloverCandidate et computeNextRecurrenceRemainingCount (fréquences, date de fin, mensualités)', () => {
+    expect(computeMonthsDifference({ year: 2026, month: 1 }, { year: 2026, month: 4 })).toBe(3);
+
+    expect(
+      computeNextRecurrenceRemainingCount(
+        { recurrenceFrequency: 'monthly', recurrenceRemainingCount: 3 },
+        1
+      )
+    ).toBe(2);
+    expect(
+      computeNextRecurrenceRemainingCount(
+        { recurrenceFrequency: 'quarterly', recurrenceRemainingCount: 2 },
+        3
+      )
+    ).toBe(1);
+    expect(
+      computeNextRecurrenceRemainingCount(
+        { recurrenceFrequency: 'monthly', recurrenceRemainingCount: 1 },
+        1
+      )
+    ).toBeUndefined();
+
+    const baseQuarterly = {
+      pillar: 'fixed_charge' as const,
+      isRecurring: true,
+      recurrenceFrequency: 'quarterly' as const,
+      date: new Date('2026-01-10T12:00:00.000Z')
+    };
+
+    expect(
+      isRolloverCandidate(baseQuarterly, {
+        sourceYear: 2026,
+        sourceMonth: 1,
+        targetYear: 2026,
+        targetMonth: 2
+      })
+    ).toBe(false);
+    expect(
+      isRolloverCandidate(baseQuarterly, {
+        sourceYear: 2026,
+        sourceMonth: 1,
+        targetYear: 2026,
+        targetMonth: 4
+      })
+    ).toBe(true);
+
+    const semiannual = {
+      pillar: 'fixed_charge' as const,
+      isRecurring: true,
+      recurrenceFrequency: 'semiannual' as const,
+      date: new Date('2026-01-10T12:00:00.000Z')
+    };
+    expect(
+      isRolloverCandidate(semiannual, {
+        sourceYear: 2026,
+        sourceMonth: 1,
+        targetYear: 2026,
+        targetMonth: 4
+      })
+    ).toBe(false);
+    expect(
+      isRolloverCandidate(semiannual, {
+        sourceYear: 2026,
+        sourceMonth: 1,
+        targetYear: 2026,
+        targetMonth: 7
+      })
+    ).toBe(true);
+
+    const yearly = {
+      pillar: 'income' as const,
+      isRecurring: true,
+      recurrenceFrequency: 'yearly' as const,
+      date: new Date('2026-01-10T12:00:00.000Z')
+    };
+    expect(
+      isRolloverCandidate(yearly, {
+        sourceYear: 2026,
+        sourceMonth: 1,
+        targetYear: 2027,
+        targetMonth: 1
+      })
+    ).toBe(true);
+
+    const limitedEndDate = {
+      pillar: 'fixed_charge' as const,
+      isRecurring: true,
+      recurrenceFrequency: 'monthly' as const,
+      recurrenceEndDate: new Date('2026-03-10T00:00:00.000Z'),
+      date: new Date('2026-01-10T12:00:00.000Z')
+    };
+    expect(
+      isRolloverCandidate(limitedEndDate, {
+        sourceYear: 2026,
+        sourceMonth: 2,
+        targetYear: 2026,
+        targetMonth: 3
+      })
+    ).toBe(true);
+    expect(
+      isRolloverCandidate(limitedEndDate, {
+        sourceYear: 2026,
+        sourceMonth: 3,
+        targetYear: 2026,
+        targetMonth: 4
+      })
+    ).toBe(false);
+
+    expect(
+      isRolloverCandidate(
+        {
+          pillar: 'fixed_charge',
+          isRecurring: true,
+          recurrenceFrequency: 'monthly',
+          recurrenceRemainingCount: 1,
+          date: new Date('2026-03-10T12:00:00.000Z')
+        },
+        { sourceYear: 2026, sourceMonth: 3, targetYear: 2026, targetMonth: 4 }
+      )
+    ).toBe(false);
   });
 });
 
@@ -280,5 +405,144 @@ describe('API Cycles Budgétaires & Enveloppes (/periods & /envelopes)', () => {
     expect(febRolloverRes.status).toBe(200);
     expect(febRolloverRes.body.period.label).toBe('Février 2026');
     expect(febRolloverRes.body.envelopes).toHaveLength(3);
+  });
+
+  it('reconduit les fréquences trimestrielles/semestrielles/annuelles, décrémente les mensualités et stoppe à échéance', async () => {
+    const { token, budgetId } = await setupUserAndBudget('advanced-rec@eparnio.fr');
+
+    const janRes = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2026&month=1`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(janRes.status).toBe(200);
+    const janPeriodId = janRes.body.period.id as string;
+
+    // 1. Paiement en 3x (mensualités restantes : 3 en Jan -> 2 en Fév -> 1 en Mar -> stoppé en Avr)
+    const splitRes = await request(app)
+      .post(`/api/periods/${janPeriodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        pillar: 'fixed_charge',
+        name: 'Paiement 3x',
+        allocatedAmount: 100,
+        date: '2026-01-05T12:00:00.000Z',
+        isRecurring: true,
+        recurrenceFrequency: 'monthly',
+        recurrenceRemainingCount: 3
+      });
+    expect(splitRes.status).toBe(201);
+    expect(splitRes.body.envelope.recurrenceRemainingCount).toBe(3);
+
+    // 2. Récurrence avec date de fin inclusive (15 mars 2026)
+    const endRes = await request(app)
+      .post(`/api/periods/${janPeriodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        pillar: 'fixed_charge',
+        name: 'Salle de sport',
+        allocatedAmount: 40,
+        date: '2026-01-10T12:00:00.000Z',
+        isRecurring: true,
+        recurrenceFrequency: 'monthly',
+        recurrenceEndDate: '2026-03-15T23:59:59.999Z'
+      });
+    expect(endRes.status).toBe(201);
+
+    // 3. Charge trimestrielle + charge semestrielle + revenu annuel
+    const quartRes = await request(app)
+      .post(`/api/periods/${janPeriodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        pillar: 'fixed_charge',
+        name: 'Eau trimestrielle',
+        allocatedAmount: 150,
+        date: '2026-01-12T12:00:00.000Z',
+        isRecurring: true,
+        recurrenceFrequency: 'quarterly'
+      });
+    expect(quartRes.status).toBe(201);
+
+    await request(app)
+      .post(`/api/periods/${janPeriodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        pillar: 'fixed_charge',
+        name: 'Assurance semestrielle',
+        allocatedAmount: 300,
+        date: '2026-01-15T12:00:00.000Z',
+        isRecurring: true,
+        recurrenceFrequency: 'semiannual'
+      });
+
+    await request(app)
+      .post(`/api/periods/${janPeriodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        pillar: 'income',
+        name: 'Prime annuelle',
+        allocatedAmount: 1200,
+        date: '2026-01-20T12:00:00.000Z',
+        isRecurring: true,
+        recurrenceFrequency: 'yearly'
+      });
+
+    // Février 2026 : Paiement 3x (2 restantes) + Salle de sport ; trimestrielle/semestrielle/annuelle absentes
+    const febRes = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2026&month=2`)
+      .set('Authorization', `Bearer ${token}`);
+    const febEnvs = febRes.body.envelopes as Array<{
+      name: string;
+      recurrenceRemainingCount?: number;
+    }>;
+    expect(febEnvs.find((e) => e.name === 'Paiement 3x')?.recurrenceRemainingCount).toBe(2);
+    expect(febEnvs.find((e) => e.name === 'Salle de sport')).toBeDefined();
+    expect(febEnvs.find((e) => e.name === 'Eau trimestrielle')).toBeUndefined();
+
+    // Mars 2026 : Paiement 3x (1 restante) + Salle de sport (10 mars <= 15 mars)
+    const marRes = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2026&month=3`)
+      .set('Authorization', `Bearer ${token}`);
+    const marEnvs = marRes.body.envelopes as Array<{
+      id: string;
+      name: string;
+      recurrenceRemainingCount?: number;
+    }>;
+    expect(marEnvs.find((e) => e.name === 'Paiement 3x')?.recurrenceRemainingCount).toBe(1);
+    expect(marEnvs.find((e) => e.name === 'Salle de sport')).toBeDefined();
+    expect(marEnvs.find((e) => e.name === 'Eau trimestrielle')).toBeUndefined();
+
+    // Avril 2026 (navigation séquentielle depuis Mars) :
+    // Paiement 3x stoppé, Salle de sport stoppée (10 avril > 15 mars), Eau trimestrielle réapparaît !
+    const aprRes = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2026&month=4`)
+      .set('Authorization', `Bearer ${token}`);
+    const aprEnvs = aprRes.body.envelopes as Array<{ id: string; name: string }>;
+    expect(aprEnvs.find((e) => e.name === 'Paiement 3x')).toBeUndefined();
+    expect(aprEnvs.find((e) => e.name === 'Salle de sport')).toBeUndefined();
+    const eauApr = aprEnvs.find((e) => e.name === 'Eau trimestrielle');
+    expect(eauApr).toBeDefined();
+
+    // PATCH réinitialisant les options en passant isRecurring à false
+    const stopRes = await request(app)
+      .patch(`/api/periods/${aprRes.body.period.id}/envelopes/${eauApr!.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ isRecurring: false });
+    expect(stopRes.status).toBe(200);
+    expect(stopRes.body.envelope.isRecurring).toBe(false);
+    expect(stopRes.body.envelope.recurrenceFrequency).toBe('monthly');
+
+    // Juillet 2026 (M+6) : Assurance semestrielle présente, Eau trimestrielle stoppée en avril donc absente
+    const julRes = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2026&month=7`)
+      .set('Authorization', `Bearer ${token}`);
+    const julEnvs = julRes.body.envelopes as Array<{ name: string }>;
+    expect(julEnvs.find((e) => e.name === 'Assurance semestrielle')).toBeDefined();
+    expect(julEnvs.find((e) => e.name === 'Eau trimestrielle')).toBeUndefined();
+
+    // Janvier 2027 (M+12) : Prime annuelle reconduite
+    const jan27Res = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2027&month=1`)
+      .set('Authorization', `Bearer ${token}`);
+    const jan27Envs = jan27Res.body.envelopes as Array<{ name: string }>;
+    expect(jan27Envs.find((e) => e.name === 'Prime annuelle')).toBeDefined();
   });
 });

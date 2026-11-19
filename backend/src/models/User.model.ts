@@ -2,11 +2,13 @@ import mongoose, { type Document, Schema } from 'mongoose';
 
 export type CurrencyCode = 'EUR';
 export type ThemeMode = 'light' | 'dark';
+export type DefaultTabId = 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget';
 
 export interface IUserPreferences {
   currency: CurrencyCode;
   budgetStartDay: number;
   theme: ThemeMode;
+  defaultTab?: DefaultTabId;
 }
 
 export interface IWebAuthnCredential {
@@ -167,7 +169,8 @@ export function toUserResponse(user: IUser): UserResponse {
     preferences: {
       currency: user.preferences.currency,
       budgetStartDay: user.preferences.budgetStartDay,
-      theme: user.preferences.theme
+      theme: user.preferences.theme,
+      defaultTab: user.preferences.defaultTab ?? 'depenses'
     },
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString()

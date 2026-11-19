@@ -60,6 +60,9 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
     user?.preferences.budgetStartDay ?? 1
   );
   const [theme, setTheme] = useState<ThemeMode>(user?.preferences.theme ?? 'light');
+  const [defaultTab, setDefaultTab] = useState<NonNullable<typeof user>['preferences']['defaultTab']>(
+    user?.preferences.defaultTab ?? 'depenses'
+  );
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -83,6 +86,7 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
       setAvatarEmoji(user.avatarEmoji);
       setBudgetStartDay(user.preferences.budgetStartDay);
       setTheme(document.documentElement.classList.contains('dark') ? 'dark' : user.preferences.theme);
+      setDefaultTab(user.preferences.defaultTab ?? 'depenses');
       setProfileStatus(null);
       setProfileError(null);
     }
@@ -137,7 +141,8 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
         displayName: displayName.trim(),
         avatarEmoji,
         budgetStartDay,
-        theme
+        theme,
+        ...(defaultTab !== (user?.preferences.defaultTab ?? 'depenses') ? { defaultTab } : {})
       });
       updateUser(updated);
       await queryClient.invalidateQueries({ queryKey: ['budgets'] });
@@ -289,6 +294,32 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
                 onChange={(e) => setBudgetStartDay(Number(e.target.value))}
                 className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-base font-bold tabular-nums text-slate-900 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:bg-slate-800"
               />
+            </div>
+
+            <div>
+              <label
+                htmlFor="profile-default-tab"
+                className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200"
+              >
+                Onglet d&apos;ouverture par défaut
+              </label>
+              <select
+                id="profile-default-tab"
+                name="defaultTab"
+                value={defaultTab ?? 'depenses'}
+                onChange={(e) =>
+                  setDefaultTab(
+                    e.target.value as 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget'
+                  )
+                }
+                className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-semibold text-slate-900 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50"
+              >
+                <option value="depenses">Dépenses fixes</option>
+                <option value="enveloppes">Enveloppes</option>
+                <option value="revenus">Revenus</option>
+                <option value="epargne">Épargne</option>
+                <option value="budget">Budget</option>
+              </select>
             </div>
 
             <div>

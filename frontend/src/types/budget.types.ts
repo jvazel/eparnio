@@ -1,10 +1,12 @@
 export type CurrencyCode = 'EUR';
 export type ThemeMode = 'light' | 'dark';
+export type DefaultTabId = 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget';
 
 export interface UserPreferences {
   currency: CurrencyCode;
   budgetStartDay: number;
   theme: ThemeMode;
+  defaultTab?: DefaultTabId;
 }
 
 export interface UserProfile {
@@ -23,6 +25,14 @@ export interface UserProfile {
 export type BudgetType = 'personal' | 'shared';
 export type ContributionMode = 'equal_50_50' | 'income_prorata' | 'custom';
 export type BudgetMemberRole = 'owner' | 'editor' | 'viewer';
+
+export interface QuickTemplateItem {
+  id: string;
+  label: string;
+  envelopeName: string;
+  defaultAmount?: number;
+  order: number;
+}
 
 export interface BudgetMember {
   userId: string;
@@ -63,6 +73,7 @@ export interface BudgetSpace {
   inviteCode?: string;
   inviteExpiresAt?: string;
   budgetStartDay: number;
+  quickTemplates?: QuickTemplateItem[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -87,12 +98,14 @@ export interface BudgetPeriod {
   label: string;
   startDate: string;
   endDate: string;
+  closedAt?: string;
   summary: BudgetPeriodSummary;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export type RolloverMode = 'positive_only' | 'both';
+export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'semiannual' | 'yearly';
 
 export interface EnvelopeItem {
   id: string;
@@ -110,6 +123,9 @@ export interface EnvelopeItem {
   previousEnvelopeId?: string;
   date: string;
   isRecurring: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceEndDate?: string;
+  recurrenceRemainingCount?: number;
   isPaid: boolean;
   memberId?: string;
   linkedGoalId?: string;
@@ -132,8 +148,20 @@ export interface TransactionItem {
   label: string;
   date: string;
   notes?: string;
+  splitGroupId?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface SavingsWithdrawalItem {
+  id: string;
+  amount: number;
+  label: string;
+  date: string;
+  memberId?: string;
+  notes?: string;
+  splitGroupId?: string;
+  createdAt?: string;
 }
 
 export interface SavingsGoalItem {
@@ -146,6 +174,7 @@ export interface SavingsGoalItem {
   initialAmount: number;
   currentAmount: number;
   deadline?: string;
+  withdrawals?: SavingsWithdrawalItem[];
   order: number;
   createdAt?: string;
   updatedAt?: string;

@@ -4,8 +4,10 @@ import { z } from 'zod';
 import { AppError } from '../middlewares/error.middleware';
 import { BudgetPeriodModel, toBudgetPeriodResponse } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, toEnvelopeResponse } from '../models/Envelope.model';
+import { toSavingsGoalResponse } from '../models/SavingsGoal.model';
 import { assertBudgetAccess } from '../services/budgetAccess.service';
 import {
+  closePeriodAndRollover,
   computeCycleBounds,
   getOrCreatePeriodWithRollover,
   resolveCycleYearMonthForDate,
@@ -33,6 +35,31 @@ export const byMonthQuerySchema = z.object({
 export const createPeriodBodySchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12)
+});
+
+export const closePeriodBodySchema = z.object({
+  envelopeDecisions: z
+    .array(
+      z
+        .object({
+          envelopeId: objectIdSchema,
+          action: z.enum(['rollover_next_month', 'transfer_to_goal', 'reset_zero']),
+          goalId: objectIdSchema.optional()
+        })
+        .refine((item) => item.action !== 'transfer_to_goal' || Boolean(item.goalId), {
+          message: 'Un objectif d’épargne cible est requis pour transférer un surplus'
+        })
+    )
+    .optional(),
+  nextMonthAdjustments: z
+    .array(
+      z.object({
+        sourceEnvelopeId: objectIdSchema,
+        allocatedAmount: z.coerce.number().min(0, 'Le montant doit être positif ou nul'),
+        include: z.boolean().optional()
+      })
+    )
+    .optional()
 });
 
 async function loadPeriodPayload(budgetPeriodId: Types.ObjectId) {
@@ -158,6 +185,50 @@ export async function triggerRollover(
       status: 'ok',
       period: toBudgetPeriodResponse(targetPeriod),
       envelopes: envelopes.map(toEnvelopeResponse)
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Clôture la période budgétaire en cours en appliquant les choix de surplus,
+ * les ajustements du cycle suivant M+1 et le marquage `closedAt`.
+ */
+export async function closePeriod(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { budgetId, periodId } = req.params as z.infer<typeof periodRolloverParamsSchema>;
+    const payload = req.body as z.infer<typeof closePeriodBodySchema>;
+
+    const { budget } = await assertBudgetAccess(budgetId, req.user?.id, { requireWrite: true });
+
+    const sourcePeriod = await BudgetPeriodModel.findOne({
+      _id: periodId,
+      budgetId: budget._id
+    });
+    if (!sourcePeriod) {
+      throw new AppError('Période source introuvable pour cet espace budgétaire', 404);
+    }
+
+    const result = await closePeriodAndRollover({
+      budget,
+      sourcePeriod,
+      actorUserId: req.user?.id,
+      envelopeDecisions: payload.envelopeDecisions,
+      nextMonthAdjustments: payload.nextMonthAdjustments
+    });
+
+    res.status(200).json({
+      status: 'ok',
+      closedPeriod: toBudgetPeriodResponse(result.closedPeriod),
+      nextPeriod: toBudgetPeriodResponse(result.nextPeriod),
+      nextEnvelopes: result.nextEnvelopes.map(toEnvelopeResponse),
+      updatedGoals: result.updatedGoals.map(toSavingsGoalResponse),
+      transferredTotal: result.transferredTotal
     });
   } catch (err) {
     next(err);

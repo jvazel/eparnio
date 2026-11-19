@@ -13,7 +13,21 @@ import {
   updateBudget,
   updateContributionSplit
 } from '../../services/budget.service';
-import type { BudgetMemberRole, BudgetSpace, BudgetType } from '../../types/budget.types';
+import type {
+  BudgetMemberRole,
+  BudgetPeriod,
+  BudgetSpace,
+  BudgetType,
+  EnvelopeItem,
+  PeriodAnalytics,
+  SavingsGoalItem
+} from '../../types/budget.types';
+import {
+  downloadBudgetCsv,
+  downloadBudgetJsonBackup,
+  downloadPeriodPdfReport
+} from '../../utils/exportReport';
+import { ExportActionsCard } from './ExportActionsCard';
 
 export interface BudgetSettingsSheetProps {
   isOpen: boolean;
@@ -22,6 +36,10 @@ export interface BudgetSettingsSheetProps {
   initialMode?: 'edit' | 'create';
   canDelete: boolean;
   currentUserId?: string;
+  activePeriod?: BudgetPeriod | null;
+  activeAnalytics?: PeriodAnalytics | null;
+  activeEnvelopes?: EnvelopeItem[];
+  activeGoals?: SavingsGoalItem[];
   onBudgetCreated: (budget: BudgetSpace) => void;
   onBudgetDeleted: (budgetId: string) => void;
   onOpenCalculator?: (budget: BudgetSpace) => void;
@@ -38,6 +56,10 @@ export function BudgetSettingsSheet({
   initialMode = 'edit',
   canDelete,
   currentUserId,
+  activePeriod,
+  activeAnalytics,
+  activeEnvelopes = [],
+  activeGoals = [],
   onBudgetCreated,
   onBudgetDeleted,
   onOpenCalculator
@@ -205,7 +227,7 @@ export function BudgetSettingsSheet({
           <div>
             <label
               htmlFor="budget-space-name"
-              className="mb-1 block text-sm font-semibold text-slate-700"
+              className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200"
             >
               Nom de l’espace
             </label>
@@ -217,21 +239,21 @@ export function BudgetSettingsSheet({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex. Budget Couple, Vacances..."
-              className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
+              className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
             />
           </div>
 
           {mode === 'create' ? (
             <fieldset>
-              <legend className="mb-1.5 text-sm font-semibold text-slate-700">
+              <legend className="mb-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Type d’espace
               </legend>
               <div className="grid grid-cols-2 gap-2">
                 <label
                   className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-semibold ${
                     type === 'personal'
-                      ? 'border-violet-600 bg-violet-50 text-violet-700'
-                      : 'border-slate-200 bg-white text-slate-600'
+                      ? 'border-violet-600 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-200'
+                      : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                   }`}
                 >
                   <input
@@ -247,8 +269,8 @@ export function BudgetSettingsSheet({
                 <label
                   className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-semibold ${
                     type === 'shared'
-                      ? 'border-violet-600 bg-violet-50 text-violet-700'
-                      : 'border-slate-200 bg-white text-slate-600'
+                      ? 'border-violet-600 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-200'
+                      : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                   }`}
                 >
                   <input
@@ -268,7 +290,7 @@ export function BudgetSettingsSheet({
           <div>
             <label
               htmlFor="budget-space-start-day"
-              className="mb-1 block text-sm font-semibold text-slate-700"
+              className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200"
             >
               Jour de début du cycle (1 à 31)
             </label>
@@ -282,12 +304,12 @@ export function BudgetSettingsSheet({
               required
               value={budgetStartDay}
               onChange={(e) => setBudgetStartDay(Number(e.target.value))}
-              className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-base font-bold tabular-nums text-slate-900 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
+              className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-base font-bold tabular-nums text-slate-900 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50 dark:focus:bg-slate-900"
             />
           </div>
 
           {error ? (
-            <p role="alert" className="text-xs font-medium text-red-600">
+            <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
               {error}
             </p>
           ) : null}
@@ -302,7 +324,7 @@ export function BudgetSettingsSheet({
         </form>
 
         {mode === 'edit' && currentBudget ? (
-          <div className="space-y-4 border-t border-slate-100 pt-4">
+          <div className="space-y-4 border-t border-slate-100 pt-4 dark:border-slate-800">
             <MembersList
               members={currentBudget.members}
               ownerId={currentBudget.ownerId}
@@ -312,6 +334,35 @@ export function BudgetSettingsSheet({
               onChangeMemberRole={handleChangeMemberRole}
               onRemoveMember={handleRemoveMember}
               onRegenerateInvite={handleRegenerateInvite}
+            />
+
+            <ExportActionsCard
+              variant="embedded"
+              onExportCsv={() =>
+                downloadBudgetCsv(currentBudget.id, {
+                  budgetName: currentBudget.name,
+                  ...(activePeriod && activePeriod.budgetId === currentBudget.id
+                    ? { periodId: activePeriod.id, periodLabel: activePeriod.label }
+                    : {})
+                })
+              }
+              onExportPdf={
+                activePeriod &&
+                activeAnalytics &&
+                activePeriod.budgetId === currentBudget.id
+                  ? () =>
+                      downloadPeriodPdfReport({
+                        budgetName: currentBudget.name,
+                        periodLabel: activePeriod.label,
+                        analytics: activeAnalytics,
+                        envelopes: activeEnvelopes,
+                        goals: activeGoals
+                      })
+                  : undefined
+              }
+              onExportJson={() =>
+                downloadBudgetJsonBackup(currentBudget.id, currentBudget.name)
+              }
             />
 
             {onOpenCalculator ? (

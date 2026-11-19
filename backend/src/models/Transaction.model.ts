@@ -13,6 +13,7 @@ export interface ITransaction extends Document {
   label: string;
   date: Date;
   notes?: string;
+  splitGroupId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +30,7 @@ export interface TransactionResponse {
   label: string;
   date: string;
   notes?: string;
+  splitGroupId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +86,10 @@ const transactionSchema = new Schema<ITransaction>(
       type: String,
       trim: true,
       maxlength: 300
+    },
+    splitGroupId: {
+      type: String,
+      index: true
     }
   },
   {
@@ -110,6 +116,7 @@ export function toTransactionResponse(transaction: ITransaction): TransactionRes
     label: transaction.label,
     date: transaction.date.toISOString(),
     ...(transaction.notes ? { notes: transaction.notes } : {}),
+    ...(transaction.splitGroupId ? { splitGroupId: transaction.splitGroupId } : {}),
     createdAt: transaction.createdAt.toISOString(),
     updatedAt: transaction.updatedAt.toISOString()
   };

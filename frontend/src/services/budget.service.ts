@@ -121,3 +121,24 @@ export async function removeBudgetMember(
   );
   return data;
 }
+
+
+export async function createQuickTemplate(
+  budgetId: string,
+  payload: { label: string; envelopeName: string; defaultAmount?: number }
+): Promise<import('../types/budget.types').QuickTemplateItem[]> {
+  const { data } = await apiClient.post<{
+    quickTemplates: import('../types/budget.types').QuickTemplateItem[];
+  }>(`/budgets/${budgetId}/quick-templates`, payload);
+  return data.quickTemplates;
+}
+
+export async function deleteQuickTemplate(
+  budgetId: string,
+  templateId: string
+): Promise<import('../types/budget.types').QuickTemplateItem[]> {
+  const { data } = await apiClient.delete<{
+    quickTemplates: import('../types/budget.types').QuickTemplateItem[];
+  }>(`/budgets/${budgetId}/quick-templates/${templateId}`);
+  return data.quickTemplates;
+}

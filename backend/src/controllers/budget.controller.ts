@@ -279,3 +279,85 @@ export async function removeMember(req: Request, res: Response, next: NextFuncti
     next(err);
   }
 }
+
+
+export const createQuickTemplateBodySchema = z.object({
+  label: z.string().trim().min(1, 'Le libellé est requis').max(60),
+  envelopeName: z.string().trim().min(1, 'Le nom d’enveloppe est requis').max(60),
+  defaultAmount: z.coerce.number().positive().optional()
+});
+
+export const quickTemplateParamsSchema = z.object({
+  id: objectIdSchema,
+  templateId: objectIdSchema
+});
+
+export async function createQuickTemplate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { id } = req.params as z.infer<typeof budgetIdParamsSchema>;
+    const body = req.body as z.infer<typeof createQuickTemplateBodySchema>;
+
+    const { assertBudgetAccess } = await import('../services/budgetAccess.service');
+    const { toBudgetResponse } = await import('../models/Budget.model');
+    const { budget } = await assertBudgetAccess(id, req.user?.id, { requireWrite: true });
+
+    const normalizedEnvelopeName = body.envelopeName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    const nextOrder = budget.quickTemplates.length;
+    budget.quickTemplates.push({
+      _id: new Types.ObjectId(),
+      label: body.label.trim(),
+      envelopeName: normalizedEnvelopeName,
+      ...(body.defaultAmount !== undefined ? { defaultAmount: Math.round(body.defaultAmount * 100) / 100 } : {}),
+      order: nextOrder
+    });
+
+    await budget.save();
+
+    res.status(201).json({
+      status: 'ok',
+      quickTemplates: toBudgetResponse(budget).quickTemplates
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteQuickTemplate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { id, templateId } = req.params as z.infer<typeof quickTemplateParamsSchema>;
+    const { assertBudgetAccess } = await import('../services/budgetAccess.service');
+    const { toBudgetResponse } = await import('../models/Budget.model');
+    const { budget } = await assertBudgetAccess(id, req.user?.id, { requireWrite: true });
+
+    const beforeCount = budget.quickTemplates.length;
+    budget.quickTemplates = budget.quickTemplates.filter(
+      (tpl: { _id: { toString(): string } }) => tpl._id.toString() !== templateId
+    );
+
+    if (budget.quickTemplates.length === beforeCount) {
+      throw new AppError('Modèle favori introuvable', 404);
+    }
+
+    await budget.save();
+
+    res.status(200).json({
+      status: 'ok',
+      quickTemplates: toBudgetResponse(budget).quickTemplates
+    });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -3,8 +3,14 @@ import {
   createTransaction,
   createTransactionBodySchema,
   deleteTransaction,
+  importTransactions,
+  importTransactionsBodySchema,
   listTransactions,
   listTransactionsQuerySchema,
+  reconcileBalanceBodySchema,
+  reconcilePeriodBalance,
+  splitTransaction,
+  splitTransactionBodySchema,
   transactionItemParamsSchema,
   transactionPeriodParamsSchema,
   updateTransaction,
@@ -26,6 +32,21 @@ transactionRouter.post(
   '/',
   validate({ params: transactionPeriodParamsSchema, body: createTransactionBodySchema }),
   createTransaction
+);
+transactionRouter.post(
+  '/import',
+  validate({ params: transactionPeriodParamsSchema, body: importTransactionsBodySchema }),
+  importTransactions
+);
+transactionRouter.post(
+  '/reconcile',
+  validate({ params: transactionPeriodParamsSchema, body: reconcileBalanceBodySchema }),
+  reconcilePeriodBalance
+);
+transactionRouter.post(
+  '/split',
+  validate({ params: transactionPeriodParamsSchema, body: splitTransactionBodySchema }),
+  splitTransaction
 );
 transactionRouter.patch(
   '/:id',

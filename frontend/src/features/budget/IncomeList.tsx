@@ -10,7 +10,7 @@ import {
   SectionManageHeader,
   sortEnvelopesByOrder
 } from './SectionManageHeader';
-import { ZeroBasedBanner } from './ZeroBasedBanner';
+import { ZeroBasedBanner, type ZeroBasedQuickActions } from './ZeroBasedBanner';
 
 export interface IncomeListProps {
   items: EnvelopeItem[];
@@ -20,6 +20,7 @@ export interface IncomeListProps {
   onTogglePaid: (item: EnvelopeItem) => void;
   onReorder: (orderedIds: string[]) => void;
   onDeleteIncome: (item: EnvelopeItem) => void;
+  zeroBasedActions?: ZeroBasedQuickActions;
 }
 
 /**
@@ -33,7 +34,8 @@ export function IncomeList({
   onEditIncome,
   onTogglePaid,
   onReorder,
-  onDeleteIncome
+  onDeleteIncome,
+  zeroBasedActions
 }: IncomeListProps) {
   const [isManageMode, setIsManageMode] = useState(false);
 
@@ -70,6 +72,7 @@ export function IncomeList({
       <ZeroBasedBanner
         remainingToAllocate={summary.remainingToAllocate}
         plannedIncome={summary.plannedIncome}
+        {...zeroBasedActions}
       />
 
       <section aria-label="Historique des revenus" className="space-y-2.5">

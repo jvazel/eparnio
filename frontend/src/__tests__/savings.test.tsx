@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { computeSinkingFundInfo } from '../features/savings/sinkingFund';
 import { App } from '../App';
-import { GoalContributionSheet, GoalFormSheet } from '../features/savings/GoalDetailSheet';
+import {
+  GoalContributionSheet,
+  GoalFormSheet,
+  GoalWithdrawalSheet
+} from '../features/savings/GoalDetailSheet';
 import { SavingsGoalsList } from '../features/savings/SavingsGoalsList';
 import * as budgetService from '../services/budget.service';
 import * as envelopeService from '../services/envelope.service';
@@ -64,7 +68,10 @@ vi.mock('../services/goal.service', async (importOriginal) => {
     listGoals: vi.fn(),
     createGoal: vi.fn(),
     updateGoal: vi.fn(),
-    deleteGoal: vi.fn()
+    deleteGoal: vi.fn(),
+    createGoalWithdrawal: vi.fn(),
+    updateGoalWithdrawal: vi.fn(),
+    deleteGoalWithdrawal: vi.fn()
   };
 });
 
@@ -165,6 +172,7 @@ afterEach(() => {
   useAuthStore.getState().clearSession();
   useBudgetStore.getState().setActiveBudgetId(null);
   localStorage.clear();
+  document.documentElement.classList.remove('dark');
   vi.clearAllMocks();
 });
 
@@ -587,5 +595,345 @@ describe('Intégration App — Onglet Epargne complet', () => {
 
     const none = computeSinkingFundInfo(1000, 0, null, refDate);
     expect(none.status).toBe('none');
+  });
+});
+
+describe('Étape 25 — Retraits sur cagnottes d’épargne (GoalWithdrawalSheet, SavingsGoalsList & App)', () => {
+  it('valide les champs, calcule le solde live (y compris dépassement), gère les notes et la suppression dans GoalWithdrawalSheet', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <GoalWithdrawalSheet
+        isOpen={true}
+        onClose={vi.fn()}
+        goal={baliGoal}
+        defaultDate="2026-11-12"
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget={true}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(
+      screen.getByRole('dialog', { name: 'Utiliser / retirer · Voyage Bali' })
+    ).toBeInTheDocument();
+    expect(
+      normalizeSpaces(screen.getByTestId('live-goal-withdrawal-balance').textContent ?? '')
+    ).toContain('505,00 €');
+
+    // Validation montant nul
+    await user.click(screen.getByRole('button', { name: 'Retirer' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Veuillez saisir un montant supérieur à 0 €.'
+    );
+
+    // Dépassement : 600 > 505 -> solde 0,00 € (dépassement de 95,00 €)
+    const amountField = screen.getByLabelText('Montant en euros');
+    await user.type(amountField, '600');
+    const liveBalance = screen.getByTestId('live-goal-withdrawal-balance');
+    expect(normalizeSpaces(liveBalance.textContent ?? '')).toContain('0,00 €');
+    expect(normalizeSpaces(liveBalance.textContent ?? '')).toContain('dépassement de 95,00 €');
+
+    // Montant normal 200 -> solde 305,00 €
+    await user.clear(amountField);
+    await user.type(amountField, '200');
+    expect(normalizeSpaces(liveBalance.textContent ?? '')).toContain('305,00 €');
+
+    // Libellé requis
+    await user.click(screen.getByRole('button', { name: 'Retirer' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Veuillez saisir un libellé de retrait.');
+
+    await user.type(screen.getByLabelText('Nom'), 'Billets d’avion');
+    await user.type(screen.getByLabelText('Note (optionnel)'), 'Vol Air France');
+    expect(screen.getByText('14 / 300')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Membre 2/i }));
+    await user.click(screen.getByRole('button', { name: 'Retirer' }));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      amount: 200,
+      label: 'Billets d’avion',
+      date: '2026-11-12T12:00:00.000Z',
+      memberId: 'user-2',
+      notes: 'Vol Air France'
+    });
+
+    // Mode édition : effacement de la note puis suppression
+    const onEditSubmit = vi.fn().mockResolvedValue(undefined);
+    rerender(
+      <GoalWithdrawalSheet
+        isOpen={true}
+        onClose={vi.fn()}
+        goal={baliGoal}
+        initialWithdrawal={{
+          id: 'w-1',
+          amount: 200,
+          label: 'Billets d’avion',
+          date: '2026-11-12T12:00:00.000Z',
+          memberId: 'user-2',
+          notes: 'Vol Air France'
+        }}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget={true}
+        onSubmit={onEditSubmit}
+        onDelete={onDelete}
+      />
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Modifier le retrait' })).toBeInTheDocument();
+    const notesInput = screen.getByLabelText('Note (optionnel)');
+    expect(notesInput).toHaveValue('Vol Air France');
+    await user.clear(notesInput);
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    expect(onEditSubmit).toHaveBeenCalledWith({
+      amount: 200,
+      label: 'Billets d’avion',
+      date: '2026-11-12T12:00:00.000Z',
+      memberId: 'user-2',
+      notes: ''
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmer la suppression' }));
+    expect(onDelete).toHaveBeenCalledWith('w-1');
+  });
+
+  it('affiche le bouton − et les retraits (badge, notes, édition, suppression) dans l’accordéon en modes clair et sombre', async () => {
+    const user = userEvent.setup();
+    const onAddWithdrawal = vi.fn();
+    const onEditWithdrawal = vi.fn();
+    const onDeleteWithdrawal = vi.fn().mockResolvedValue(undefined);
+
+    const goalWithWithdrawals: SavingsGoalItem = {
+      ...baliGoal,
+      currentAmount: 305,
+      withdrawals: [
+        {
+          id: 'w-1',
+          amount: 200,
+          label: 'Billets d’avion',
+          date: '2026-11-12T12:00:00.000Z',
+          memberId: 'user-2',
+          notes: 'Vol aller'
+        }
+      ]
+    };
+
+    const { rerender } = render(
+      <SavingsGoalsList
+        goals={[goalWithWithdrawals]}
+        savingsEnvelopes={sampleContributions}
+        summary={sampleSummary}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget={true}
+        onAddGoal={vi.fn()}
+        onEditGoal={vi.fn()}
+        onDeleteGoal={vi.fn()}
+        onAddContribution={vi.fn()}
+        onEditContribution={vi.fn()}
+        onDeleteContribution={vi.fn()}
+        onAddWithdrawal={onAddWithdrawal}
+        onEditWithdrawal={onEditWithdrawal}
+        onDeleteWithdrawal={onDeleteWithdrawal}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Utiliser ou retirer de Voyage Bali' }));
+    expect(onAddWithdrawal).toHaveBeenCalledWith(goalWithWithdrawals);
+
+    await user.click(screen.getByRole('button', { name: /Epargne du mois :/i }));
+    expect(screen.getByText('Billets d’avion')).toBeInTheDocument();
+    expect(screen.getByText('Retrait')).toBeInTheDocument();
+    expect(screen.getByText('Vol aller')).toBeInTheDocument();
+    expect(screen.getByText('Membre 2')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, node) =>
+          node?.tagName === 'SPAN' && normalizeSpaces(node.textContent ?? '') === '− 200,00 €'
+      )
+    ).toBeInTheDocument();
+
+    // Mode sombre
+    document.documentElement.classList.add('dark');
+    rerender(
+      <SavingsGoalsList
+        goals={[goalWithWithdrawals]}
+        savingsEnvelopes={sampleContributions}
+        summary={sampleSummary}
+        members={members}
+        currentUserId="user-1"
+        isSharedBudget={true}
+        onAddGoal={vi.fn()}
+        onEditGoal={vi.fn()}
+        onDeleteGoal={vi.fn()}
+        onAddContribution={vi.fn()}
+        onEditContribution={vi.fn()}
+        onDeleteContribution={vi.fn()}
+        onAddWithdrawal={onAddWithdrawal}
+        onEditWithdrawal={onEditWithdrawal}
+        onDeleteWithdrawal={onDeleteWithdrawal}
+      />
+    );
+    expect(screen.getByText('Retrait')).toHaveClass('dark:text-amber-200');
+
+    await user.click(screen.getByRole('button', { name: 'Modifier le retrait Billets d’avion' }));
+    expect(onEditWithdrawal).toHaveBeenCalledWith(
+      goalWithWithdrawals,
+      goalWithWithdrawals.withdrawals![0]
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Supprimer le retrait Billets d’avion' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+    expect(onDeleteWithdrawal).toHaveBeenCalledWith('goal-bali', 'w-1');
+  });
+
+  it('enregistre un retrait depuis l’onglet Epargne dans App sans modifier le Donut mensuel', async () => {
+    const user = userEvent.setup();
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const monthIsoPrefix = `${year}-${String(month).padStart(2, '0')}`;
+
+    vi.mocked(budgetService.listBudgets).mockResolvedValue([
+      {
+        id: 'budget-1',
+        name: 'Budget Perso',
+        type: 'personal',
+        ownerId: 'user-1',
+        contributionMode: 'equal_50_50',
+        members: [],
+        budgetStartDay: 1
+      }
+    ]);
+
+    vi.mocked(periodService.getPeriodByMonth).mockResolvedValue({
+      status: 'ok',
+      period: {
+        id: 'period-active',
+        budgetId: 'budget-1',
+        year,
+        month,
+        label: formatMonthLabel(new Date(year, month - 1, 1)),
+        startDate: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
+        endDate: new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)).toISOString(),
+        summary: {
+          plannedIncome: 2500,
+          plannedFixedCharges: 0,
+          plannedEnvelopes: 0,
+          plannedSavings: 100,
+          spentVariables: 0,
+          remainingToAllocate: 2400,
+          remainingToLive: 2400
+        }
+      },
+      envelopes: [
+        {
+          id: 'env-save-1',
+          budgetId: 'budget-1',
+          budgetPeriodId: 'period-active',
+          pillar: 'savings',
+          linkedGoalId: 'goal-1',
+          name: 'Versement Vacances',
+          icon: '✈️',
+          color: '#3B82F6',
+          allocatedAmount: 100,
+          spentOrPaidAmount: 100,
+          date: `${monthIsoPrefix}-05T12:00:00.000Z`,
+          isRecurring: false,
+          isPaid: true,
+          order: 0
+        }
+      ]
+    });
+
+    const initialGoal: SavingsGoalItem = {
+      id: 'goal-1',
+      budgetId: 'budget-1',
+      name: 'Vacances',
+      icon: '✈️',
+      color: '#3B82F6',
+      targetAmount: 2000,
+      initialAmount: 700,
+      currentAmount: 800,
+      withdrawals: [],
+      order: 0
+    };
+
+    vi.mocked(goalService.listGoals).mockResolvedValue({
+      status: 'ok',
+      goals: [initialGoal]
+    });
+
+    vi.mocked(goalService.createGoalWithdrawal).mockResolvedValue({
+      status: 'ok',
+      goal: {
+        ...initialGoal,
+        currentAmount: 550,
+        withdrawals: [
+          {
+            id: 'w-app-1',
+            amount: 250,
+            label: 'Hôtel',
+            date: `${monthIsoPrefix}-10T12:00:00.000Z`
+          }
+        ]
+      }
+    });
+
+    useAuthStore.getState().setSession('jwt-valid', {
+      id: 'user-1',
+      email: 'alex@eparnio.fr',
+      displayName: 'Alex',
+      avatarEmoji: '🧑',
+      hasCompletedOnboarding: true,
+      preferences: { currency: 'EUR', budgetStartDay: 1, theme: 'light' }
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } }
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Epargne' }));
+    expect(await screen.findByRole('heading', { name: 'Vacances' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Utiliser ou retirer de Vacances' }));
+    const withdrawDialog = await screen.findByRole('dialog', {
+      name: 'Utiliser / retirer · Vacances'
+    });
+    await user.type(within(withdrawDialog).getByLabelText('Montant en euros'), '250');
+    expect(
+      normalizeSpaces(
+        within(withdrawDialog).getByTestId('live-goal-withdrawal-balance').textContent ?? ''
+      )
+    ).toContain('550,00 €');
+
+    await user.type(within(withdrawDialog).getByLabelText('Nom'), 'Hôtel');
+    await user.click(within(withdrawDialog).getByRole('button', { name: 'Retirer' }));
+
+    expect(goalService.createGoalWithdrawal).toHaveBeenCalledWith(
+      'budget-1',
+      'goal-1',
+      expect.objectContaining({ amount: 250, label: 'Hôtel' })
+    );
+
+    // Total epargné mis à jour à 550,00 €, tandis que le Donut (plannedSavings) reste à 100,00 €
+    expect(
+      await screen.findByText((_, node) => normalizeSpaces(node?.textContent ?? '') === '550,00 €')
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText((_, node) => normalizeSpaces(node?.textContent ?? '') === '100,00 €')
+        .length
+    ).toBeGreaterThanOrEqual(2);
   });
 });

@@ -128,6 +128,7 @@ afterEach(() => {
   useAuthStore.getState().clearSession();
   useBudgetStore.getState().setActiveBudgetId(null);
   localStorage.clear();
+  document.documentElement.classList.remove('dark');
   vi.clearAllMocks();
 });
 
@@ -214,6 +215,130 @@ describe('Onglet Dépenses fixes — FixedChargesList', () => {
     await user.click(screen.getByRole('button', { name: 'Marquer Streaming comme payé' }));
     expect(onTogglePaid).toHaveBeenCalledWith(sampleFixedCharges[1]);
   });
+
+  it('affiche les badges de récurrence et bascule sur la vue Échéancier chronologique (modes clair & sombre)', async () => {
+    const user = userEvent.setup();
+    const onTogglePaid = vi.fn();
+
+    const scheduledCharges: EnvelopeItem[] = [
+      {
+        ...sampleFixedCharges[0],
+        id: 'fix-paid',
+        name: 'Loyer',
+        allocatedAmount: 1000,
+        date: '2026-11-02T12:00:00.000Z',
+        isPaid: true,
+        isRecurring: true,
+        recurrenceFrequency: 'monthly'
+      },
+      {
+        ...sampleFixedCharges[1],
+        id: 'fix-q',
+        name: 'Eau trimestrielle',
+        allocatedAmount: 120,
+        date: '2026-11-25T12:00:00.000Z',
+        isPaid: false,
+        isRecurring: true,
+        recurrenceFrequency: 'quarterly'
+      },
+      {
+        id: 'fix-3x',
+        budgetId: 'budget-1',
+        budgetPeriodId: 'period-1',
+        pillar: 'fixed_charge',
+        name: 'Électroménager 3x',
+        icon: '💳',
+        color: '#8B5CF6',
+        allocatedAmount: 150,
+        spentOrPaidAmount: 0,
+        date: '2026-11-12T12:00:00.000Z',
+        isRecurring: true,
+        recurrenceFrequency: 'monthly',
+        recurrenceRemainingCount: 3,
+        isPaid: false,
+        order: 2
+      },
+      {
+        id: 'fix-end',
+        budgetId: 'budget-1',
+        budgetPeriodId: 'period-1',
+        pillar: 'fixed_charge',
+        name: 'Salle de sport',
+        icon: '🏋️',
+        color: '#14B8A6',
+        allocatedAmount: 40,
+        spentOrPaidAmount: 0,
+        date: '2026-11-12T12:00:00.000Z',
+        isRecurring: true,
+        recurrenceFrequency: 'monthly',
+        recurrenceEndDate: '2027-06-15T23:59:59.999Z',
+        isPaid: false,
+        order: 3
+      }
+    ];
+
+    document.documentElement.classList.add('dark');
+
+    const { rerender } = render(
+      <FixedChargesList
+        items={scheduledCharges}
+        summary={sampleSummary}
+        onAddFixedCharge={vi.fn()}
+        onEditFixedCharge={vi.fn()}
+        onTogglePaid={onTogglePaid}
+        onReorder={vi.fn()}
+        onDeleteFixedCharge={vi.fn()}
+      />
+    );
+
+    // Badges discrets en vue Liste
+    expect(screen.getByText('Trimestriel')).toBeInTheDocument();
+    expect(screen.getByText('3 mensualités restantes')).toBeInTheDocument();
+    expect(screen.getByText(/Jusqu’au 15 juin/i)).toBeInTheDocument();
+
+    const modeGroup = screen.getByRole('group', { name: 'Mode d’affichage des dépenses fixes' });
+    expect(modeGroup).toHaveClass('dark:bg-slate-800/90');
+
+    // Basculer sur Échéancier
+    await user.click(screen.getByRole('button', { name: 'Échéancier' }));
+
+    // Loyer payé exclu par défaut ; 12 nov (150+40=190€) avant 25 nov (120€), total 310 €
+    expect(screen.queryByRole('button', { name: 'Modifier Loyer' })).not.toBeInTheDocument();
+    expect(screen.getByText('Prélèvements à venir (3)')).toBeInTheDocument();
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((el) => el.textContent);
+    expect(headings).toEqual(['12 novembre 2026', '25 novembre 2026']);
+    expect(
+      screen.getByText((_, node) => normalizeSpaces(node?.textContent ?? '') === '190,00 €')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText((_, node) => normalizeSpaces(node?.textContent ?? '') === '310,00 €')
+    ).toBeInTheDocument();
+
+    // Pointer directement depuis l'échéancier
+    await user.click(screen.getByRole('button', { name: 'Marquer Électroménager 3x comme payé' }));
+    expect(onTogglePaid).toHaveBeenCalledWith(scheduledCharges[2]);
+
+    // Inclure payées
+    await user.click(screen.getByRole('button', { name: /Inclure payées \(1\)/i }));
+    expect(screen.getByRole('button', { name: 'Modifier Loyer' })).toBeInTheDocument();
+
+    // Cas où toutes les charges sont déjà payées
+    rerender(
+      <FixedChargesList
+        items={[scheduledCharges[0]]}
+        summary={sampleSummary}
+        onAddFixedCharge={vi.fn()}
+        onEditFixedCharge={vi.fn()}
+        onTogglePaid={onTogglePaid}
+        onReorder={vi.fn()}
+        onDeleteFixedCharge={vi.fn()}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: /Inclure payées/i }));
+    expect(screen.getByText('Aucun prélèvement à venir sur ce cycle.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Afficher les charges déjà payées \(1\)/i }));
+    expect(screen.getByRole('button', { name: 'Modifier Loyer' })).toBeInTheDocument();
+  });
 });
 
 describe('CreationFormModal — Saisie Finzee, Base Zéro en direct & 11 couleurs', () => {
@@ -293,6 +418,87 @@ describe('CreationFormModal — Saisie Finzee, Base Zéro en direct & 11 couleur
     await user.click(screen.getByRole('button', { name: 'Confirmer la suppression' }));
 
     expect(onDelete).toHaveBeenCalledWith('inc-1');
+  });
+
+  it('configure une récurrence avancée (Trimestriel + Mensualités, Annuel + Date de fin, édition & mode sombre)', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    document.documentElement.classList.add('dark');
+
+    const { rerender } = render(
+      <CreationFormModal
+        isOpen
+        onClose={vi.fn()}
+        pillar="fixed_charge"
+        currentRemainingToAllocate={1000}
+        defaultDate="2026-11-10"
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.type(screen.getByLabelText('Montant en euros'), '120');
+    await user.type(screen.getByLabelText('Nom'), 'Assurance 3x');
+    await user.click(screen.getByLabelText(/Ajouter chaque mois/i));
+
+    const quarterlyRadio = screen.getByRole('radio', { name: 'Trimestriel' });
+    expect(quarterlyRadio.closest('label')).toHaveClass('dark:bg-slate-800');
+    await user.click(quarterlyRadio);
+
+    await user.click(screen.getByRole('radio', { name: 'Mensualités' }));
+    const countInput = screen.getByLabelText('Nombre de mensualités restantes');
+    await user.clear(countInput);
+    await user.type(countInput, '3');
+
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Assurance 3x',
+        isRecurring: true,
+        recurrenceFrequency: 'quarterly',
+        recurrenceRemainingCount: 3,
+        recurrenceEndDate: null
+      })
+    );
+
+    // Date de fin invalide (< date début) puis valide
+    await user.click(screen.getByRole('radio', { name: 'Annuel' }));
+    await user.click(screen.getByRole('radio', { name: 'Date de fin' }));
+    const endDateInput = screen.getByLabelText('Date de fin de récurrence');
+    await user.type(endDateInput, '2026-10-01');
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }));
+    expect(
+      await screen.findByRole('alert')
+    ).toHaveTextContent('La date de fin doit être renseignée et postérieure ou égale à la date de début.');
+
+    await user.clear(endDateInput);
+    await user.type(endDateInput, '2027-06-15');
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }));
+    expect(onSubmit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        recurrenceFrequency: 'yearly',
+        recurrenceRemainingCount: null,
+        recurrenceEndDate: '2027-06-15T23:59:59.999Z'
+      })
+    );
+
+    // Hydratation en mode édition
+    rerender(
+      <CreationFormModal
+        isOpen
+        onClose={vi.fn()}
+        pillar="fixed_charge"
+        currentRemainingToAllocate={1000}
+        initialItem={{
+          ...sampleFixedCharges[1],
+          recurrenceFrequency: 'semiannual',
+          recurrenceRemainingCount: 4
+        }}
+        onSubmit={onSubmit}
+      />
+    );
+    expect(screen.getByRole('radio', { name: 'Semestriel' })).toBeChecked();
+    expect(screen.getByLabelText('Nombre de mensualités restantes')).toHaveValue('4');
   });
 });
 

@@ -4,7 +4,7 @@ import type {
   EnvelopesListResponse,
   EnvelopesReorderResponse
 } from '../types/api.types';
-import type { PillarType } from '../types/budget.types';
+import type { PillarType, RecurrenceFrequency } from '../types/budget.types';
 import { apiClient } from './api';
 
 export interface CreateEnvelopePayload {
@@ -15,6 +15,9 @@ export interface CreateEnvelopePayload {
   color?: string;
   date?: string;
   isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceEndDate?: string | null;
+  recurrenceRemainingCount?: number | null;
   isPaid?: boolean;
   rolloverEnabled?: boolean;
   rolloverMode?: 'positive_only' | 'both';
@@ -29,6 +32,9 @@ export interface UpdateEnvelopePayload {
   color?: string;
   date?: string;
   isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceEndDate?: string | null;
+  recurrenceRemainingCount?: number | null;
   isPaid?: boolean;
   rolloverEnabled?: boolean;
   rolloverMode?: 'positive_only' | 'both';

@@ -278,4 +278,159 @@ describe('API Objectifs d’Épargne & Synchronisation (/api/budgets/:budgetId/g
       .send({ name: 'Lecture seule', targetAmount: 500 });
     expect(viewerCreate.status).toBe(403);
   });
+
+  it('gère le CRUD des retraits sur une cagnotte, borne currentAmount >= 0 et n’impacte pas remainingToLive', async () => {
+    const { token, ownerId, budgetId, periodId } = await setupUserBudgetAndPeriod();
+
+    // Base mensuelle : 3000 € de revenu et 500 € de charges -> remainingToLive initial = 2500 €
+    await request(app)
+      .post(`/api/periods/${periodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ pillar: 'income', name: 'Salaire', allocatedAmount: 3000 });
+
+    await request(app)
+      .post(`/api/periods/${periodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ pillar: 'fixed_charge', name: 'Loyer', allocatedAmount: 500 });
+
+    const createGoalRes = await request(app)
+      .post(`/api/budgets/${budgetId}/goals`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Vacances Japon',
+        targetAmount: 3000,
+        initialAmount: 800,
+        icon: '✈️',
+        color: '#38BDF8'
+      });
+    expect(createGoalRes.status).toBe(201);
+    const goalId = createGoalRes.body.goal.id as string;
+
+    // Versement de 200 € en Décembre -> currentAmount = 1000 €, plannedSavings = 200 €, remainingToLive = 2300 €
+    const contribRes = await request(app)
+      .post(`/api/periods/${periodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        pillar: 'savings',
+        name: 'Versement Japon',
+        allocatedAmount: 200,
+        linkedGoalId: goalId
+      });
+    expect(contribRes.status).toBe(201);
+    expect(contribRes.body.goal.currentAmount).toBe(1000);
+    expect(contribRes.body.period.summary.remainingToLive).toBe(2300);
+
+    // 1. Retrait de 420 € -> currentAmount = 580 €, mais période inchangée (plannedSavings = 200 €, remainingToLive = 2300 €)
+    const addWithdrawRes = await request(app)
+      .post(`/api/budgets/${budgetId}/goals/${goalId}/withdrawals`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        amount: 420,
+        label: 'Billets d’avion',
+        date: '2025-12-12T12:00:00.000Z',
+        memberId: ownerId,
+        notes: 'Vol aller-retour'
+      });
+    expect(addWithdrawRes.status).toBe(201);
+    expect(addWithdrawRes.body.goal.currentAmount).toBe(580);
+    expect(addWithdrawRes.body.goal.withdrawals).toHaveLength(1);
+    expect(addWithdrawRes.body.goal.withdrawals[0]).toMatchObject({
+      amount: 420,
+      label: 'Billets d’avion',
+      memberId: ownerId,
+      notes: 'Vol aller-retour'
+    });
+    const withdrawalId = addWithdrawRes.body.goal.withdrawals[0].id as string;
+
+    const periodAfterWithdraw = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2025&month=12`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(periodAfterWithdraw.body.period.summary.plannedSavings).toBe(200);
+    expect(periodAfterWithdraw.body.period.summary.remainingToAllocate).toBe(2300);
+    expect(periodAfterWithdraw.body.period.summary.remainingToLive).toBe(2300);
+
+    // 2. Ajuster currentAmount manuellement à 700 € via PATCH /goals/:id en présence du retrait de 420 €
+    // initialAmount attendu : 700 - 200 + 420 = 920 € ; puis currentAmount = 920 + 200 - 420 = 700 €
+    const patchGoalCurrentRes = await request(app)
+      .patch(`/api/budgets/${budgetId}/goals/${goalId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentAmount: 700 });
+    expect(patchGoalCurrentRes.status).toBe(200);
+    expect(patchGoalCurrentRes.body.goal.initialAmount).toBe(920);
+    expect(patchGoalCurrentRes.body.goal.currentAmount).toBe(700);
+
+    // 3. Modifier le retrait à 1500 € (supérieur au solde 1120 € -> currentAmount borné à 0 €) et effacer notes
+    const updateWithdrawRes = await request(app)
+      .patch(`/api/budgets/${budgetId}/goals/${goalId}/withdrawals/${withdrawalId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        amount: 1500,
+        label: 'Billets + Hôtel',
+        notes: ''
+      });
+    expect(updateWithdrawRes.status).toBe(200);
+    expect(updateWithdrawRes.body.goal.currentAmount).toBe(0);
+    expect(updateWithdrawRes.body.goal.withdrawals[0].label).toBe('Billets + Hôtel');
+    expect(updateWithdrawRes.body.goal.withdrawals[0].notes).toBeUndefined();
+
+    // 4. Supprimer le retrait -> rétablit currentAmount à 920 + 200 = 1120 €
+    const deleteWithdrawRes = await request(app)
+      .delete(`/api/budgets/${budgetId}/goals/${goalId}/withdrawals/${withdrawalId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(deleteWithdrawRes.status).toBe(200);
+    expect(deleteWithdrawRes.body.deletedId).toBe(withdrawalId);
+    expect(deleteWithdrawRes.body.goal.currentAmount).toBe(1120);
+    expect(deleteWithdrawRes.body.goal.withdrawals).toHaveLength(0);
+  });
+
+  it('applique le contrôle d’accès et la validation sur les retraits d’épargne (400/403/404)', async () => {
+    const { token: ownerToken, budgetId } = await setupUserBudgetAndPeriod();
+
+    const createGoalRes = await request(app)
+      .post(`/api/budgets/${budgetId}/goals`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Matelas', targetAmount: 2000, initialAmount: 500 });
+    const goalId = createGoalRes.body.goal.id as string;
+
+    const otherRes = await request(app).post('/api/auth/register').send({
+      email: 'stranger@eparnio.fr',
+      password: 'Password123!',
+      displayName: 'Stranger'
+    });
+    const otherToken = otherRes.body.token as string;
+    const otherUserId = otherRes.body.user.id as string;
+
+    // Membre étranger -> 400
+    const badMemberRes = await request(app)
+      .post(`/api/budgets/${budgetId}/goals/${goalId}/withdrawals`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ amount: 50, label: 'Test', memberId: otherUserId });
+    expect(badMemberRes.status).toBe(400);
+
+    // Utilisateur hors budget -> 403
+    const forbiddenRes = await request(app)
+      .post(`/api/budgets/${budgetId}/goals/${goalId}/withdrawals`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ amount: 50, label: 'Test' });
+    expect(forbiddenRes.status).toBe(403);
+
+    // Objectif ou retrait inexistant -> 404
+    const missingId = new mongoose.Types.ObjectId().toString();
+    const missingGoalRes = await request(app)
+      .post(`/api/budgets/${budgetId}/goals/${missingId}/withdrawals`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ amount: 50, label: 'Test' });
+    expect(missingGoalRes.status).toBe(404);
+
+    const missingWithdrawalPatch = await request(app)
+      .patch(`/api/budgets/${budgetId}/goals/${goalId}/withdrawals/${missingId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ amount: 30 });
+    expect(missingWithdrawalPatch.status).toBe(404);
+
+    const missingWithdrawalDelete = await request(app)
+      .delete(`/api/budgets/${budgetId}/goals/${goalId}/withdrawals/${missingId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(missingWithdrawalDelete.status).toBe(404);
+  });
 });

@@ -170,7 +170,14 @@ import {
   reorderEnvelopes,
   updateEnvelope
 } from '../services/envelope.service';
-import { createGoal, deleteGoal, updateGoal } from '../services/goal.service';
+import {
+  createGoal,
+  createGoalWithdrawal,
+  deleteGoal,
+  deleteGoalWithdrawal,
+  updateGoal,
+  updateGoalWithdrawal
+} from '../services/goal.service';
 import { getPeriodByMonth } from '../services/period.service';
 import {
   createTransaction,
@@ -206,6 +213,9 @@ describe('Services API (envelopes, goals, periods, transactions)', () => {
     });
     await updateGoal('b-1', 'g-1', { targetAmount: 1200 });
     await deleteGoal('b-1', 'g-1');
+    await createGoalWithdrawal('b-1', 'g-1', { amount: 100, label: 'Billet' });
+    await updateGoalWithdrawal('b-1', 'g-1', 'w-1', { amount: 120 });
+    await deleteGoalWithdrawal('b-1', 'g-1', 'w-1');
 
     await getPeriodByMonth('b-1', 2026, 11);
 

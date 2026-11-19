@@ -7,13 +7,14 @@ import { RingGauge } from '../../components/ui/RingGauge';
 import type { BudgetPeriodSummary, EnvelopeItem } from '../../types/budget.types';
 import { formatCurrency } from '../../utils/format';
 import { sortEnvelopesByOrder } from './SectionManageHeader';
-import { ZeroBasedBanner } from './ZeroBasedBanner';
+import { ZeroBasedBanner, type ZeroBasedQuickActions } from './ZeroBasedBanner';
 
 export interface EnvelopesListProps {
   items: EnvelopeItem[];
   summary: BudgetPeriodSummary;
   onAddEnvelope: () => void;
   onSelectEnvelope: (envelope: EnvelopeItem) => void;
+  zeroBasedActions?: ZeroBasedQuickActions;
 }
 
 /**
@@ -24,7 +25,8 @@ export function EnvelopesList({
   items,
   summary,
   onAddEnvelope,
-  onSelectEnvelope
+  onSelectEnvelope,
+  zeroBasedActions
 }: EnvelopesListProps) {
   const sortedItems = useMemo(() => sortEnvelopesByOrder(items), [items]);
   const remainingInEnvelopes =
@@ -58,6 +60,7 @@ export function EnvelopesList({
       <ZeroBasedBanner
         remainingToAllocate={summary.remainingToAllocate}
         plannedIncome={summary.plannedIncome}
+        {...zeroBasedActions}
       />
 
       <section aria-label="Les enveloppes" className="space-y-2.5">

@@ -271,4 +271,125 @@ describe('API Transactions dans les Enveloppes (/api/periods/:periodId/transacti
       .set('Authorization', `Bearer ${token}`);
     expect(missingTxRes.status).toBe(404);
   });
+
+  it('gère les remboursements (type: income), la création/modification/effacement de notes et la conversion via PATCH', async () => {
+    const { token, partnerId, periodId, coursesEnvelopeId } = await setupPeriodWithEnvelopes();
+
+    // Dépense initiale 100 € avec note
+    const expenseRes = await request(app)
+      .post(`/api/periods/${periodId}/transactions`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        envelopeId: coursesEnvelopeId,
+        type: 'expense',
+        amount: 100,
+        label: 'Achat vêtements',
+        notes: 'Commande #42'
+      });
+    expect(expenseRes.status).toBe(201);
+    expect(expenseRes.body.transaction.notes).toBe('Commande #42');
+    expect(expenseRes.body.envelope.spentOrPaidAmount).toBe(100);
+    expect(expenseRes.body.period.summary.remainingToLive).toBe(2000);
+    expect(expenseRes.body.period.summary.remainingToAllocate).toBe(1550);
+
+    // Remboursement de 35 € -> spentOrPaidAmount = 65 €, remainingToLive = 2035 €, remainingToAllocate inchangé
+    const refundRes = await request(app)
+      .post(`/api/periods/${periodId}/transactions`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        envelopeId: coursesEnvelopeId,
+        type: 'income',
+        amount: 35,
+        label: 'Retour article',
+        paidByUserId: partnerId,
+        notes: 'Avoir en caisse'
+      });
+    expect(refundRes.status).toBe(201);
+    expect(refundRes.body.transaction.type).toBe('income');
+    expect(refundRes.body.transaction.notes).toBe('Avoir en caisse');
+    expect(refundRes.body.envelope.spentOrPaidAmount).toBe(65);
+    expect(refundRes.body.period.summary.spentVariables).toBe(65);
+    expect(refundRes.body.period.summary.remainingToLive).toBe(2035);
+    expect(refundRes.body.period.summary.remainingToAllocate).toBe(1550);
+
+    const txExpenseId = expenseRes.body.transaction.id as string;
+
+    // Effacement de la note (notes: '') et conversion en remboursement (ou mise à jour de montant)
+    const patchNoteClearRes = await request(app)
+      .patch(`/api/periods/${periodId}/transactions/${txExpenseId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        notes: ''
+      });
+    expect(patchNoteClearRes.status).toBe(200);
+    expect(patchNoteClearRes.body.transaction.notes).toBeUndefined();
+
+    // Conversion d'une dépense en remboursement via PATCH
+    const convertRes = await request(app)
+      .patch(`/api/periods/${periodId}/transactions/${txExpenseId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        type: 'income',
+        notes: 'Passé en avoir'
+      });
+    expect(convertRes.status).toBe(200);
+    expect(convertRes.body.transaction.type).toBe('income');
+    expect(convertRes.body.transaction.notes).toBe('Passé en avoir');
+    // -100 - 35 = -135 € (crédit net)
+    expect(convertRes.body.envelope.spentOrPaidAmount).toBe(-135);
+    expect(convertRes.body.period.summary.remainingToLive).toBe(2235);
+  });
+
+  it('supporte un remboursement supérieur aux dépenses du mois et propage le rollover vers le mois suivant', async () => {
+    const { token, budgetId, periodId } = await setupPeriodWithEnvelopes();
+
+    // Enveloppe Santé avec rollover activé (200 € en Nov 2026)
+    const santeRes = await request(app)
+      .post(`/api/periods/${periodId}/envelopes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        pillar: 'variable_envelope',
+        name: 'Santé',
+        allocatedAmount: 200,
+        rolloverEnabled: true,
+        rolloverMode: 'positive_only'
+      });
+    expect(santeRes.status).toBe(201);
+    const santeNovId = santeRes.body.envelope.id as string;
+
+    // Créer Décembre 2026 -> rollover initial = 200 €
+    const decRes = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2026&month=12`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(decRes.status).toBe(200);
+    const santeDecBefore = (
+      decRes.body.envelopes as Array<{ name: string; rolloverAmount: number }>
+    ).find((e) => e.name === 'Santé');
+    expect(santeDecBefore?.rolloverAmount).toBe(200);
+
+    // Remboursement mutuelle de 50 € en Novembre (aucune dépense préalable -> spentOrPaidAmount = -50)
+    const refundRes = await request(app)
+      .post(`/api/periods/${periodId}/transactions`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        envelopeId: santeNovId,
+        type: 'income',
+        amount: 50,
+        label: 'Remboursement mutuelle',
+        notes: 'Soins octobre'
+      });
+    expect(refundRes.status).toBe(201);
+    expect(refundRes.body.envelope.spentOrPaidAmount).toBe(-50);
+    // Remaining to live: 3000 - 900 - (-50) = 2150
+    expect(refundRes.body.period.summary.remainingToLive).toBe(2150);
+
+    // Vérifier propagation sur Décembre : 200 - (-50) = 250 € reportés
+    const decAfterRes = await request(app)
+      .get(`/api/budgets/${budgetId}/periods/by-month?year=2026&month=12`)
+      .set('Authorization', `Bearer ${token}`);
+    const santeDecAfter = (
+      decAfterRes.body.envelopes as Array<{ name: string; rolloverAmount: number }>
+    ).find((e) => e.name === 'Santé');
+    expect(santeDecAfter?.rolloverAmount).toBe(250);
+  });
 });

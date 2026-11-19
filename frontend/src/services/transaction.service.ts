@@ -64,10 +64,107 @@ export async function updateTransaction(
 
 export async function deleteTransaction(
   periodId: string,
-  transactionId: string
+  transactionId: string,
+  scope: 'single' | 'group' = 'single'
 ): Promise<TransactionDeleteResponse> {
+  const query = scope === 'group' ? '?scope=group' : '';
   const { data } = await apiClient.delete<TransactionDeleteResponse>(
-    `/periods/${periodId}/transactions/${transactionId}`
+    `/periods/${periodId}/transactions/${transactionId}${query}`
   );
+  return data;
+}
+
+export interface ImportTransactionItemPayload {
+  envelopeId: string;
+  amount: number;
+  label: string;
+  date: string;
+  paidByUserId?: string;
+  notes?: string;
+}
+
+export interface ImportTransactionsResponse {
+  status: 'ok';
+  importedCount: number;
+  skippedDuplicatesCount: number;
+  transactions: import('../types/budget.types').TransactionItem[];
+  envelopes: import('../types/budget.types').EnvelopeItem[];
+  period: import('../types/budget.types').BudgetPeriod;
+}
+
+export interface BalanceReconciliationResult {
+  theoreticalBalance: number;
+  bankBalance: number;
+  difference: number;
+  status: 'balanced' | 'under' | 'over';
+  suggestedAdjustmentAmount: number;
+}
+
+export interface ReconcileBalanceResponse {
+  status: 'ok';
+  reconciliation: BalanceReconciliationResult;
+}
+
+export async function importTransactions(
+  periodId: string,
+  items: ImportTransactionItemPayload[]
+): Promise<ImportTransactionsResponse> {
+  const { data } = await apiClient.post<ImportTransactionsResponse>(
+    `/periods/${periodId}/transactions/import`,
+    { items }
+  );
+  return data;
+}
+
+export interface TransactionSuggestion {
+  label: string;
+  envelopeName: string;
+  lastAmount: number;
+  count: number;
+}
+
+export async function getTransactionSuggestions(
+  budgetId: string
+): Promise<TransactionSuggestion[]> {
+  const { data } = await apiClient.get<{ suggestions: TransactionSuggestion[] }>(
+    `/budgets/${budgetId}/transactions/suggestions`
+  );
+  return data.suggestions;
+}
+
+
+export async function reconcilePeriodBalance(
+  periodId: string,
+  bankBalance: number
+): Promise<ReconcileBalanceResponse> {
+  const { data } = await apiClient.post<ReconcileBalanceResponse>(
+    `/periods/${periodId}/transactions/reconcile`,
+    { bankBalance }
+  );
+  return data;
+}
+
+
+export interface SplitTransactionPayload {
+  label: string;
+  date?: string;
+  paidByUserId?: string;
+  notes?: string;
+  parts: Array<{ envelopeId: string; amount: number }>;
+}
+
+export async function splitTransaction(
+  periodId: string,
+  payload: SplitTransactionPayload
+): Promise<{
+  status: 'ok';
+  splitGroupId: string;
+  transactions: import('../types/budget.types').TransactionItem[];
+}> {
+  const { data } = await apiClient.post<{
+    status: 'ok';
+    splitGroupId: string;
+    transactions: import('../types/budget.types').TransactionItem[];
+  }>(`/periods/${periodId}/transactions/split`, payload);
   return data;
 }

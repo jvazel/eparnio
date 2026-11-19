@@ -69,7 +69,7 @@ export function buildClientPeriodAnalytics(
     daysRemaining > 0 ? Math.max(0, roundCurrency(summary.remainingToLive / daysRemaining)) : 0;
 
   const fixedAmount = roundCurrency(summary.plannedFixedCharges);
-  const variableAmount = roundCurrency(summary.spentVariables);
+  const variableAmount = Math.max(0, roundCurrency(summary.spentVariables));
   const savingsAmount = roundCurrency(summary.plannedSavings);
   const totalOutflows = roundCurrency(fixedAmount + variableAmount + savingsAmount);
 

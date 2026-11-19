@@ -9,6 +9,11 @@ import { BottomSheet } from './components/ui/BottomSheet';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
+import { BalanceReconcileSheet } from './features/budget/BalanceReconcileSheet';
+import { CsvImportSheet } from './features/transactions/CsvImportSheet';
+import { QuickAddExpenseSheet } from './features/transactions/QuickAddExpenseSheet';
+import { createQuickTemplate, deleteQuickTemplate } from './services/budget.service';
+import { getTransactionSuggestions, splitTransaction } from './services/transaction.service';
 import { AuthScreen } from './features/auth/AuthScreen';
 import { OnboardingWizard } from './features/auth/OnboardingWizard';
 import { ProfileSheet } from './features/auth/ProfileSheet';
@@ -17,9 +22,15 @@ import { CreationFormModal } from './features/budget/CreationFormModal';
 import { EnvelopesList } from './features/budget/EnvelopesList';
 import { FixedChargesList } from './features/budget/FixedChargesList';
 import { IncomeList } from './features/budget/IncomeList';
+import { MonthClosingWizard } from './features/budget/MonthClosingWizard';
+import type { ZeroBasedQuickActions } from './features/budget/ZeroBasedBanner';
 import { AddExpenseSheet, type AddExpensePayload } from './features/transactions/AddExpenseSheet';
 import { EnvelopeDetailPage } from './features/transactions/EnvelopeDetailPage';
-import { GoalContributionSheet, GoalFormSheet } from './features/savings/GoalDetailSheet';
+import {
+  GoalContributionSheet,
+  GoalFormSheet,
+  GoalWithdrawalSheet
+} from './features/savings/GoalDetailSheet';
 import { SavingsGoalsList } from './features/savings/SavingsGoalsList';
 import { ContributionCalculatorSheet } from './features/shared-budget/ContributionCalculatorSheet';
 import { InvitePartnerSheet } from './features/shared-budget/InvitePartnerSheet';
@@ -44,11 +55,19 @@ import {
 import {
   createGoal,
   type CreateGoalPayload,
+  createGoalWithdrawal,
+  type CreateGoalWithdrawalPayload,
   deleteGoal,
+  deleteGoalWithdrawal,
   listGoals,
-  updateGoal
+  updateGoal,
+  updateGoalWithdrawal
 } from './services/goal.service';
-import { getPeriodByMonth } from './services/period.service';
+import {
+  closePeriod,
+  type ClosePeriodPayload,
+  getPeriodByMonth
+} from './services/period.service';
 import {
   createTransaction,
   deleteTransaction,
@@ -69,8 +88,14 @@ import type {
   BudgetSpace,
   EnvelopeItem,
   SavingsGoalItem,
+  SavingsWithdrawalItem,
   TransactionItem
 } from './types/budget.types';
+import {
+  downloadBudgetCsv,
+  downloadBudgetJsonBackup,
+  downloadPeriodPdfReport
+} from './utils/exportReport';
 import { formatMonthLabel } from './utils/format';
 
 interface TabMetadata {
@@ -140,7 +165,10 @@ export function App() {
     root.style.colorScheme = activeTheme;
   }, [activeTheme]);
 
-  const [activeTab, setActiveTab] = useState<TabId>('depenses');
+  const [activeTab, setActiveTab] = useState<TabId>(
+    () => user?.preferences?.defaultTab ?? 'depenses'
+  );
+  const [isQuickAddExpenseOpen, setIsQuickAddExpenseOpen] = useState(false);
   const [referenceDate, setReferenceDate] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -178,6 +206,15 @@ export function App() {
     goal: null,
     envelope: null
   });
+  const [withdrawalState, setWithdrawalState] = useState<{
+    isOpen: boolean;
+    goal: SavingsGoalItem | null;
+    withdrawal: SavingsWithdrawalItem | null;
+  }>({
+    isOpen: false,
+    goal: null,
+    withdrawal: null
+  });
   const [isPlaceholderAddOpen, setIsPlaceholderAddOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
@@ -193,6 +230,9 @@ export function App() {
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [joinInitialCode, setJoinInitialCode] = useState('');
   const [calculatorBudget, setCalculatorBudget] = useState<BudgetSpace | null>(null);
+  const [isClosingWizardOpen, setIsClosingWizardOpen] = useState(false);
+  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const [isBalanceReconcileOpen, setIsBalanceReconcileOpen] = useState(false);
 
   const canLoadApp = Boolean(isAuthenticated && user && token && user.hasCompletedOnboarding);
 
@@ -236,6 +276,12 @@ export function App() {
     if (budgets.length === 0) return null;
     return budgets.find((item) => item.id === activeBudgetId) ?? budgets[0] ?? null;
   }, [budgets, activeBudgetId]);
+
+  const suggestionsQuery = useQuery({
+    queryKey: ['transaction-suggestions', activeBudget?.id],
+    queryFn: () => getTransactionSuggestions(activeBudget!.id),
+    enabled: Boolean(canLoadApp && activeBudget?.id)
+  });
 
   useEffect(() => {
     if (activeBudget && activeBudget.id !== activeBudgetId) {
@@ -489,6 +535,53 @@ export function App() {
     }
   });
 
+  const createGoalWithdrawalMutation = useMutation({
+    mutationFn: ({
+      budgetId,
+      goalId,
+      payload
+    }: {
+      budgetId: string;
+      goalId: string;
+      payload: CreateGoalWithdrawalPayload;
+    }) => createGoalWithdrawal(budgetId, goalId, payload),
+    onSuccess: (response) => {
+      syncGoalCache(response.goal);
+    }
+  });
+
+  const updateGoalWithdrawalMutation = useMutation({
+    mutationFn: ({
+      budgetId,
+      goalId,
+      withdrawalId,
+      payload
+    }: {
+      budgetId: string;
+      goalId: string;
+      withdrawalId: string;
+      payload: CreateGoalWithdrawalPayload;
+    }) => updateGoalWithdrawal(budgetId, goalId, withdrawalId, payload),
+    onSuccess: (response) => {
+      syncGoalCache(response.goal);
+    }
+  });
+
+  const deleteGoalWithdrawalMutation = useMutation({
+    mutationFn: ({
+      budgetId,
+      goalId,
+      withdrawalId
+    }: {
+      budgetId: string;
+      goalId: string;
+      withdrawalId: string;
+    }) => deleteGoalWithdrawal(budgetId, goalId, withdrawalId),
+    onSuccess: (response) => {
+      syncGoalCache(response.goal);
+    }
+  });
+
   const createTransactionMutation = useMutation({
     mutationFn: ({ periodId, payload }: { periodId: string; payload: AddExpensePayload }) =>
       createTransaction(periodId, payload),
@@ -566,6 +659,44 @@ export function App() {
     }
   });
 
+  const closePeriodMutation = useMutation({
+    mutationFn: ({
+      budgetId,
+      periodId,
+      payload
+    }: {
+      budgetId: string;
+      periodId: string;
+      payload: ClosePeriodPayload;
+    }) => closePeriod(budgetId, periodId, payload),
+    onSuccess: (response) => {
+      for (const goal of response.updatedGoals) {
+        syncGoalCache(goal);
+      }
+      queryClient.setQueryData<PeriodWithEnvelopesResponse>(
+        [
+          'period',
+          response.nextPeriod.budgetId,
+          activeBudget?.budgetStartDay ?? 1,
+          response.nextPeriod.year,
+          response.nextPeriod.month
+        ],
+        {
+          status: 'ok',
+          period: response.nextPeriod,
+          envelopes: response.nextEnvelopes
+        }
+      );
+      void queryClient.invalidateQueries({ queryKey: ['period'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      void queryClient.invalidateQueries({ queryKey: ['trends'] });
+      void queryClient.invalidateQueries({ queryKey: ['goals'] });
+      setIsClosingWizardOpen(false);
+      setSelectedEnvelopeId(null);
+      setReferenceDate(new Date(response.nextPeriod.year, response.nextPeriod.month - 1, 1));
+    }
+  });
+
   const periodLabel = useMemo(() => formatMonthLabel(referenceDate), [referenceDate]);
   const defaultEntryDate = useMemo(() => {
     const now = new Date();
@@ -639,6 +770,37 @@ export function App() {
     await deleteGoalMutation.mutateAsync({
       budgetId: activeBudget.id,
       goalId
+    });
+  };
+
+  const handleSaveWithdrawal = async (payload: CreateGoalWithdrawalPayload) => {
+    if (!activeBudget || !withdrawalState.goal) {
+      throw new Error('Espace budgétaire introuvable, réessayez dans un instant.');
+    }
+
+    if (withdrawalState.withdrawal) {
+      await updateGoalWithdrawalMutation.mutateAsync({
+        budgetId: activeBudget.id,
+        goalId: withdrawalState.goal.id,
+        withdrawalId: withdrawalState.withdrawal.id,
+        payload
+      });
+      return;
+    }
+
+    await createGoalWithdrawalMutation.mutateAsync({
+      budgetId: activeBudget.id,
+      goalId: withdrawalState.goal.id,
+      payload
+    });
+  };
+
+  const handleDeleteWithdrawal = async (goalId: string, withdrawalId: string) => {
+    if (!activeBudget) return;
+    await deleteGoalWithdrawalMutation.mutateAsync({
+      budgetId: activeBudget.id,
+      goalId,
+      withdrawalId
     });
   };
 
@@ -752,9 +914,52 @@ export function App() {
     createGoalMutation.isPending ||
     updateGoalMutation.isPending ||
     deleteGoalMutation.isPending ||
+    createGoalWithdrawalMutation.isPending ||
+    updateGoalWithdrawalMutation.isPending ||
+    deleteGoalWithdrawalMutation.isPending ||
     createTransactionMutation.isPending ||
     updateTransactionMutation.isPending ||
     deleteTransactionMutation.isPending;
+
+  const handleAutoBalanceToEnvelope = async (envelope: EnvelopeItem, amount: number) => {
+    if (!activePeriod || amount <= 0) return;
+    const nextAllocatedAmount = Math.round((envelope.allocatedAmount + amount) * 100) / 100;
+    await updateEnvelopeMutation.mutateAsync({
+      periodId: activePeriod.id,
+      envelopeId: envelope.id,
+      payload: { allocatedAmount: nextAllocatedAmount }
+    });
+  };
+
+  const handleAutoBalanceToGoal = async (goal: SavingsGoalItem, amount: number) => {
+    if (!activePeriod || amount <= 0) return;
+    const roundedAmount = Math.round(amount * 100) / 100;
+    await createEnvelopeMutation.mutateAsync({
+      periodId: activePeriod.id,
+      payload: {
+        pillar: 'savings',
+        linkedGoalId: goal.id,
+        name: `Équilibrage ${goal.name}`.slice(0, 80),
+        icon: goal.icon,
+        color: goal.color,
+        allocatedAmount: roundedAmount,
+        date: new Date(`${defaultEntryDate}T12:00:00.000Z`).toISOString(),
+        isRecurring: false,
+        isPaid: true,
+        memberId: activeBudget?.type === 'shared' ? user.id : undefined
+      }
+    });
+  };
+
+  const zeroBasedActions: ZeroBasedQuickActions = {
+    variableEnvelopes,
+    goals,
+    isAutoBalancing: isMutating,
+    currentTab: activeTab,
+    onAutoBalanceToEnvelope: handleAutoBalanceToEnvelope,
+    onAutoBalanceToGoal: handleAutoBalanceToGoal,
+    onNavigateToTab: setActiveTab
+  };
 
   const renderTabContent = () => {
     if (periodQuery.isError && !activePeriod) {
@@ -780,6 +985,7 @@ export function App() {
           onTogglePaid={handleTogglePaid}
           onReorder={handleReorder}
           onDeleteIncome={(item) => handleDeleteById(item.id)}
+          zeroBasedActions={zeroBasedActions}
         />
       );
     }
@@ -798,6 +1004,7 @@ export function App() {
           onTogglePaid={handleTogglePaid}
           onReorder={handleReorder}
           onDeleteFixedCharge={(item) => handleDeleteById(item.id)}
+          zeroBasedActions={zeroBasedActions}
         />
       );
     }
@@ -811,6 +1018,7 @@ export function App() {
             setEditorState({ isOpen: true, pillar: 'variable_envelope', item: null })
           }
           onSelectEnvelope={(envelope) => setSelectedEnvelopeId(envelope.id)}
+          zeroBasedActions={zeroBasedActions}
         />
       );
     }
@@ -834,6 +1042,14 @@ export function App() {
             setContributionState({ isOpen: true, goal, envelope })
           }
           onDeleteContribution={handleDeleteById}
+          onAddWithdrawal={(goal) =>
+            setWithdrawalState({ isOpen: true, goal, withdrawal: null })
+          }
+          onEditWithdrawal={(goal, withdrawal) =>
+            setWithdrawalState({ isOpen: true, goal, withdrawal })
+          }
+          onDeleteWithdrawal={handleDeleteWithdrawal}
+          zeroBasedActions={zeroBasedActions}
         />
       );
     }
@@ -860,12 +1076,75 @@ export function App() {
         trends={trendsQuery.data?.items ?? []}
         totalSavingsGoals={goals.reduce((sum, goal) => sum + goal.currentAmount, 0)}
         currentUserId={user.id}
+        isPeriodClosed={Boolean(activePeriod?.closedAt)}
+        periodClosedAt={activePeriod?.closedAt}
+        onOpenMonthClosing={activePeriod ? () => setIsClosingWizardOpen(true) : undefined}
+        onOpenCsvImport={activePeriod ? () => setIsCsvImportOpen(true) : undefined}
+        onOpenBalanceReconcile={activePeriod ? () => setIsBalanceReconcileOpen(true) : undefined}
+        onExportCsv={
+          activeBudget
+            ? () =>
+                downloadBudgetCsv(activeBudget.id, {
+                  budgetName: activeBudget.name,
+                  periodId: activePeriod?.id,
+                  periodLabel
+                })
+            : undefined
+        }
+        onExportPdf={
+          activeBudget
+            ? async () => {
+                const txs = activePeriod
+                  ? (await listTransactions(activePeriod.id).catch(() => ({ transactions: [] })))
+                      .transactions
+                  : [];
+                return downloadPeriodPdfReport({
+                  budgetName: activeBudget.name,
+                  periodLabel,
+                  analytics: resolvedAnalytics,
+                  envelopes,
+                  goals,
+                  transactions: txs
+                });
+              }
+            : undefined
+        }
+        onExportJson={
+          activeBudget
+            ? () => downloadBudgetJsonBackup(activeBudget.id, activeBudget.name)
+            : undefined
+        }
         onOpenCalculator={
           activeBudget ? () => setCalculatorBudget(activeBudget) : undefined
         }
+        goals={goals}
+        isAutoBalancing={isMutating}
+        onAutoBalanceToEnvelope={handleAutoBalanceToEnvelope}
+        onAutoBalanceToGoal={handleAutoBalanceToGoal}
+        onNavigateToTab={setActiveTab}
       />
     );
   };
+
+  const settingsTargetAnalytics =
+    activeBudget && settingsState.budget?.id === activeBudget.id
+      ? (analyticsQuery.data?.analytics ??
+        buildClientPeriodAnalytics(
+          activePeriod ?? {
+            id: 'period-fallback',
+            budgetId: activeBudget.id,
+            year: referenceYear,
+            month: referenceMonth,
+            label: periodLabel,
+            startDate: new Date(Date.UTC(referenceYear, referenceMonth - 1, 1)).toISOString(),
+            endDate: new Date(Date.UTC(referenceYear, referenceMonth, 0, 23, 59, 59, 999)).toISOString(),
+            summary: EMPTY_SUMMARY
+          },
+          envelopes,
+          activeBudget,
+          user
+        ))
+      : null;
 
   const handleGenerateInvite = async (budgetId: string): Promise<string | null> => {
     const response = await generateBudgetInvite(budgetId);
@@ -937,6 +1216,7 @@ export function App() {
         avatarEmoji={user.avatarEmoji}
         activeBudgetName={activeBudget?.name ?? 'Budget Perso'}
         periodLabel={periodLabel}
+        isPeriodClosed={Boolean(activePeriod?.closedAt)}
         activeTab={activeTab}
         sectionTitle={currentConfig.title}
         sectionDescription={currentConfig.description}
@@ -945,6 +1225,22 @@ export function App() {
         onNextPeriod={handleNextPeriod}
         onQuickAdd={handleQuickAdd}
         quickAddLabel={currentConfig.addTitle || undefined}
+        fabMenuActions={
+          activeTab === 'enveloppes' &&
+          envelopes.some((env) => env.pillar === 'variable_envelope')
+            ? [
+                {
+                  label: 'Ajouter une dépense',
+                  primary: true,
+                  onClick: () => setIsQuickAddExpenseOpen(true)
+                },
+                {
+                  label: 'Nouvelle enveloppe',
+                  onClick: handleQuickAdd
+                }
+              ]
+            : undefined
+        }
         onProfileClick={() => setIsProfileOpen(true)}
         onBudgetSwitcherClick={() => setIsSwitcherOpen(true)}
       >
@@ -985,6 +1281,24 @@ export function App() {
 
         <AddExpenseSheet
           isOpen={expenseEditorState.isOpen && Boolean(selectedEnvelope)}
+          suggestions={suggestionsQuery.data ?? []}
+          envelopes={envelopes.filter((env) => env.pillar === 'variable_envelope')}
+          onSplitSubmit={async (payload) => {
+            if (!activePeriod) return;
+            await splitTransaction(activePeriod.id, payload);
+            void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+            void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+            void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
+          }}
+          onSaveQuickTemplate={
+            activeBudget
+              ? async (payload) => {
+                  await createQuickTemplate(activeBudget.id, payload);
+                  void queryClient.invalidateQueries({ queryKey: ['budgets'] });
+                }
+              : undefined
+          }
           onClose={() => setExpenseEditorState({ isOpen: false, transaction: null })}
           envelope={selectedEnvelope}
           defaultDate={defaultEntryDate}
@@ -1021,6 +1335,24 @@ export function App() {
           onDelete={contributionState.envelope ? handleDeleteById : undefined}
         />
 
+        <GoalWithdrawalSheet
+          isOpen={withdrawalState.isOpen && Boolean(withdrawalState.goal)}
+          onClose={() => setWithdrawalState({ isOpen: false, goal: null, withdrawal: null })}
+          goal={withdrawalState.goal}
+          defaultDate={defaultEntryDate}
+          initialWithdrawal={withdrawalState.withdrawal}
+          members={activeBudget?.members ?? []}
+          currentUserId={user.id}
+          isSharedBudget={activeBudget?.type === 'shared'}
+          isSubmitting={isMutating}
+          onSubmit={handleSaveWithdrawal}
+          onDelete={
+            withdrawalState.withdrawal && withdrawalState.goal
+              ? (withdrawalId) => handleDeleteWithdrawal(withdrawalState.goal!.id, withdrawalId)
+              : undefined
+          }
+        />
+
         <BottomSheet
           isOpen={isPlaceholderAddOpen}
           onClose={() => setIsPlaceholderAddOpen(false)}
@@ -1048,6 +1380,7 @@ export function App() {
           setSelectedEnvelopeId(null);
           setGoalFormState({ isOpen: false, goal: null });
           setContributionState({ isOpen: false, goal: null, envelope: null });
+          setWithdrawalState({ isOpen: false, goal: null, withdrawal: null });
           setActiveBudgetId(id);
         }}
         onOpenSettings={(targetBudget) => {
@@ -1073,6 +1406,10 @@ export function App() {
         initialMode={settingsState.mode}
         canDelete={budgets.length > 1}
         currentUserId={user.id}
+        activePeriod={settingsState.budget?.id === activeBudget?.id ? activePeriod : null}
+        activeAnalytics={settingsTargetAnalytics}
+        activeEnvelopes={settingsState.budget?.id === activeBudget?.id ? envelopes : []}
+        activeGoals={settingsState.budget?.id === activeBudget?.id ? goals : []}
         onBudgetCreated={(created) => setActiveBudgetId(created.id)}
         onBudgetDeleted={(deletedId) => {
           if (activeBudgetId === deletedId) {
@@ -1105,6 +1442,86 @@ export function App() {
         currentUserId={user.id}
         onClose={() => setCalculatorBudget(null)}
       />
+
+      <MonthClosingWizard
+        isOpen={isClosingWizardOpen}
+        onClose={() => setIsClosingWizardOpen(false)}
+        period={activePeriod}
+        envelopes={envelopes}
+        goals={goals}
+        isSubmitting={closePeriodMutation.isPending}
+        onConfirmClose={async (payload) => {
+          if (!activeBudget || !activePeriod) return;
+          await closePeriodMutation.mutateAsync({
+            budgetId: activeBudget.id,
+            periodId: activePeriod.id,
+            payload
+          });
+        }}
+      />
+
+      {activePeriod && (
+        <>
+          <CsvImportSheet
+            isOpen={isCsvImportOpen}
+            onClose={() => setIsCsvImportOpen(false)}
+            periodId={activePeriod.id}
+            envelopes={envelopes.filter((env) => env.pillar === 'variable_envelope')}
+            existingTransactions={[]}
+            onImported={() => {
+              void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+              void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+              void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            }}
+          />
+          <BalanceReconcileSheet
+            isOpen={isBalanceReconcileOpen}
+            onClose={() => setIsBalanceReconcileOpen(false)}
+            periodId={activePeriod.id}
+            theoreticalBalance={activePeriod.summary.remainingToLive}
+          />
+          <QuickAddExpenseSheet
+            isOpen={isQuickAddExpenseOpen}
+            onClose={() => setIsQuickAddExpenseOpen(false)}
+            envelopes={envelopes.filter((env) => env.pillar === 'variable_envelope')}
+            isSharedBudget={activeBudget?.type === 'shared'}
+            members={activeBudget?.members ?? []}
+            currentUserId={user.id}
+            quickTemplates={activeBudget?.quickTemplates ?? []}
+            suggestions={suggestionsQuery.data ?? []}
+            onSaveQuickTemplate={
+              activeBudget
+                ? async (payload) => {
+                    await createQuickTemplate(activeBudget.id, payload);
+                    void queryClient.invalidateQueries({ queryKey: ['budgets'] });
+                  }
+                : undefined
+            }
+            onDeleteQuickTemplate={
+              activeBudget
+                ? async (templateId) => {
+                    await deleteQuickTemplate(activeBudget.id, templateId);
+                    void queryClient.invalidateQueries({ queryKey: ['budgets'] });
+                  }
+                : undefined
+            }
+            onSplitSubmit={async (payload) => {
+              await splitTransaction(activePeriod.id, payload);
+              void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+              void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+              void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+              void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
+            }}
+            onSubmit={async (payload) => {
+              await createTransaction(activePeriod.id, payload);
+              void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+              void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+              void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+              void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
+            }}
+          />
+        </>
+      )}
     </>
   );
 }

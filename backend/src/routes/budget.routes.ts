@@ -1,15 +1,23 @@
 import { Router } from 'express';
 import { getBudgetTrends } from '../controllers/analytics.controller';
 import {
+  getTransactionSuggestions,
+  transactionSuggestionsParamsSchema
+} from '../controllers/transaction.controller';
+import {
   budgetIdParamsSchema,
   contributionSplitBodySchema,
   createBudget,
   createBudgetSchema,
+  createQuickTemplate,
+  createQuickTemplateBodySchema,
   deleteBudget,
+  deleteQuickTemplate,
   generateInvite,
   inviteCodeParamsSchema,
   joinBudget,
   listBudgets,
+  quickTemplateParamsSchema,
   removeMember,
   removeMemberParamsSchema,
   updateBudget,
@@ -55,5 +63,21 @@ budgetRouter.patch(
 budgetRouter.delete('/:id', validate({ params: budgetIdParamsSchema }), deleteBudget);
 
 budgetRouter.get('/:budgetId/trends', requireAuth, getBudgetTrends);
+
+budgetRouter.get(
+  '/:id/transactions/suggestions',
+  validate({ params: transactionSuggestionsParamsSchema }),
+  getTransactionSuggestions
+);
+budgetRouter.post(
+  '/:id/quick-templates',
+  validate({ params: budgetIdParamsSchema, body: createQuickTemplateBodySchema }),
+  createQuickTemplate
+);
+budgetRouter.delete(
+  '/:id/quick-templates/:templateId',
+  validate({ params: quickTemplateParamsSchema }),
+  deleteQuickTemplate
+);
 
 export { budgetRouter };

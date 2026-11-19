@@ -1,4 +1,14 @@
-import { ChevronDown, MoreVertical, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ChevronDown,
+  Minus,
+  MoreVertical,
+  Pencil,
+  Plus,
+  RefreshCw,
+  StickyNote,
+  Trash2
+} from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { computeSinkingFundInfo } from './sinkingFund';
@@ -10,10 +20,11 @@ import type {
   BudgetMember,
   BudgetPeriodSummary,
   EnvelopeItem,
-  SavingsGoalItem
+  SavingsGoalItem,
+  SavingsWithdrawalItem
 } from '../../types/budget.types';
 import { formatCurrency, formatFullDate } from '../../utils/format';
-import { ZeroBasedBanner } from '../budget/ZeroBasedBanner';
+import { ZeroBasedBanner, type ZeroBasedQuickActions } from '../budget/ZeroBasedBanner';
 
 export interface SavingsGoalCardProps {
   goal: SavingsGoalItem;
@@ -26,11 +37,14 @@ export interface SavingsGoalCardProps {
   onAddContribution: (goal: SavingsGoalItem) => void;
   onEditContribution: (goal: SavingsGoalItem, contribution: EnvelopeItem) => void;
   onDeleteContribution: (envelopeId: string) => Promise<void> | void;
+  onAddWithdrawal?: (goal: SavingsGoalItem) => void;
+  onEditWithdrawal?: (goal: SavingsGoalItem, withdrawal: SavingsWithdrawalItem) => void;
+  onDeleteWithdrawal?: (goalId: string, withdrawalId: string) => Promise<void> | void;
 }
 
 /**
  * Carte d'objectif d'épargne (calibrée sur Finzee) :
- * icône cerclée + menu ⋮, Objectif / Total epargné, barre fine, accordéon ⌄ Epargne du mois et bouton + pastel.
+ * icône cerclée + menu ⋮, Objectif / Total epargné, barre fine, accordéon ⌄ Epargne du mois et boutons − / + pastel.
  */
 export function SavingsGoalCard({
   goal,
@@ -42,14 +56,19 @@ export function SavingsGoalCard({
   onDeleteGoal,
   onAddContribution,
   onEditContribution,
-  onDeleteContribution
+  onDeleteContribution,
+  onAddWithdrawal,
+  onEditWithdrawal,
+  onDeleteWithdrawal
 }: SavingsGoalCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [confirmingContribId, setConfirmingContribId] = useState<string | null>(null);
+  const [confirmingWithdrawalId, setConfirmingWithdrawalId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const accordionId = useId();
+  const withdrawals = goal.withdrawals ?? [];
 
   const pastelTheme = resolvePastelTheme(goal.color);
   const monthlyTotal = useMemo(
@@ -82,6 +101,17 @@ export function SavingsGoalCard({
     } finally {
       setIsBusy(false);
       setConfirmingContribId(null);
+    }
+  };
+
+  const handleConfirmDeleteWithdrawal = async (withdrawalId: string) => {
+    if (!onDeleteWithdrawal) return;
+    setIsBusy(true);
+    try {
+      await onDeleteWithdrawal(goal.id, withdrawalId);
+    } finally {
+      setIsBusy(false);
+      setConfirmingWithdrawalId(null);
     }
   };
 
@@ -262,121 +292,239 @@ export function SavingsGoalCard({
           />
         </button>
 
-        <button
-          type="button"
-          onClick={() => onAddContribution(goal)}
-          aria-label={`Ajouter un versement pour ${goal.name}`}
-          style={{
-            backgroundColor: pastelTheme.background,
-            color: pastelTheme.ring
-          }}
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-sm transition-transform hover:brightness-95 active:scale-95"
-        >
-          <Plus className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {onAddWithdrawal ? (
+            <button
+              type="button"
+              onClick={() => onAddWithdrawal(goal)}
+              aria-label={`Utiliser ou retirer de ${goal.name}`}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 shadow-sm transition-transform hover:bg-amber-100 active:scale-95 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60"
+            >
+              <Minus className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => onAddContribution(goal)}
+            aria-label={`Ajouter un versement pour ${goal.name}`}
+            style={{
+              backgroundColor: pastelTheme.background,
+              color: pastelTheme.ring
+            }}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-sm transition-transform hover:brightness-95 active:scale-95"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {isExpanded && (
         <div
           id={accordionId}
-          className="space-y-2 border-t border-slate-100 pt-3"
+          className="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800"
         >
-          {contributions.length === 0 ? (
-            <p className="py-1 text-center text-xs text-slate-400">
+          {contributions.length === 0 && withdrawals.length === 0 ? (
+            <p className="py-1 text-center text-xs text-slate-400 dark:text-slate-500">
               Aucun versement pour cet objectif ce mois-ci.
             </p>
           ) : (
-            contributions.map((contribution) => {
-              const memberMeta = contribution.memberId
-                ? memberMap.get(contribution.memberId)
-                : undefined;
-              const payerLabel =
-                contribution.memberId && contribution.memberId === currentUserId
-                  ? 'Moi'
-                  : memberMeta
-                    ? `Membre ${memberMeta.index + 1}`
-                    : undefined;
+            <>
+              {contributions.map((contribution) => {
+                const memberMeta = contribution.memberId
+                  ? memberMap.get(contribution.memberId)
+                  : undefined;
+                const payerLabel =
+                  contribution.memberId && contribution.memberId === currentUserId
+                    ? 'Moi'
+                    : memberMeta
+                      ? `Membre ${memberMeta.index + 1}`
+                      : undefined;
 
-              return (
-                <div
-                  key={contribution.id}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-slate-50/80 px-3 py-2"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="truncate text-xs font-semibold text-slate-900">
-                        {contribution.name}
-                      </p>
-                      {contribution.isRecurring && (
-                        <RefreshCw
-                          className="h-3 w-3 shrink-0 text-violet-500"
-                          aria-label="Versement récurrent"
-                        />
+                return (
+                  <div
+                    key={contribution.id}
+                    className="flex items-center justify-between gap-2 rounded-xl bg-slate-50/80 px-3 py-2 dark:bg-slate-800/70"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-50">
+                          {contribution.name}
+                        </p>
+                        {contribution.isRecurring && (
+                          <RefreshCw
+                            className="h-3 w-3 shrink-0 text-violet-500"
+                            aria-label="Versement récurrent"
+                          />
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span>{formatFullDate(contribution.date)}</span>
+                        {isSharedBudget && memberMeta && payerLabel && (
+                          <span className="inline-flex items-center gap-1">
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: memberMeta.member.color }}
+                              aria-hidden="true"
+                            />
+                            <span>{payerLabel}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="mr-1 text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                        + {formatCurrency(contribution.allocatedAmount)}
+                      </span>
+
+                      {confirmingContribId === contribution.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => setConfirmingContribId(null)}
+                            className="min-h-11 rounded-lg px-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleConfirmDeleteContribution(contribution.id)}
+                            className="min-h-11 rounded-lg bg-red-600 px-2 text-[11px] font-semibold text-white hover:bg-red-700"
+                          >
+                            Confirmer
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onEditContribution(goal, contribution)}
+                            aria-label={`Modifier le versement ${contribution.name}`}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                          >
+                            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingContribId(contribution.id)}
+                            aria-label={`Supprimer le versement ${contribution.name}`}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-red-500 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        </>
                       )}
                     </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                      <span>{formatFullDate(contribution.date)}</span>
-                      {isSharedBudget && memberMeta && payerLabel && (
-                        <span className="inline-flex items-center gap-1">
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: memberMeta.member.color }}
+                  </div>
+                );
+              })}
+
+              {withdrawals.map((withdrawal) => {
+                const memberMeta = withdrawal.memberId
+                  ? memberMap.get(withdrawal.memberId)
+                  : undefined;
+                const payerLabel =
+                  withdrawal.memberId && withdrawal.memberId === currentUserId
+                    ? 'Moi'
+                    : memberMeta
+                      ? `Membre ${memberMeta.index + 1}`
+                      : undefined;
+
+                return (
+                  <div
+                    key={withdrawal.id}
+                    className="flex items-center justify-between gap-2 rounded-xl bg-amber-50/70 px-3 py-2 dark:bg-amber-950/30"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-50">
+                          {withdrawal.label}
+                        </p>
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                          <ArrowDownLeft className="h-3 w-3" aria-hidden="true" />
+                          Retrait
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span>{formatFullDate(withdrawal.date)}</span>
+                        {isSharedBudget && memberMeta && payerLabel && (
+                          <span className="inline-flex items-center gap-1">
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: memberMeta.member.color }}
+                              aria-hidden="true"
+                            />
+                            <span>{payerLabel}</span>
+                          </span>
+                        )}
+                      </div>
+                      {withdrawal.notes ? (
+                        <p className="mt-1 flex items-start gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                          <StickyNote
+                            className="mt-0.5 h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500"
                             aria-hidden="true"
                           />
-                          <span>{payerLabel}</span>
-                        </span>
+                          <span className="line-clamp-2">{withdrawal.notes}</span>
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      <span className="mr-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
+                        − {formatCurrency(withdrawal.amount)}
+                      </span>
+
+                      {confirmingWithdrawalId === withdrawal.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => setConfirmingWithdrawalId(null)}
+                            className="min-h-11 rounded-lg px-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleConfirmDeleteWithdrawal(withdrawal.id)}
+                            className="min-h-11 rounded-lg bg-red-600 px-2 text-[11px] font-semibold text-white hover:bg-red-700"
+                          >
+                            Confirmer
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {onEditWithdrawal ? (
+                            <button
+                              type="button"
+                              onClick={() => onEditWithdrawal(goal, withdrawal)}
+                              aria-label={`Modifier le retrait ${withdrawal.label}`}
+                              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                            >
+                              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          ) : null}
+                          {onDeleteWithdrawal ? (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingWithdrawalId(withdrawal.id)}
+                              aria-label={`Supprimer le retrait ${withdrawal.label}`}
+                              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-red-500 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </div>
-
-                  <div className="flex shrink-0 items-center gap-1">
-                    <span className="mr-1 text-xs font-bold tabular-nums text-emerald-600">
-                      + {formatCurrency(contribution.allocatedAmount)}
-                    </span>
-
-                    {confirmingContribId === contribution.id ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => setConfirmingContribId(null)}
-                          className="min-h-11 rounded-lg px-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-200"
-                        >
-                          Annuler
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => handleConfirmDeleteContribution(contribution.id)}
-                          className="min-h-11 rounded-lg bg-red-600 px-2 text-[11px] font-semibold text-white hover:bg-red-700"
-                        >
-                          Confirmer
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onEditContribution(goal, contribution)}
-                          aria-label={`Modifier le versement ${contribution.name}`}
-                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800"
-                        >
-                          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmingContribId(contribution.id)}
-                          aria-label={`Supprimer le versement ${contribution.name}`}
-                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-red-500 hover:bg-red-50 hover:text-red-700"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </>
           )}
         </div>
       )}
@@ -397,11 +545,15 @@ export interface SavingsGoalsListProps {
   onAddContribution: (goal: SavingsGoalItem) => void;
   onEditContribution: (goal: SavingsGoalItem, contribution: EnvelopeItem) => void;
   onDeleteContribution: (envelopeId: string) => Promise<void> | void;
+  onAddWithdrawal?: (goal: SavingsGoalItem) => void;
+  onEditWithdrawal?: (goal: SavingsGoalItem, withdrawal: SavingsWithdrawalItem) => void;
+  onDeleteWithdrawal?: (goalId: string, withdrawalId: string) => Promise<void> | void;
+  zeroBasedActions?: ZeroBasedQuickActions;
 }
 
 /**
  * Vue complète de l'onglet « Epargne » : Donut multicolore mensuel, bandeau Base Zéro
- * et liste « Historique des épargnes » avec cartes d'objectifs et accordéon des versements.
+ * et liste « Historique des épargnes » avec cartes d'objectifs et accordéon des versements et retraits.
  */
 export function SavingsGoalsList({
   goals,
@@ -415,7 +567,11 @@ export function SavingsGoalsList({
   onDeleteGoal,
   onAddContribution,
   onEditContribution,
-  onDeleteContribution
+  onDeleteContribution,
+  onAddWithdrawal,
+  onEditWithdrawal,
+  onDeleteWithdrawal,
+  zeroBasedActions
 }: SavingsGoalsListProps) {
   const contributionsByGoal = useMemo(() => {
     const grouped = new Map<string, EnvelopeItem[]>();
@@ -475,6 +631,7 @@ export function SavingsGoalsList({
       <ZeroBasedBanner
         remainingToAllocate={summary.remainingToAllocate}
         plannedIncome={summary.plannedIncome}
+        {...zeroBasedActions}
       />
 
       <section aria-label="Historique des épargnes" className="space-y-3">
@@ -517,6 +674,9 @@ export function SavingsGoalsList({
                 onAddContribution={onAddContribution}
                 onEditContribution={onEditContribution}
                 onDeleteContribution={onDeleteContribution}
+                onAddWithdrawal={onAddWithdrawal}
+                onEditWithdrawal={onEditWithdrawal}
+                onDeleteWithdrawal={onDeleteWithdrawal}
               />
             ))}
           </div>

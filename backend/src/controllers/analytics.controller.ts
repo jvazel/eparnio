@@ -118,7 +118,7 @@ export function computeDailyBudgetMetrics(
  */
 export function computeAllocationBreakdown(summary: IBudgetPeriodSummary): AllocationBreakdown {
   const fixedAmount = roundCurrency(summary.plannedFixedCharges);
-  const variableAmount = roundCurrency(summary.spentVariables);
+  const variableAmount = Math.max(0, roundCurrency(summary.spentVariables));
   const savingsAmount = roundCurrency(summary.plannedSavings);
   const totalOutflows = roundCurrency(fixedAmount + variableAmount + savingsAmount);
   const plannedIncome = roundCurrency(summary.plannedIncome);
@@ -259,9 +259,9 @@ export async function getPeriodAnalytics(
 
       const safeIncome = Math.max(0, roundCurrency(incomeContributed));
       const safeFixed = Math.max(0, roundCurrency(fixedChargesPaid));
-      const safeVariable = Math.max(0, roundCurrency(variableExpensesPaid));
+      const netVariable = roundCurrency(variableExpensesPaid);
       const safeSavings = Math.max(0, roundCurrency(savingsContributed));
-      const expensesPaid = roundCurrency(safeFixed + safeVariable + safeSavings);
+      const expensesPaid = Math.max(0, roundCurrency(safeFixed + netVariable + safeSavings));
 
       return {
         userId: uid,
@@ -271,7 +271,7 @@ export async function getPeriodAnalytics(
         role: member.role,
         incomeContributed: safeIncome,
         fixedChargesPaid: safeFixed,
-        variableExpensesPaid: safeVariable,
+        variableExpensesPaid: netVariable,
         savingsContributed: safeSavings,
         expensesPaid,
         netBalance: roundCurrency(safeIncome - expensesPaid)

@@ -23,6 +23,7 @@ const objectIdSchema = z
   .refine((value) => Types.ObjectId.isValid(value), 'Identifiant invalide');
 
 const pillarEnum = z.enum(['income', 'fixed_charge', 'variable_envelope', 'savings']);
+const recurrenceFrequencyEnum = z.enum(['monthly', 'quarterly', 'semiannual', 'yearly']);
 
 export const periodParamsSchema = z.object({
   periodId: objectIdSchema
@@ -49,6 +50,9 @@ export const createEnvelopeBodySchema = z.object({
   color: z.string().trim().min(1).max(32).optional(),
   date: z.coerce.date().optional(),
   isRecurring: z.boolean().optional(),
+  recurrenceFrequency: recurrenceFrequencyEnum.optional(),
+  recurrenceEndDate: z.coerce.date().nullable().optional(),
+  recurrenceRemainingCount: z.coerce.number().int().min(1).max(600).nullable().optional(),
   isPaid: z.boolean().optional(),
   rolloverEnabled: z.boolean().optional(),
   rolloverMode: z.enum(['positive_only', 'both']).optional(),
@@ -63,6 +67,9 @@ export const updateEnvelopeBodySchema = z.object({
   color: z.string().trim().min(1).max(32).optional(),
   date: z.coerce.date().optional(),
   isRecurring: z.boolean().optional(),
+  recurrenceFrequency: recurrenceFrequencyEnum.optional(),
+  recurrenceEndDate: z.coerce.date().nullable().optional(),
+  recurrenceRemainingCount: z.coerce.number().int().min(1).max(600).nullable().optional(),
   isPaid: z.boolean().optional(),
   rolloverEnabled: z.boolean().optional(),
   rolloverMode: z.enum(['positive_only', 'both']).optional(),
@@ -135,6 +142,9 @@ export async function createEnvelope(
       pillar: payload.pillar
     }).sort({ order: -1 });
 
+    const isRecurring = payload.isRecurring ?? false;
+    const supportsAdvancedRecurrence = isRecurring && payload.pillar !== 'variable_envelope';
+
     const envelope = await EnvelopeModel.create({
       budgetId: period.budgetId,
       budgetPeriodId: period._id,
@@ -147,7 +157,16 @@ export async function createEnvelope(
         (payload.pillar === 'income' ? '💵' : payload.pillar === 'savings' ? '🐷' : '💡'),
       color: payload.color ?? '#38BDF8',
       date: payload.date ?? new Date(),
-      isRecurring: payload.isRecurring ?? false,
+      isRecurring,
+      recurrenceFrequency: supportsAdvancedRecurrence
+        ? (payload.recurrenceFrequency ?? 'monthly')
+        : 'monthly',
+      recurrenceEndDate: supportsAdvancedRecurrence
+        ? (payload.recurrenceEndDate ?? undefined)
+        : undefined,
+      recurrenceRemainingCount: supportsAdvancedRecurrence
+        ? (payload.recurrenceRemainingCount ?? undefined)
+        : undefined,
       isPaid: payload.isPaid ?? false,
       rolloverEnabled: payload.pillar === 'variable_envelope' ? (payload.rolloverEnabled ?? false) : false,
       rolloverMode: payload.rolloverMode ?? 'positive_only',
@@ -213,6 +232,21 @@ export async function updateEnvelope(
     if (payload.color !== undefined) envelope.color = payload.color;
     if (payload.date !== undefined) envelope.date = payload.date;
     if (payload.isRecurring !== undefined) envelope.isRecurring = payload.isRecurring;
+    if (envelope.pillar === 'variable_envelope' || !envelope.isRecurring) {
+      envelope.recurrenceFrequency = 'monthly';
+      envelope.recurrenceEndDate = undefined;
+      envelope.recurrenceRemainingCount = undefined;
+    } else {
+      if (payload.recurrenceFrequency !== undefined) {
+        envelope.recurrenceFrequency = payload.recurrenceFrequency;
+      }
+      if (payload.recurrenceEndDate !== undefined) {
+        envelope.recurrenceEndDate = payload.recurrenceEndDate ?? undefined;
+      }
+      if (payload.recurrenceRemainingCount !== undefined) {
+        envelope.recurrenceRemainingCount = payload.recurrenceRemainingCount ?? undefined;
+      }
+    }
     if (payload.isPaid !== undefined) envelope.isPaid = payload.isPaid;
     if (payload.rolloverEnabled !== undefined) envelope.rolloverEnabled = payload.rolloverEnabled;
     if (payload.rolloverMode !== undefined) envelope.rolloverMode = payload.rolloverMode;

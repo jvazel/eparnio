@@ -73,7 +73,11 @@ export function EnvelopeDetailPage({
       if (isSharedBudget && memberFilter !== 'all' && tx.paidByUserId !== memberFilter) {
         return false;
       }
-      if (query && !tx.label.toLowerCase().includes(query)) {
+      if (
+        query &&
+        !tx.label.toLowerCase().includes(query) &&
+        !(tx.notes ?? '').toLowerCase().includes(query)
+      ) {
         return false;
       }
       return true;
@@ -88,7 +92,13 @@ export function EnvelopeDetailPage({
   }, [isSharedBudget, memberFilter, searchQuery, sortBy, transactions]);
 
   const filteredTotal = useMemo(
-    () => filteredTransactions.reduce((acc, tx) => acc + tx.amount, 0),
+    () =>
+      Math.round(
+        filteredTransactions.reduce(
+          (acc, tx) => (tx.type === 'income' ? acc - tx.amount : acc + tx.amount),
+          0
+        ) * 100
+      ) / 100,
     [filteredTransactions]
   );
 
@@ -178,10 +188,11 @@ export function EnvelopeDetailPage({
           <div className="mt-3 flex justify-center">
             <RingGauge
               value={spent}
-              max={allocated > 0 ? allocated : 1}
+              max={available > 0 ? available : 1}
               label="Dépensé"
               size={172}
               strokeWidth={15}
+              accentColor={spent < 0 ? '#10B981' : isOver ? '#EF4444' : undefined}
             />
           </div>
 

@@ -8,6 +8,7 @@ import { EnvelopeModel, toEnvelopeResponse } from '../models/Envelope.model';
 import { toSavingsGoalResponse } from '../models/SavingsGoal.model';
 import { toTransactionResponse, TransactionModel } from '../models/Transaction.model';
 import { assertPeriodAccess } from '../services/budgetAccess.service';
+import { computeBalanceReconciliation, importTransactionsBatch } from '../services/csvImport.service';
 import { recalculateEnvelopeAndPeriod } from '../services/remainingToLive.service';
 import { roundCurrency } from '../services/zeroBasedBudget.service';
 
@@ -59,7 +60,12 @@ export const updateTransactionBodySchema = z.object({
   date: z.coerce.date().optional(),
   type: transactionTypeEnum.optional(),
   paidByUserId: objectIdSchema.optional(),
-  notes: z.string().trim().max(300).optional()
+  notes: z
+    .string()
+    .trim()
+    .max(300, 'Les notes ne doivent pas dépasser 300 caractères')
+    .nullable()
+    .optional()
 });
 
 function resolveValidPaidByMemberId(
@@ -208,7 +214,9 @@ export async function updateTransaction(
     if (payload.label !== undefined) transaction.label = payload.label;
     if (payload.date !== undefined) transaction.date = payload.date;
     if (payload.type !== undefined) transaction.type = payload.type;
-    if (payload.notes !== undefined) transaction.notes = payload.notes;
+    if (payload.notes !== undefined) {
+      transaction.notes = payload.notes ? payload.notes : undefined;
+    }
     if (payload.paidByUserId !== undefined) {
       transaction.paidByUserId = resolveValidPaidByMemberId(
         budget,
@@ -244,6 +252,86 @@ export async function updateTransaction(
 /**
  * Supprime une transaction et rétablit les montants sur l'enveloppe et la période.
  */
+export const importTransactionsBodySchema = z.object({
+  items: z
+    .array(
+      z.object({
+        envelopeId: objectIdSchema,
+        amount: z.coerce.number().positive('Le montant doit être strictement positif'),
+        label: z
+          .string()
+          .trim()
+          .min(1, 'Le libellé est requis')
+          .max(100, 'Le libellé ne doit pas dépasser 100 caractères'),
+        date: z.coerce.date(),
+        paidByUserId: objectIdSchema.optional(),
+        notes: z.string().trim().max(300).optional()
+      })
+    )
+    .max(500, 'Maximum 500 transactions par import')
+});
+
+export const reconcileBalanceBodySchema = z.object({
+  bankBalance: z.coerce.number().finite('Le solde bancaire est invalide')
+});
+
+export async function importTransactions(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodId } = req.params as z.infer<typeof transactionPeriodParamsSchema>;
+    const body = req.body as z.infer<typeof importTransactionsBodySchema>;
+
+    const { budget, period } = await assertPeriodAccess(periodId, req.user?.id, {
+      requireWrite: true
+    });
+
+    const result = await importTransactionsBatch({
+      budget,
+      periodId: period._id,
+      userId: req.user!.id,
+      items: body.items
+    });
+
+    res.status(201).json({
+      status: 'ok',
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reconcilePeriodBalance(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodId } = req.params as z.infer<typeof transactionPeriodParamsSchema>;
+    const { bankBalance } = req.body as z.infer<typeof reconcileBalanceBodySchema>;
+
+    const { period } = await assertPeriodAccess(periodId, req.user?.id, {
+      requireWrite: false
+    });
+
+    const periodResponse = toBudgetPeriodResponse(period);
+    const reconciliation = computeBalanceReconciliation(
+      periodResponse.summary.remainingToLive,
+      bankBalance
+    );
+
+    res.status(200).json({
+      status: 'ok',
+      reconciliation
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function deleteTransaction(
   req: Request,
   res: Response,
@@ -261,8 +349,50 @@ export async function deleteTransaction(
       throw new AppError('Transaction introuvable', 404);
     }
 
+    const scope = req.query.scope === 'group' ? 'group' : 'single';
+    const splitGroupId = transaction.splitGroupId;
+
+    if (scope === 'group' && splitGroupId) {
+      const groupTxs = await TransactionModel.find({
+        budgetPeriodId: period._id,
+        splitGroupId
+      });
+      const touchedEnvelopeIds = Array.from(
+        new Set(groupTxs.map((tx) => tx.envelopeId.toString()))
+      );
+      await TransactionModel.deleteMany({ budgetPeriodId: period._id, splitGroupId });
+
+      let latestPeriod = period;
+      const updatedEnvelopes: ReturnType<typeof toEnvelopeResponse>[] = [];
+      for (const envId of touchedEnvelopeIds) {
+        const result = await recalculateEnvelopeAndPeriod(new Types.ObjectId(envId), period._id);
+        updatedEnvelopes.push(toEnvelopeResponse(result.envelope));
+        latestPeriod = result.period;
+      }
+
+      res.status(200).json({
+        status: 'ok',
+        deletedId: id,
+        deletedGroupId: splitGroupId,
+        envelopes: updatedEnvelopes,
+        period: toBudgetPeriodResponse(latestPeriod)
+      });
+      return;
+    }
+
     const envelopeId = transaction.envelopeId;
     await transaction.deleteOne();
+
+    if (splitGroupId) {
+      const remainingInGroup = await TransactionModel.find({
+        budgetPeriodId: period._id,
+        splitGroupId
+      });
+      if (remainingInGroup.length === 1) {
+        remainingInGroup[0].splitGroupId = undefined;
+        await remainingInGroup[0].save();
+      }
+    }
 
     const {
       envelope: updatedEnvelope,
@@ -276,6 +406,166 @@ export async function deleteTransaction(
       envelope: toEnvelopeResponse(updatedEnvelope),
       period: toBudgetPeriodResponse(updatedPeriod),
       ...(updatedGoal ? { goal: toSavingsGoalResponse(updatedGoal) } : {})
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+export const transactionSuggestionsParamsSchema = z.object({
+  id: objectIdSchema
+});
+
+export async function getTransactionSuggestions(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { id } = req.params as z.infer<typeof transactionSuggestionsParamsSchema>;
+    const { assertBudgetAccess } = await import('../services/budgetAccess.service');
+    await assertBudgetAccess(id, req.user?.id, { requireWrite: false });
+
+    const recentTransactions = await TransactionModel.find({
+      budgetId: new Types.ObjectId(id),
+      type: 'expense'
+    })
+      .sort({ date: -1, createdAt: -1 })
+      .limit(200)
+      .select('label amount envelopeId date');
+
+    const envelopeIds = Array.from(new Set(recentTransactions.map((tx) => tx.envelopeId.toString())));
+    const envelopes = await EnvelopeModel.find({
+      _id: { $in: envelopeIds.map((envId) => new Types.ObjectId(envId)) }
+    }).select('name');
+    const envelopeNameById = new Map(envelopes.map((env) => [env._id.toString(), env.name]));
+
+    const grouped = new Map<
+      string,
+      { label: string; envelopeName: string; lastAmount: number; count: number }
+    >();
+
+    for (const tx of recentTransactions) {
+      const envName = envelopeNameById.get(tx.envelopeId.toString());
+      if (!envName) continue;
+      const key = tx.label.trim().toLowerCase();
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, {
+          label: tx.label.trim(),
+          envelopeName: envName,
+          lastAmount: tx.amount,
+          count: 1
+        });
+      } else {
+        existing.count += 1;
+      }
+    }
+
+    const suggestions = Array.from(grouped.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    res.status(200).json({
+      status: 'ok',
+      suggestions
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+export const splitTransactionBodySchema = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, 'Le libellé est requis')
+    .max(100, 'Le libellé ne doit pas dépasser 100 caractères'),
+  date: z.coerce.date().optional(),
+  paidByUserId: objectIdSchema.optional(),
+  notes: z.string().trim().max(300).optional(),
+  parts: z
+    .array(
+      z.object({
+        envelopeId: objectIdSchema,
+        amount: z.coerce.number().positive('Chaque part doit être strictement positive')
+      })
+    )
+    .min(2, 'Un fractionnement nécessite au moins 2 enveloppes')
+});
+
+export async function splitTransaction(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodId } = req.params as z.infer<typeof transactionPeriodParamsSchema>;
+    const body = req.body as z.infer<typeof splitTransactionBodySchema>;
+
+    const { budget, period } = await assertPeriodAccess(periodId, req.user?.id, {
+      requireWrite: true
+    });
+
+    const uniqueEnvelopeIds = Array.from(new Set(body.parts.map((p) => p.envelopeId)));
+    if (uniqueEnvelopeIds.length < 2) {
+      throw new AppError('Un fractionnement nécessite au moins 2 enveloppes distinctes', 400);
+    }
+
+    const envelopes = await EnvelopeModel.find({
+      _id: { $in: uniqueEnvelopeIds.map((id) => new Types.ObjectId(id)) },
+      budgetPeriodId: period._id
+    });
+    if (envelopes.length !== uniqueEnvelopeIds.length) {
+      throw new AppError('Enveloppe introuvable dans cette période', 404);
+    }
+
+    const memberIds = new Set<string>([budget.ownerId.toString()]);
+    for (const m of budget.members) {
+      memberIds.add(m.userId.toString());
+    }
+    const paidByUserId = body.paidByUserId ?? req.user!.id;
+    if (!memberIds.has(paidByUserId)) {
+      throw new AppError('Le membre sélectionné ne fait pas partie de ce budget', 400);
+    }
+
+    const splitGroupId = new Types.ObjectId().toString();
+    const txDate = body.date ?? new Date();
+    const createdTransactions: ReturnType<typeof toTransactionResponse>[] = [];
+
+    for (const part of body.parts) {
+      const created = await TransactionModel.create({
+        budgetId: budget._id,
+        budgetPeriodId: period._id,
+        envelopeId: new Types.ObjectId(part.envelopeId),
+        authorId: new Types.ObjectId(req.user!.id),
+        paidByUserId: new Types.ObjectId(paidByUserId),
+        type: 'expense',
+        amount: roundCurrency(part.amount),
+        label: body.label.trim(),
+        date: txDate,
+        ...(body.notes ? { notes: body.notes.trim() } : {}),
+        splitGroupId
+      });
+      createdTransactions.push(toTransactionResponse(created));
+    }
+
+    let latestPeriod = period;
+    const updatedEnvelopes: ReturnType<typeof toEnvelopeResponse>[] = [];
+    for (const envId of uniqueEnvelopeIds) {
+      const result = await recalculateEnvelopeAndPeriod(new Types.ObjectId(envId), period._id);
+      updatedEnvelopes.push(toEnvelopeResponse(result.envelope));
+      latestPeriod = result.period;
+    }
+
+    res.status(201).json({
+      status: 'ok',
+      splitGroupId,
+      transactions: createdTransactions,
+      envelopes: updatedEnvelopes,
+      period: toBudgetPeriodResponse(latestPeriod)
     });
   } catch (err) {
     next(err);

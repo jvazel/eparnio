@@ -381,4 +381,125 @@ describe('API Analyses & Budget Quotidien (/api/periods/:periodId/analytics)', (
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(badIdRes.status).toBe(400);
   });
+
+  it('reflète un remboursement supérieur aux dépenses dans memberBreakdown sans altérer plannedIncome ni le Donut', async () => {
+    const ownerRes = await request(app).post('/api/auth/register').send({
+      email: 'nina@eparnio.fr',
+      password: 'Password123!',
+      displayName: 'Nina',
+      budgetStartDay: 1
+    });
+    const ownerToken = ownerRes.body.token as string;
+    const ownerId = ownerRes.body.user.id as string;
+
+    const partnerRes = await request(app).post('/api/auth/register').send({
+      email: 'leo@eparnio.fr',
+      password: 'Password123!',
+      displayName: 'Léo',
+      budgetStartDay: 1
+    });
+    const partnerId = partnerRes.body.user.id as string;
+
+    const sharedRes = await request(app)
+      .post('/api/budgets')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Foyer Nina & Léo', type: 'shared', budgetStartDay: 1 });
+    const sharedBudgetId = sharedRes.body.budget.id as string;
+
+    await BudgetModel.findByIdAndUpdate(sharedBudgetId, {
+      $push: {
+        members: {
+          userId: new mongoose.Types.ObjectId(partnerId),
+          role: 'editor',
+          color: '#38BDF8',
+          declaredMonthlyIncome: 2000,
+          joinedAt: new Date()
+        }
+      }
+    });
+
+    const periodRes = await request(app)
+      .get(`/api/budgets/${sharedBudgetId}/periods/by-month?year=2026&month=11`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    const periodId = periodRes.body.period.id as string;
+
+    await request(app)
+      .post(`/api/periods/${periodId}/envelopes`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        pillar: 'income',
+        name: 'Apport Nina',
+        allocatedAmount: 2000,
+        memberId: ownerId
+      });
+
+    await request(app)
+      .post(`/api/periods/${periodId}/envelopes`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        pillar: 'fixed_charge',
+        name: 'Assurance santé',
+        allocatedAmount: 100,
+        memberId: ownerId
+      });
+
+    const santeRes = await request(app)
+      .post(`/api/periods/${periodId}/envelopes`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        pillar: 'variable_envelope',
+        name: 'Santé',
+        allocatedAmount: 150
+      });
+    const santeId = santeRes.body.envelope.id as string;
+
+    // Nina dépense 20 € puis reçoit un remboursement mutuelle de 80 € (variable net = -60 €, fixed = 100 € -> expensesPaid = 40 €)
+    await request(app)
+      .post(`/api/periods/${periodId}/transactions`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        envelopeId: santeId,
+        type: 'expense',
+        amount: 20,
+        label: 'Pharmacie',
+        paidByUserId: ownerId
+      });
+
+    await request(app)
+      .post(`/api/periods/${periodId}/transactions`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        envelopeId: santeId,
+        type: 'income',
+        amount: 80,
+        label: 'Remboursement mutuelle',
+        paidByUserId: ownerId,
+        notes: 'Remboursement optique mois précédent'
+      });
+
+    const analyticsRes = await request(app)
+      .get(`/api/periods/${periodId}/analytics`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(analyticsRes.status).toBe(200);
+
+    const { analytics } = analyticsRes.body;
+    expect(analytics.cashFlow.plannedIncome).toBe(2000);
+    expect(analytics.cashFlow.spentVariables).toBe(-60);
+    // Donut : variable clamped >= 0
+    const variableSlice = analytics.allocation.items.find(
+      (item: { key: string }) => item.key === 'variable'
+    );
+    expect(variableSlice.amount).toBe(0);
+
+    const ninaRow = analytics.memberBreakdown.find(
+      (item: { userId: string }) => item.userId === ownerId
+    );
+    expect(ninaRow).toMatchObject({
+      incomeContributed: 2000,
+      fixedChargesPaid: 100,
+      variableExpensesPaid: -60,
+      expensesPaid: 40,
+      netBalance: 1960
+    });
+  });
 });

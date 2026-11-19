@@ -1,4 +1,4 @@
-import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Pencil, RotateCcw, StickyNote, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import type { BudgetMember, TransactionItem } from '../../types/budget.types';
 import { formatCurrency, formatFullDate } from '../../utils/format';
@@ -14,8 +14,8 @@ export interface TransactionHistoryProps {
 }
 
 /**
- * Liste chronologique des dépenses enregistrées dans une enveloppe,
- * avec pastille membre payeur en budget partagé, tap pour éditer et suppression sécurisée.
+ * Liste chronologique des dépenses et remboursements enregistrés dans une enveloppe,
+ * avec pastille membre en budget partagé, notes, tap pour éditer et suppression sécurisée.
  */
 export function TransactionHistory({
   transactions,
@@ -31,11 +31,11 @@ export function TransactionHistory({
 
   if (transactions.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center">
-        <p className="text-sm font-medium text-slate-600">
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center dark:border-slate-700 dark:bg-slate-800/50">
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
           Aucune dépense saisie dans cette enveloppe.
         </p>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-400">
           Appuyez sur « Ajouter une dépense » pour enregistrer votre premier achat.
         </p>
       </div>
@@ -55,6 +55,7 @@ export function TransactionHistory({
               : null;
         const isConfirming = confirmingId === tx.id;
         const isSelected = selectedId === tx.id;
+        const isRefund = tx.type === 'income';
 
         return (
           <li
@@ -71,9 +72,17 @@ export function TransactionHistory({
               className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-2 text-left"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">
-                  {tx.label}
-                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">
+                    {tx.label}
+                  </p>
+                  {isRefund ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                      Remboursement
+                    </span>
+                  ) : null}
+                </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <span>{formatFullDate(tx.date)}</span>
                   {isSharedBudget && payerLabel ? (
@@ -87,10 +96,30 @@ export function TransactionHistory({
                     </span>
                   ) : null}
                 </div>
+                {tx.splitGroupId ? (
+                  <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+                    ✂️ Ticket partagé
+                  </span>
+                ) : null}
+                {tx.notes ? (
+                  <p className="mt-1 flex items-start gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <StickyNote
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500"
+                      aria-hidden="true"
+                    />
+                    <span className="line-clamp-2">{tx.notes}</span>
+                  </p>
+                ) : null}
               </div>
 
-              <span className="shrink-0 text-sm font-bold tabular-nums text-slate-900 dark:text-slate-50">
-                -{formatCurrency(tx.amount)}
+              <span
+                className={`shrink-0 text-sm font-bold tabular-nums ${
+                  isRefund
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-slate-900 dark:text-slate-50'
+                }`}
+              >
+                {isRefund ? `+${formatCurrency(tx.amount)}` : `-${formatCurrency(tx.amount)}`}
               </span>
             </button>
 

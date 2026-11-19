@@ -1,13 +1,19 @@
 import { Router } from 'express';
 import {
+  addGoalWithdrawal,
   createGoal,
   createGoalBodySchema,
+  createWithdrawalBodySchema,
   deleteGoal,
+  deleteGoalWithdrawal,
   goalBudgetParamsSchema,
   goalItemParamsSchema,
+  goalWithdrawalParamsSchema,
   listGoals,
   updateGoal,
-  updateGoalBodySchema
+  updateGoalBodySchema,
+  updateGoalWithdrawal,
+  updateWithdrawalBodySchema
 } from '../controllers/goal.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -28,5 +34,21 @@ goalRouter.patch(
   updateGoal
 );
 goalRouter.delete('/:id', validate({ params: goalItemParamsSchema }), deleteGoal);
+
+goalRouter.post(
+  '/:id/withdrawals',
+  validate({ params: goalItemParamsSchema, body: createWithdrawalBodySchema }),
+  addGoalWithdrawal
+);
+goalRouter.patch(
+  '/:id/withdrawals/:withdrawalId',
+  validate({ params: goalWithdrawalParamsSchema, body: updateWithdrawalBodySchema }),
+  updateGoalWithdrawal
+);
+goalRouter.delete(
+  '/:id/withdrawals/:withdrawalId',
+  validate({ params: goalWithdrawalParamsSchema }),
+  deleteGoalWithdrawal
+);
 
 export { goalRouter };

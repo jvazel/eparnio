@@ -65,7 +65,11 @@ export function RingGauge({
         </svg>
         <span
           className={`absolute px-3 text-center text-xl font-bold tabular-nums ${
-            value < 0 ? 'text-red-500' : 'text-slate-900 dark:text-slate-50'
+            value < 0
+              ? accentColor === '#10B981'
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-red-500'
+              : 'text-slate-900 dark:text-slate-50'
           }`}
         >
           {formatCurrency(value)}

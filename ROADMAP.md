@@ -253,7 +253,7 @@
 
 - [x] **« Qui doit à qui » & Régularisation (`MemberBreakdownCard.tsx`, `analytics.controller.ts`) :**
   * Calculer et afficher la phrase de régularisation entre membres (*« X doit Y € à Z pour équilibrer le mois »*) avec bouton **« Marquer comme réglé »**.
-- [ ] **Génération en 1 tap des apports depuis le calculateur (`ContributionCalculatorSheet.tsx`) :**
+- [x] **Génération en 1 tap des apports depuis le calculateur (`ContributionCalculatorSheet.tsx`) :**
   * Permettre d'appliquer directement la répartition 50/50 ou Prorata en créant/mettant à jour les lignes d'apports (`income`) de chaque membre sur la période active.
 - [x] **« Payé par… » sur les dépenses fixes (`CreationFormModal.tsx`, `analytics.controller.ts`) :**
   * Associer un membre payeur sur les `fixed_charge` en budget commun et l'intégrer dans `memberBreakdown`.
@@ -262,3 +262,157 @@
 - [x] **Tests & Documentation :**
   * Tests UI sur l'équilibrage (`computeSettlementSuggestion`, `MemberBreakdownCard`) et `SharedActivityCard` dans `sharedSettlementAndActivity.test.tsx`.
   * Mise à jour de `ROADMAP.md` et `ARCHITECTURE.md`, puis validation `npm test --prefix frontend && npm run build`.
+
+---
+
+## Étape 24 : Correctif Rollover en saisie live, Remboursements & Notes dans les Enveloppes *(Quick win)*
+
+- [x] **Correctif `AddExpenseSheet.tsx` :** Inclure `envelope.rolloverAmount ?? 0` dans le calcul live `projectedRemainingInEnvelope` afin d'aligner l'aperçu en saisie avec `EnvelopeDetailPage.tsx`.
+- [x] **Backend (`Transaction.model.ts`, `transaction.controller.ts`, `remainingToLive.service.ts`, `analytics.controller.ts`) :**
+  * Exploiter `type: 'income'` sur une enveloppe variable comme **Remboursement / Avoir** venant créditer le disponible de l'enveloppe (`spentOrPaidAmount` recalculé proprement, y compris en crédit net `< 0`) et refléter cet impact dans `memberBreakdown` (budget partagé) sans gonfler les revenus planifiés du mois.
+  * Exposer et valider le champ optionnel `notes` (300 car. max) en création et modification de transaction (avec possibilité d'effacement).
+- [x] **Frontend (`AddExpenseSheet.tsx`, `TransactionHistory.tsx`, `EnvelopeDetailPage.tsx`) :**
+  * Ajouter un sélecteur segmenté **Dépense / Remboursement** en tête d'`AddExpenseSheet` (avec calcul live du restant adapté) et un champ optionnel **Note**.
+  * Afficher distinctement les remboursements (`+ X €` en vert émeraude, badge *Remboursement*) et les notes dans `TransactionHistory`, en **modes clair et sombre**, avec recherche par note et sous-total net dans `EnvelopeDetailPage.tsx`.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests API ajoutés (`transaction.test.ts`, `analytics.test.ts`) et tests UI ajoutés (`envelopes-transactions.test.tsx`).
+  * **Non-régression & Documentation :** Suites complètes validées (`npm run typecheck`, `npm run test:coverage` : 9 fichiers / 40 tests backend, 15 fichiers / 79 tests frontend, `npm run build`), `ROADMAP.md` et `ARCHITECTURE.md` mis à jour.
+
+---
+
+## Étape 25 : Retraits & Utilisation des Cagnottes d'Épargne *(Quick win)*
+
+- [x] **Backend (`SavingsGoal.model.ts`, `goal.controller.ts`, `goal.routes.ts`, `remainingToLive.service.ts`) :**
+  * Ajouter le suivi des retraits sur `SavingsGoal` (sous-documents `withdrawals[]` : `_id`, `amount`, `label`, `date`, `memberId?`, `notes?`).
+  * Créer les endpoints `POST /api/budgets/:budgetId/goals/:id/withdrawals`, `PATCH /api/budgets/:budgetId/goals/:id/withdrawals/:withdrawalId` et `DELETE /api/budgets/:budgetId/goals/:id/withdrawals/:withdrawalId`.
+  * Mettre à jour `recalculateSavingsGoalCurrentAmount` (`initialAmount + totalContributions - totalWithdrawals`, borné à `>= 0`) sans altérer `plannedSavings`, `remainingToAllocate` ni `remainingToLive` de la période active.
+- [x] **Frontend (`GoalDetailSheet.tsx`, `SavingsGoalsList.tsx`, `goal.service.ts`) :**
+  * Ajouter une action **« Utiliser / Retirer »** (`−`) sur `SavingsGoalCard` (à côté du `+` de versement) ouvrant `GoalWithdrawalSheet` (pavé numérique tactile, aperçu live du nouveau solde de la cagnotte, libellé, date et membre en budget commun).
+  * Afficher les retraits (`− X €` en ambre/rouge) dans l'accordéon `⌄` de la carte aux côtés des versements, avec édition et suppression, en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests API ajoutés (`goal.test.ts` : CRUD retraits, recalcul `currentAmount`, non-impact `plannedSavings`/`remainingToLive`, 400/403/404) et tests UI ajoutés (`savings.test.tsx`, `services.test.ts` : `GoalWithdrawalSheet`, accordéon `− X €` + badge `Retrait`, modes clair et sombre, intégration `App`).
+  * **Non-régression & Documentation :** Suites complètes validées (`npm run typecheck`, `npm run test:coverage` : 9 fichiers / 42 tests backend, 15 fichiers / 82 tests frontend, `npm run build`), `ROADMAP.md` et `ARCHITECTURE.md` mis à jour.
+
+---
+
+## Étape 26 : Restructuration de l'Onglet « Budget » en Sous-Onglets & Garde-fou Base Zéro *(Quick win)*
+
+- [x] **Frontend — Sous-onglets de `MonthlyInsights.tsx` :**
+  * Regrouper les cartes de l'onglet `Budget` derrière une barre de sous-onglets pilules pour conserver une lecture aérée sur mobile :
+    * **Essentiel** (`CashFlowSummaryCard`, `DailyBudgetCard`, `ZeroBasedBanner`, `AllocationDonutCard`),
+    * **Pilotage** (`PaceProjectionCard`, `MonthVsEnvelopesCard`, `EnvelopesAtRiskCard`, `SavingsHealthCard`, `EnvelopeBreakdownCard`),
+    * **Tendances** (`TrendsCard`),
+    * **Foyer** *(affiché uniquement en budget partagé : `MemberBreakdownCard`, `SharedActivityCard` et accès au calculateur 50/50 & Prorata)*.
+  * Mémoriser le sous-onglet actif durant la session (`sessionStorage` via `BUDGET_SUBTAB_STORAGE_KEY`) avec navigation clavier WAI-ARIA, repli automatique de `foyer` vers `essentiel` en budget personnel, état vide sur `Tendances` et support complet des **modes clair et sombre**.
+- [x] **Frontend — Garde-fou & Auto-équilibrage Base Zéro (`ZeroBasedBanner.tsx`) :**
+  * Lorsque `remainingToAllocate > 0`, proposer un raccourci **« Auto-équilibrer à 0 € »** permettant d'affecter le reliquat en 1 tap vers une enveloppe variable ou un objectif d'épargne (ou d'ouvrir les onglets cibles si aucune cible n'existe).
+  * Lorsque `remainingToAllocate < 0`, afficher une alerte explicite de sur-allocation avec puce `Sur-allocation`, consigne dédiée, boutons d'ajustement rapide (`onNavigateToTab`) et classes complètes en modes clair et sombre.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests UI & intégration dans `frontend/src/__tests__/analytics.test.tsx` (navigation par sous-onglets, clavier, persistance `sessionStorage`, auto-équilibrage `0 €` vers enveloppe/objectif, alerte de sur-allocation et modes clair/sombre ; non-régression confirmée sur `paceProjection.test.tsx`, `advancedIndicators.test.tsx` et `sharedSettlementAndActivity.test.tsx`).
+  * **Non-régression & Documentation :** `npm run typecheck` OK, `npm run test:coverage --prefix backend` (`9/9` fichiers, `42/42` tests, `88.67%` Stmts/Lines), `npm run test:coverage --prefix frontend` (`15/15` fichiers, `86/86` tests, `89.66%` Stmts/Lines, dont `94.49%` sur `MonthlyInsights.tsx` et `99.62%` sur `ZeroBasedBanner.tsx`), `npm run build` OK ; `ROADMAP.md` et `ARCHITECTURE.md` mis à jour.
+
+---
+
+## Étape 27 : Récurrences Avancées (Fréquence, Date de Fin / Mensualités) & Échéancier *(Différenciation)*
+
+- [x] **Backend (`Envelope.model.ts`, `envelope.controller.ts`, `periodRollover.service.ts`) :**
+  * Ajouter les champs optionnels `recurrenceFrequency: 'monthly' | 'quarterly' | 'semiannual' | 'yearly'` (défaut `'monthly'`), `recurrenceEndDate?: Date` et `recurrenceRemainingCount?: number` (adapté aux crédits et paiements en 3x/4x).
+  * Adapter `isRolloverCandidate` et `cloneRolloverEnvelopes` dans `periodRollover.service.ts` pour respecter l'intervalle de fréquence (y compris en navigation mois par mois), décrémenter `recurrenceRemainingCount` (`computeNextRecurrenceRemainingCount`) lors de la reconduction et stopper automatiquement la duplication à échéance.
+- [x] **Frontend (`CreationFormModal.tsx`, `FixedChargesList.tsx`, `CheckableListCard.tsx`, `recurrence.ts`) :**
+  * Étendre la carte « Ajouter chaque mois » avec le choix de la **fréquence** (`Mensuel`, `Trimestriel`, `Semestriel`, `Annuel`) et d'une **limite optionnelle** (*Nombre de mensualités restantes* ou *Date de fin*), et afficher un badge discret sur chaque carte fixe (ex. `Trimestriel`, `3 mensualités restantes`, `Jusqu’au …`).
+  * Ajouter un mode d'affichage **Échéancier chronologique** dans `FixedChargesList.tsx` regroupant les prélèvements à venir par date du cycle (avec sous-totaux par date, option *Inclure payées* et pointage `✓` direct), en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests unitaires et API dans `backend/src/__tests__/period-envelope.test.ts` (`computeMonthsDifference`, `computeNextRecurrenceRemainingCount`, `isRolloverCandidate`, reconduction mensuelle/trimestrielle/semestrielle/annuelle, paiements 3x, `recurrenceEndDate`, `PATCH` `isRecurring: false`) et tests UI dans `frontend/src/__tests__/income-fixed.test.tsx` (`CreationFormModal`, badges `CheckableListCard`, vue `Échéancier` de `FixedChargesList`, modes clair et sombre).
+  * **Non-régression & Documentation :** `npm run typecheck` OK, `npm run test:coverage --prefix backend` (`9/9` fichiers, `44/44` tests, `88.84%` Stmts/Lines, dont `95.67%` sur `periodRollover.service.ts` et `100%` sur `Envelope.model.ts`), `npm run test:coverage --prefix frontend` (`15/15` fichiers, `88/88` tests, `90.06%` Stmts/Lines, dont `94.70%` sur `FixedChargesList.tsx` et `96.96%` sur `recurrence.ts`), `npm run build` OK ; `ROADMAP.md` et `ARCHITECTURE.md` mis à jour.
+
+---
+
+## Étape 28 : Rituel Guidé de Clôture de Fin de Mois *(Différenciation)*
+
+- [x] **Backend (`BudgetPeriod.model.ts`, `period.controller.ts`, `periodRollover.service.ts`) :**
+  * Ajouter le champ optionnel `closedAt?: Date` sur `BudgetPeriod` et créer l'endpoint `POST /api/budgets/:budgetId/periods/:periodId/close`.
+  * Permettre en une opération cohérente (`closePeriodAndRollover`) d'appliquer la décision choisie pour chaque enveloppe excédentaire (`rollover_next_month`, `transfer_to_goal` avec `goalId`, ou `reset_zero`), de reconduire/ajuster les postes récurrents du mois suivant et de marquer la période clôturée (`409` en cas de double clôture).
+- [x] **Frontend (`MonthClosingWizard.tsx`, `MonthlyInsights.tsx` / `PeriodSelector.tsx`) :**
+  * Afficher une entrée **« Clôturer le mois »** (et un état `Mois clôturé` + badge `Clôturé` dans `PeriodSelector`) ouvrant un assistant Mobile-First en 3 étapes :
+    1. **Bilan du cycle** (enveloppes tenues, économies nettes, taux d'épargne),
+    2. **Affectation des surplus** (choix en 1 tap par enveloppe positive : *Reporter*, *Épargner* vers un objectif ou *Remettre à 0*),
+    3. **Aperçu du mois suivant** (ajustement rapide des montants reconduits et inclusion/exclusion avant ouverture du cycle suivant).
+  * Support complet des **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests API dans `backend/src/__tests__/monthClosing.test.ts` (`rollover_next_month`, `transfer_to_goal`, `reset_zero`, cohérence `SavingsGoal.currentAmount`, `rolloverAmount` sur $M+1$, ajustements/exclusions $M+1$, erreurs `409` / `400` / `404` / `403`) et tests UI dans `frontend/src/__tests__/monthClosing.test.tsx` (parcours 3 étapes `MonthClosingWizard`, badge `PeriodSelector`, carte `MonthlyInsights`, modes clair et sombre).
+  * **Non-régression & Documentation :** `npm run typecheck` OK, `npm run test:coverage --prefix backend` (`10/10` fichiers, `46/46` tests, `88.98%` Stmts/Lines, dont `100%` sur `BudgetPeriod.model.ts` et `93.16%` sur `periodRollover.service.ts`), `npm run test:coverage --prefix frontend` (`16/16` fichiers, `91/91` tests, `89.61%` Stmts/Lines, dont `87.84%` sur `MonthClosingWizard.tsx` et `95%` sur `MonthlyInsights.tsx`), `npm run build` OK ; `ROADMAP.md` et `ARCHITECTURE.md` mis à jour.
+
+---
+
+## Étape 29 : Export des Données (CSV / PDF) & Sauvegarde JSON *(Différenciation)*
+
+- [x] **Backend (`export.controller.ts`, `routes/index.ts`) :**
+  * Créer `GET /api/budgets/:budgetId/export/csv` (filtrable par `periodId` ou `year`, UTF-8 avec BOM `\uFEFF` compatible Excel et protection anti-injection de formules CSV sur les cellules commençant par `=`, `+`, `-`, `@`, `\t`, `\r` + en-tête `X-Content-Type-Options: nosniff`).
+  * Créer `GET /api/budgets/:budgetId/export/json` renvoyant une sauvegarde structurée complète de l'espace budgétaire (`schemaVersion`, métadonnées, périodes, enveloppes, transactions, objectifs et retraits), protégée par JWT et `assertBudgetAccess`.
+- [x] **Frontend (`BudgetSettingsSheet.tsx`, `MonthlyInsights.tsx`, `ExportActionsCard.tsx`, `exportReport.ts`) :**
+  * Ajouter les actions **« Exporter en CSV (Excel) »**, **« Télécharger le bilan PDF »** (générateur PDF 1.4 multi-pages 100 % côté client sans service tiers ni sink DOM dangereux) et **« Sauvegarde complète (.json) »**, en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests unitaires et API dans `backend/src/__tests__/export.test.ts` (`escapeCsvCell`, `sanitizeDownloadSlug`, UTF-8 BOM, filtrage `periodId`/`year`, anti-injection CSV, complétude JSON, contrôles `401`/`403`/`404`) et tests unitaires/UI dans `frontend/src/__tests__/exportReport.test.tsx` (`generatePeriodPdfBytes` multi-pages, déclencheurs CSV/PDF/JSON dans `MonthlyInsights` et `BudgetSettingsSheet`, modes clair et sombre).
+  * **Non-régression & Documentation :** `npm run typecheck` OK, `npm run test:coverage --prefix backend` (`11/11` fichiers, `49/49` tests, `89.35%` Stmts/Lines, dont `94.53%` sur `export.controller.ts`), `npm run test:coverage --prefix frontend` (`17/17` fichiers, `93/93` tests, `89.81%` Stmts/Lines, dont `98.12%` sur `exportReport.ts` et `97.63%` sur `ExportActionsCard.tsx`), `npm run build` OK ; `ROADMAP.md` et `ARCHITECTURE.md` mis à jour.
+
+---
+
+## Étape 30 : Import Manuel de Relevé CSV (Boîte de Tri) & Réconciliation de Solde *(Différenciation)*
+
+- [x] **Backend (`transaction.controller.ts`, `csvImport.service.ts`, `transaction.routes.ts`) :**
+  * Créer `POST /api/periods/:periodId/transactions/import` pour importer un lot de transactions validées avec détection de doublons (date + montant + libellé normalisé) et recalcul global des enveloppes et de `remainingToLive`.
+  * Exposer un calcul de **réconciliation de solde** comparant un solde bancaire saisi au solde théorique de la période afin d'identifier l'écart et créer si besoin une ligne d'ajustement propre.
+- [x] **Frontend (`CsvImportSheet.tsx`, `BalanceReconcileSheet.tsx`, `csvParser.ts`) :**
+  * Implémenter un parseur CSV/OFX **100 % côté client** (zéro connexion bancaire, support des formats bancaires français `;`/`,` et virgule décimale).
+  * Construire la **Boîte de tri rapide** : affichage des opérations non encore enregistrées, suggestion automatique d'enveloppe selon les libellés passés, affectation ou exclusion en 1 tap puis validation du lot.
+  * Ajouter le tiroir **« Réconcilier mon solde bancaire »** dans l'onglet `Budget` (saisie du solde réel de la banque, affichage immédiat de l'écart et correction rapide), en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Ajouter les tests unitaires sur `csvParser` et la déduplication, les tests API sur `POST /transactions/import` et la réconciliation de solde (recalcul `spentOrPaidAmount` et `remainingToLive`), et les tests UI (`CsvImportSheet`, boîte de tri, `BalanceReconcileSheet`, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter l'ensemble des suites existantes backend + frontend avec couverture (`npm run typecheck && npm run test:coverage && npm run build`), vérifier zéro régression et mettre à jour `ROADMAP.md` et `ARCHITECTURE.md`.
+
+---
+
+## Étape 31 : Saisie Ultra-Rapide (« Quick-Add »), Calculatrice Intégrée & Onglet par Défaut *(Rétention quotidienne)*
+
+- [x] **Mini-calculatrice dans le pavé numérique (`NumericKeypad.tsx`, `AmountHeroField`) :**
+  * Ajouter une rangée compacte d'opérateurs (`+`, `−`, `×`, `÷`, `=`) au-dessus de la grille `0-9` avec un évaluateur arithmétique local sécurisé (sans `eval`, arrondi à 2 décimales et gestion propre des divisions par zéro / nombres négatifs).
+  * Afficher l'expression en cours en discret au-dessus ou sous le montant Hero dans tous les tiroirs utilisant `NumericKeypad`, en **modes clair et sombre**.
+- [x] **Point d'entrée FAB `+` & Tiroir `QuickAddExpenseSheet.tsx` (`QuickAddButton.tsx`, `App.tsx`) :**
+  * Sur l'onglet `Enveloppes`, si au moins 1 enveloppe variable existe, le tap sur le FAB bleu `+` déploie un mini-menu sobre à 2 actions juste au-dessus du bouton : **Ajouter une dépense** (action principale) et **Nouvelle enveloppe** (si 0 enveloppe, ouverture directe de la création d'enveloppe).
+  * Créer `QuickAddExpenseSheet` (ou étendre `AddExpenseSheet`) avec un **sélecteur d'enveloppe en chips pastel horizontales** affichant le restant live de l'enveloppe choisie (incluant `rolloverAmount`), pavé calculatrice, libellé, date et payeur en budget commun.
+- [x] **Préférence d'onglet d'ouverture (`User.model.ts`, `auth.controller.ts`, `ProfileSheet.tsx`, `App.tsx`) :**
+  * Ajouter `defaultTab?: 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget'` dans `user.preferences` (défaut `'depenses'`) modifiable dans `ProfileSheet` pour permettre d'ouvrir directement Eparnio sur `Enveloppes` au quotidien.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Ajouter les tests unitaires de l'évaluateur arithmétique sécurisé (`NumericKeypad` : `+`, `−`, `×`, `÷`, division par zéro, arrondis), les tests API `PATCH /api/auth/me` (`defaultTab`) et les tests UI (`QuickAddExpenseSheet`, mini-menu FAB 2 actions, `ProfileSheet`, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter l'ensemble des suites existantes backend + frontend avec couverture (`npm run typecheck && npm run test:coverage && npm run build`), vérifier zéro régression et mettre à jour `ROADMAP.md` et `ARCHITECTURE.md`.
+
+---
+
+## Étape 32 : Auto-Complétion Intelligente & Favoris de Dépenses 1-Tap *(Rétention quotidienne)*
+
+- [x] **Backend — Suggestions d'historique & Modèles Favoris (`Budget.model.ts`, `budget.controller.ts`, `transaction.controller.ts`, `routes/`) :**
+  * Créer `GET /api/budgets/:budgetId/transactions/suggestions` renvoyant les libellés les plus fréquents/récents du budget associés à leur dernier nom d'enveloppe utilisé (et dernier montant indicatif).
+  * Ajouter un sous-tableau `quickTemplates[]` sur `Budget.model.ts` (`_id`, `label`, `envelopeName` normalisé pour survivre automatiquement à la reconduction mensuelle, `defaultAmount?`, `order`) avec endpoints CRUD `POST / DELETE /api/budgets/:budgetId/quick-templates` (synchronisés sur tous les appareils et partagés en budget commun).
+- [x] **Frontend (`QuickAddExpenseSheet.tsx`, `AddExpenseSheet.tsx`, `budget.service.ts`) :**
+  * Afficher des chips d'auto-complétion en temps réel lors de la saisie du libellé ; un tap sur une suggestion remplit le libellé et **pré-sélectionne automatiquement l'enveloppe correspondante** (si présente sur la période active).
+  * Afficher une rangée horizontale de **chips Favoris** en tête du tiroir : 1 tap pré-remplit instantanément l'enveloppe, le libellé et le montant par défaut s'il existe (sans enregistrement silencieux, afin de permettre un ajustement immédiat avant validation).
+  * Ajouter un bouton discret `☆ Enregistrer en favori` dans le tiroir de saisie ainsi que la suppression d'un favori, en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Ajouter les tests API (`GET /transactions/suggestions`, CRUD `quickTemplates`, résolution multi-mois par `envelopeName` après rollover) et les tests UI (chips d'auto-complétion libellé → enveloppe, pré-remplissage favori 1-tap, ajout/suppression de favori, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter l'ensemble des suites existantes backend + frontend avec couverture (`npm run typecheck && npm run test:coverage && npm run build`), vérifier zéro régression et mettre à jour `ROADMAP.md` et `ARCHITECTURE.md`.
+
+---
+
+## Étape 33 : Fractionnement de Ticket (*Split Transaction* Multi-Enveloppes) *(Rétention quotidienne)*
+
+- [x] **Backend (`Transaction.model.ts`, `transaction.controller.ts`, `transaction.routes.ts`) :**
+  * Ajouter le champ optionnel `splitGroupId?: string` (indexé) sur `Transaction.model.ts` et l'exposer dans `toTransactionResponse`.
+  * Créer `POST /api/periods/:periodId/transactions/split` créant en une passe les N transactions liées (au moins 2 enveloppes distinctes de la période, même `splitGroupId`, même `date` et `paidByUserId`) et recalculant toutes les enveloppes impactées, la propagation `rolloverAmount` et le résumé de période.
+  * Étendre `DELETE /api/periods/:periodId/transactions/:id` avec un paramètre optionnel `?scope=group` permettant de supprimer tout le ticket (`splitGroupId`) d'un coup ; lors d'une suppression partielle (`scope=single`), si une seule transaction subsiste dans le `splitGroupId`, nettoyer automatiquement son `splitGroupId`.
+- [x] **Frontend (`QuickAddExpenseSheet.tsx`, `AddExpenseSheet.tsx`, `TransactionHistory.tsx`) :**
+  * Ajouter une bascule discrète **« ✂️ Répartir sur plusieurs enveloppes »** dans le tiroir de saisie : le montant Hero représente le **total du ticket**, suivi des lignes `[Enveloppe] [Montant]` avec calcul live du **reste à répartir (`0,00 €`)** et bouton 1-tap pour compléter la dernière part.
+  * Afficher un badge discret **`✂️ Ticket partagé (N parts)`** dans `TransactionHistory` et un bandeau d'info en édition d'une part (l'édition modifie uniquement la part sélectionnée).
+  * À la suppression d'une part liée à un `splitGroupId`, proposer explicitement **« Supprimer cette part uniquement »** ou **« Supprimer tout le ticket (N parts) »**, en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Ajouter les tests API (`POST /transactions/split`, recalcul multi-enveloppes + propagation `rolloverAmount`, `DELETE ?scope=group` vs `single` avec nettoyage automatique du `splitGroupId` orphelin) et les tests UI (`AddExpenseSheet`/`QuickAddExpenseSheet` mode fractionné, reste à répartir `0,00 €`, badge `✂️ Ticket partagé` dans `TransactionHistory`, choix de suppression part/ticket, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter l'ensemble des suites existantes backend + frontend avec couverture (`npm run typecheck && npm run test:coverage && npm run build`), vérifier zéro régression et mettre à jour `ROADMAP.md` et `ARCHITECTURE.md`.
