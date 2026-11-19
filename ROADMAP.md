@@ -448,3 +448,20 @@
 - [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests :** Tests API sur `GET /api/budgets/:budgetId/search` (recherche par mot-clé, note, montant, filtre par type, contrôle d'accès JWT) + tests UI (`GlobalSearchModal`, filtres rapides, navigation vers la période/enveloppe).
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 36 : Tags Transversaux & Suivi Visuel par Étiquette *(Croisement Multi-Enveloppes)*
+
+- [x] **Backend (`Transaction.model.ts`, `transaction.controller.ts`, `search.service.ts`, `analytics.controller.ts`) :**
+  * Ajouter un champ optionnel `tags: string[]` sur `TransactionModel` (normalisé en minuscules, sans espaces, maximum 5 tags par transaction) avec un index MongoDB `{ budgetId: 1, tags: 1 }`.
+  * Mettre à jour `POST`/`PATCH /api/periods/:periodId/transactions` pour enregistrer et valider les `tags`, et étendre `GET /api/budgets/:id/search` pour filtrer par tag (`tag=...` ou recherche `#tag`).
+  * Créer l'endpoint `GET /api/budgets/:id/tags/summary` (et `GET /api/budgets/:id/tags/:tag/analytics`) retournant le classement des tags (total dépensé, nombre d'opérations), la répartition par enveloppe et l'évolution mois par mois pour un tag donné.
+- [x] **Frontend (`AddExpenseSheet.tsx`, `QuickAddExpenseSheet.tsx`, `TagAnalyticsCard.tsx`, `TagDetailModal.tsx`, `GlobalSearchModal.tsx`) :**
+  * Ajouter un sélecteur/champ **« Tags (optionnel) »** lors de la saisie d'une dépense avec auto-complétion en 1 tap des tags existants du budget.
+  * Afficher les tags en pilules discrètes (`#vacances-été`) sur les lignes de transaction et permettre de filtrer par tag dans `GlobalSearchModal`.
+  * Ajouter une carte **« Suivi par tags »** dans l'onglet `Budget` (barres horizontales des tags actifs) ouvrant une vue détail `TagDetailModal` avec **Donut de répartition par enveloppe**, **évolution mensuelle en barres** et liste des opérations associées, en **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests :** Tests API sur la création/mise à jour de `tags`, le filtre par tag dans `/search` et les agrégations `/tags/summary` + tests UI (saisie de tags, `TagAnalyticsCard`, `TagDetailModal` en modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.

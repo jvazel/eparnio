@@ -45,7 +45,8 @@ export const createTransactionBodySchema = z.object({
   date: z.coerce.date().optional(),
   type: transactionTypeEnum.optional(),
   paidByUserId: objectIdSchema.optional(),
-  notes: z.string().trim().max(300, 'Les notes ne doivent pas dépasser 300 caractères').optional()
+  notes: z.string().trim().max(300, 'Les notes ne doivent pas dépasser 300 caractères').optional(),
+  tags: z.array(z.string().trim().max(32)).max(5).optional()
 });
 
 export const updateTransactionBodySchema = z.object({
@@ -65,7 +66,8 @@ export const updateTransactionBodySchema = z.object({
     .trim()
     .max(300, 'Les notes ne doivent pas dépasser 300 caractères')
     .nullable()
-    .optional()
+    .optional(),
+  tags: z.array(z.string().trim().max(32)).max(5).optional()
 });
 
 function resolveValidPaidByMemberId(
@@ -153,7 +155,18 @@ export async function createTransaction(
       amount: roundCurrency(payload.amount),
       label: payload.label,
       date: payload.date ?? new Date(),
-      ...(payload.notes ? { notes: payload.notes } : {})
+      ...(payload.notes ? { notes: payload.notes } : {}),
+      ...(payload.tags
+        ? {
+            tags: Array.from(
+              new Set(
+                payload.tags
+                  .map((t) => t.replace(/^#+/, '').trim().toLowerCase().replace(/\s+/g, '-'))
+                  .filter(Boolean)
+              )
+            ).slice(0, 5)
+          }
+        : {})
     });
 
     const {
@@ -265,7 +278,8 @@ export const importTransactionsBodySchema = z.object({
           .max(100, 'Le libellé ne doit pas dépasser 100 caractères'),
         date: z.coerce.date(),
         paidByUserId: objectIdSchema.optional(),
-        notes: z.string().trim().max(300).optional()
+        notes: z.string().trim().max(300).optional(),
+        tags: z.array(z.string().trim().max(32)).max(5).optional()
       })
     )
     .max(500, 'Maximum 500 transactions par import')

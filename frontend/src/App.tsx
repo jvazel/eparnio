@@ -9,6 +9,9 @@ import { BottomSheet } from './components/ui/BottomSheet';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
+import { getTagsSummary } from './services/analytics.service';
+import { TagAnalyticsCard } from './features/analytics/TagAnalyticsCard';
+import { TagDetailModal } from './features/analytics/TagDetailModal';
 import { BalanceReconcileSheet } from './features/budget/BalanceReconcileSheet';
 import { CsvImportSheet } from './features/transactions/CsvImportSheet';
 import { QuickAddExpenseSheet } from './features/transactions/QuickAddExpenseSheet';
@@ -191,6 +194,7 @@ export function App() {
     item: null
   });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string | null>(null);
   const [expenseEditorState, setExpenseEditorState] = useState<{
     isOpen: boolean;
@@ -372,6 +376,12 @@ export function App() {
   const trendsQuery = useQuery({
     queryKey: ['trends', activeBudget?.id, 6],
     queryFn: () => fetchBudgetTrends(activeBudget!.id, 6),
+    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
+  });
+
+  const tagsSummaryQuery = useQuery({
+    queryKey: ['tags-summary', activeBudget?.id],
+    queryFn: () => getTagsSummary(activeBudget!.id),
     enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
   });
 
@@ -1091,7 +1101,8 @@ export function App() {
       buildClientPeriodAnalytics(fallbackPeriod, envelopes, activeBudget, user);
 
     return (
-      <MonthlyInsights
+      <div className="space-y-4">
+        <MonthlyInsights
         analytics={resolvedAnalytics}
         envelopes={envelopes}
         trends={trendsQuery.data?.items ?? []}
@@ -1153,6 +1164,11 @@ export function App() {
         onAutoBalanceToGoal={handleAutoBalanceToGoal}
         onNavigateToTab={setActiveTab}
       />
+        <TagAnalyticsCard
+          tags={tagsSummaryQuery.data ?? []}
+          onSelectTag={setSelectedTag}
+        />
+      </div>
     );
   };
 
@@ -1553,6 +1569,15 @@ export function App() {
             }}
           />
         </>
+      )}
+
+      {activeBudget && (
+        <TagDetailModal
+          isOpen={Boolean(selectedTag)}
+          budgetId={activeBudget.id}
+          tag={selectedTag}
+          onClose={() => setSelectedTag(null)}
+        />
       )}
 
       {activeBudget && (

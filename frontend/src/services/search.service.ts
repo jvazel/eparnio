@@ -12,6 +12,7 @@ export interface GlobalSearchItem {
   kind: 'transaction' | 'fixed_charge' | 'income';
   title: string;
   notes?: string;
+  tags?: string[];
   amount: number;
   date: string;
   periodId: string;

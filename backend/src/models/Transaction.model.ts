@@ -13,6 +13,7 @@ export interface ITransaction extends Document {
   label: string;
   date: Date;
   notes?: string;
+  tags?: string[];
   splitGroupId?: string;
   isAnomalyDismissed?: boolean;
   createdAt: Date;
@@ -31,6 +32,7 @@ export interface TransactionResponse {
   label: string;
   date: string;
   notes?: string;
+  tags?: string[];
   splitGroupId?: string;
   createdAt: string;
   updatedAt: string;
@@ -88,6 +90,10 @@ const transactionSchema = new Schema<ITransaction>(
       trim: true,
       maxlength: 300
     },
+    tags: {
+      type: [String],
+      default: []
+    },
     splitGroupId: {
       type: String,
       index: true
@@ -105,6 +111,7 @@ const transactionSchema = new Schema<ITransaction>(
 transactionSchema.index({ budgetPeriodId: 1, date: -1 });
 transactionSchema.index({ envelopeId: 1, date: -1 });
 transactionSchema.index({ budgetId: 1, date: -1 });
+transactionSchema.index({ budgetId: 1, tags: 1 });
 
 /**
  * Sérialise une transaction Mongoose pour la réponse JSON de l'API.
@@ -122,6 +129,7 @@ export function toTransactionResponse(transaction: ITransaction): TransactionRes
     label: transaction.label,
     date: transaction.date.toISOString(),
     ...(transaction.notes ? { notes: transaction.notes } : {}),
+    ...(transaction.tags && transaction.tags.length > 0 ? { tags: transaction.tags } : {}),
     ...(transaction.splitGroupId ? { splitGroupId: transaction.splitGroupId } : {}),
     createdAt: transaction.createdAt.toISOString(),
     updatedAt: transaction.updatedAt.toISOString()

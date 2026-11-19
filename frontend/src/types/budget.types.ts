@@ -148,6 +148,7 @@ export interface TransactionItem {
   label: string;
   date: string;
   notes?: string;
+  tags?: string[];
   splitGroupId?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -160,6 +161,7 @@ export interface SavingsWithdrawalItem {
   date: string;
   memberId?: string;
   notes?: string;
+  tags?: string[];
   splitGroupId?: string;
   createdAt?: string;
 }

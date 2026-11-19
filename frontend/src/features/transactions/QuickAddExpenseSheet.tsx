@@ -1,6 +1,7 @@
 import { Star, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { TagInput } from '../../components/ui/TagInput';
 import { triggerHaptic } from '../../utils/haptics';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import {
@@ -65,6 +66,7 @@ export function QuickAddExpenseSheet({
   const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string>(envelopes[0]?.id ?? '');
   const [amountInput, setAmountInput] = useState('');
   const [label, setLabel] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paidByUserId, setPaidByUserId] = useState(currentUserId);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -199,11 +201,13 @@ export function QuickAddExpenseSheet({
           label: label.trim(),
           date,
           type: 'expense',
-          ...(isSharedBudget && paidByUserId ? { paidByUserId } : {})
+          ...(isSharedBudget && paidByUserId ? { paidByUserId } : {}),
+          ...(tags.length > 0 ? { tags } : {})
         });
       }
       setAmountInput('');
       setLabel('');
+      setTags([]);
       setIsSplitMode(false);
       triggerHaptic('success');
       onClose();
@@ -451,6 +455,8 @@ export function QuickAddExpenseSheet({
             </button>
           </div>
         )}
+
+        {!isSplitMode && <TagInput tags={tags} onChange={setTags} />}
 
         {isSharedBudget && members.length > 0 && (
           <label className="block space-y-1">

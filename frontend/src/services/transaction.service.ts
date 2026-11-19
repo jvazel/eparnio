@@ -14,6 +14,7 @@ export interface CreateTransactionPayload {
   type?: TransactionType;
   paidByUserId?: string;
   notes?: string;
+  tags?: string[];
 }
 
 export interface UpdateTransactionPayload {
@@ -24,6 +25,7 @@ export interface UpdateTransactionPayload {
   type?: TransactionType;
   paidByUserId?: string;
   notes?: string;
+  tags?: string[];
 }
 
 export async function listTransactions(
@@ -81,6 +83,7 @@ export interface ImportTransactionItemPayload {
   date: string;
   paidByUserId?: string;
   notes?: string;
+  tags?: string[];
 }
 
 export interface ImportTransactionsResponse {
@@ -150,6 +153,7 @@ export interface SplitTransactionPayload {
   date?: string;
   paidByUserId?: string;
   notes?: string;
+  tags?: string[];
   parts: Array<{ envelopeId: string; amount: number }>;
 }
 

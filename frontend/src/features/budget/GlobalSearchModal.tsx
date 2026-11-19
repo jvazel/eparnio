@@ -351,6 +351,18 @@ export function GlobalSearchModal({
                               « {item.notes} »
                             </p>
                           ) : null}
+                          {item.tags && item.tags.length > 0 ? (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {item.tags.map((t) => (
+                                <span
+                                  key={t}
+                                  className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950/60 dark:text-violet-300"
+                                >
+                                  #{t}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                         <span
                           className={`shrink-0 text-sm font-bold tabular-nums ${

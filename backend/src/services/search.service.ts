@@ -15,6 +15,7 @@ export interface GlobalSearchItem {
   kind: 'transaction' | 'fixed_charge' | 'income';
   title: string;
   notes?: string;
+  tags?: string[];
   amount: number;
   date: string;
   periodId: string;
@@ -30,6 +31,7 @@ export interface GlobalSearchItem {
 export interface SearchBudgetInput {
   budgetId: string;
   query: string;
+  tag?: string;
   type?: GlobalSearchFilterType;
   limit?: number;
 }
@@ -55,24 +57,35 @@ function parseNumericQuery(raw: string): number | null {
 export async function searchBudgetItems({
   budgetId,
   query,
+  tag,
   type = 'all',
   limit = 30
 }: SearchBudgetInput): Promise<SearchBudgetResult> {
   const trimmed = query.trim();
+  const normalizedTag = tag
+    ? tag.replace(/^#+/, '').trim().toLowerCase()
+    : trimmed.startsWith('#')
+      ? trimmed.slice(1).trim().toLowerCase()
+      : '';
   const safeLimit = Math.min(Math.max(limit, 1), 50);
 
-  if (!trimmed && type !== 'notes') {
+  if (!trimmed && !normalizedTag && type !== 'notes') {
     return { items: [], totalCount: 0 };
   }
 
   const budgetObjectId = new Types.ObjectId(budgetId);
-  const numericTarget = trimmed ? parseNumericQuery(trimmed) : null;
-  const regex = trimmed ? new RegExp(escapeRegExp(trimmed), 'i') : null;
+  const textQuery = trimmed.startsWith('#') ? '' : trimmed;
+  const numericTarget = textQuery ? parseNumericQuery(textQuery) : null;
+  const regex = textQuery ? new RegExp(escapeRegExp(textQuery), 'i') : null;
 
   const includeTransactions = type === 'all' || type === 'variable_expense' || type === 'notes';
-  const includeEnvelopes = type === 'all' || type === 'fixed_charge' || type === 'income';
+  const includeEnvelopes =
+    !normalizedTag && (type === 'all' || type === 'fixed_charge' || type === 'income');
 
   const transactionFilter: Record<string, unknown> = { budgetId: budgetObjectId };
+  if (normalizedTag) {
+    transactionFilter.tags = normalizedTag;
+  }
   if (type === 'notes') {
     transactionFilter.notes = { $exists: true, $ne: '' };
   }
@@ -80,7 +93,7 @@ export async function searchBudgetItems({
     const orClauses: Record<string, unknown>[] =
       type === 'notes'
         ? [{ notes: regex }]
-        : [{ label: regex }, { notes: regex }];
+        : [{ label: regex }, { notes: regex }, { tags: regex }];
 
     if (numericTarget !== null && type !== 'notes') {
       orClauses.push({
@@ -159,6 +172,7 @@ export async function searchBudgetItems({
       kind: 'transaction',
       title: tx.label,
       ...(tx.notes ? { notes: tx.notes } : {}),
+      ...(tx.tags && tx.tags.length > 0 ? { tags: tx.tags } : {}),
       amount: tx.amount,
       date: tx.date.toISOString(),
       periodId: period._id.toString(),

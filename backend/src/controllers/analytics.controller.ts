@@ -364,3 +364,71 @@ export async function getBudgetTrends(
     next(err);
   }
 }
+
+export async function getTagsSummary(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+
+    const { id } = req.params as { id: string };
+    const { BudgetModel } = await import('../models/Budget.model');
+    const budget = await BudgetModel.findOne({
+      _id: id,
+      'members.userId': userId
+    })
+      .select('_id')
+      .lean();
+
+    if (!budget) {
+      res.status(404).json({ message: 'Budget introuvable.' });
+      return;
+    }
+
+    const { getBudgetTagsSummary } = await import('../services/tagAnalytics.service');
+    const tags = await getBudgetTagsSummary(id);
+    res.status(200).json({ status: 'ok', tags });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTagDetailAnalytics(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+
+    const { id, tag } = req.params as { id: string; tag: string };
+    const { BudgetModel } = await import('../models/Budget.model');
+    const budget = await BudgetModel.findOne({
+      _id: id,
+      'members.userId': userId
+    })
+      .select('_id')
+      .lean();
+
+    if (!budget) {
+      res.status(404).json({ message: 'Budget introuvable.' });
+      return;
+    }
+
+    const { getBudgetTagDetailAnalytics } = await import('../services/tagAnalytics.service');
+    const analytics = await getBudgetTagDetailAnalytics(id, tag);
+    res.status(200).json({ status: 'ok', analytics });
+  } catch (err) {
+    next(err);
+  }
+}

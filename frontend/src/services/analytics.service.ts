@@ -216,3 +216,64 @@ export async function fetchBudgetTrends(
   );
   return data;
 }
+
+export interface TagSummaryItem {
+  tag: string;
+  totalAmount: number;
+  count: number;
+}
+
+export interface TagEnvelopeBreakdown {
+  envelopeId: string;
+  envelopeName: string;
+  envelopeIcon: string;
+  envelopeColor: string;
+  amount: number;
+  percentage: number;
+}
+
+export interface TagMonthlyPoint {
+  year: number;
+  month: number;
+  label: string;
+  amount: number;
+}
+
+export interface TagTransactionItem {
+  id: string;
+  label: string;
+  amount: number;
+  date: string;
+  envelopeId: string;
+  envelopeName: string;
+  envelopeIcon: string;
+  envelopeColor: string;
+  month: number;
+  year: number;
+}
+
+export interface TagDetailAnalytics {
+  tag: string;
+  totalAmount: number;
+  count: number;
+  byEnvelope: TagEnvelopeBreakdown[];
+  byMonth: TagMonthlyPoint[];
+  transactions: TagTransactionItem[];
+}
+
+export async function getTagsSummary(budgetId: string): Promise<TagSummaryItem[]> {
+  const { data } = await apiClient.get<{ status: string; tags: TagSummaryItem[] }>(
+    `/budgets/${budgetId}/tags/summary`
+  );
+  return data.tags;
+}
+
+export async function getTagDetailAnalytics(
+  budgetId: string,
+  tag: string
+): Promise<TagDetailAnalytics> {
+  const { data } = await apiClient.get<{ status: string; analytics: TagDetailAnalytics }>(
+    `/budgets/${budgetId}/tags/${encodeURIComponent(tag)}/analytics`
+  );
+  return data.analytics;
+}

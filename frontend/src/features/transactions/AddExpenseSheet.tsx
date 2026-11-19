@@ -1,6 +1,7 @@
 import { ArrowUpRight, RotateCcw, Trash2 } from 'lucide-react';
 import { Star } from 'lucide-react';
 import { type FormEvent, useEffect, useId, useMemo, useState } from 'react';
+import { TagInput } from '../../components/ui/TagInput';
 import { triggerHaptic } from '../../utils/haptics';
 import type { SplitTransactionPayload, TransactionSuggestion } from '../../services/transaction.service';
 import { BottomSheet } from '../../components/ui/BottomSheet';
@@ -81,6 +82,7 @@ export function AddExpenseSheet({
   const [amountInput, setAmountInput] = useState('');
   const [label, setLabel] = useState('');
   const [notes, setNotes] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [dateValue, setDateValue] = useState(resolvedDefaultDate);
   const [paidByUserId, setPaidByUserId] = useState<string | undefined>(currentUserId);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -110,6 +112,7 @@ export function AddExpenseSheet({
       setAmountInput(formatAmountToKeypadString(initialTransaction.amount));
       setLabel(initialTransaction.label);
       setNotes(initialTransaction.notes ?? '');
+      setTags(initialTransaction.tags ?? []);
       setDateValue(toDateInputValue(initialTransaction.date));
       setPaidByUserId(initialTransaction.paidByUserId ?? currentUserId);
     } else {
@@ -117,6 +120,7 @@ export function AddExpenseSheet({
       setAmountInput('');
       setLabel('');
       setNotes('');
+      setTags([]);
       setDateValue(resolvedDefaultDate);
       setPaidByUserId(currentUserId);
     }
@@ -176,7 +180,10 @@ export function AddExpenseSheet({
         label: trimmedLabel,
         date: new Date(`${dateValue}T12:00:00.000Z`).toISOString(),
         ...(isSharedBudget && paidByUserId ? { paidByUserId } : {}),
-        ...(shouldSendNotes ? { notes: trimmedNotes } : {})
+        ...(shouldSendNotes ? { notes: trimmedNotes } : {}),
+        ...(tags.length > 0 || (isEditing && (initialTransaction?.tags?.length ?? 0) > 0)
+          ? { tags }
+          : {})
       });
       triggerHaptic('success');
       onClose();
@@ -506,6 +513,8 @@ export function AddExpenseSheet({
               {notes.length} / 300
             </p>
           </div>
+
+          <TagInput tags={tags} onChange={setTags} />
 
           {isSharedBudget && (
             <MemberPayerSelector

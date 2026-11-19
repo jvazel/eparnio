@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import { getBudgetTrends } from '../controllers/analytics.controller';
+import {
+  getBudgetTrends,
+  getTagDetailAnalytics,
+  getTagsSummary
+} from '../controllers/analytics.controller';
 import {
   searchBudget,
   searchBudgetParamsSchema
@@ -72,6 +76,15 @@ budgetRouter.get(
   '/:id/search',
   validate({ params: searchBudgetParamsSchema }),
   searchBudget
+);
+budgetRouter.get(
+  '/:id/tags/summary',
+  validate({ params: searchBudgetParamsSchema }),
+  getTagsSummary
+);
+budgetRouter.get(
+  '/:id/tags/:tag/analytics',
+  getTagDetailAnalytics
 );
 
 budgetRouter.get(
