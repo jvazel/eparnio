@@ -24,6 +24,7 @@ export interface FixedChargesListProps {
   onTogglePaid: (item: EnvelopeItem) => void;
   onReorder: (orderedIds: string[]) => void;
   onDeleteFixedCharge: (item: EnvelopeItem) => void;
+  onSyncRecurring?: () => Promise<void> | void;
   zeroBasedActions?: ZeroBasedQuickActions;
 }
 
@@ -40,6 +41,7 @@ export function FixedChargesList({
   onTogglePaid,
   onReorder,
   onDeleteFixedCharge,
+  onSyncRecurring,
   zeroBasedActions
 }: FixedChargesListProps) {
   const [isManageMode, setIsManageMode] = useState(false);
@@ -221,6 +223,17 @@ export function FixedChargesList({
       />
 
       <section aria-label="Historique des dépenses fixes" className="space-y-2.5">
+        {onSyncRecurring ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => void onSyncRecurring()}
+              className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 dark:bg-violet-950/60 dark:text-violet-300 dark:hover:bg-violet-900/60"
+            >
+              Reconduire le mois précédent
+            </button>
+          </div>
+        ) : null}
         <SectionManageHeader
           title="Historique des dépenses fixes"
           count={sortedItems.length}

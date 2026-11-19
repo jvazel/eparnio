@@ -9,6 +9,7 @@ import {
   getCurrentPeriod,
   getPeriodByMonth,
   periodRolloverParamsSchema,
+  syncRecurringFromPrevious,
   triggerRollover
 } from '../controllers/period.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
@@ -38,6 +39,12 @@ periodRouter.post(
   '/:periodId/close',
   validate({ params: periodRolloverParamsSchema, body: closePeriodBodySchema }),
   closePeriod
+);
+
+periodRouter.post(
+  '/:periodId/sync-recurring',
+  validate({ params: periodRolloverParamsSchema }),
+  syncRecurringFromPrevious
 );
 
 export { periodRouter };

@@ -851,3 +851,166 @@ export async function closePeriodAndRollover(params: {
     transferredTotal
   };
 }
+
+
+/**
+ * Propage un revenu ou une dépense fixe récurrente nouvellement créé(e) ou modifié(e)
+ * vers les périodes futures déjà créées du même budget (sans écraser l'existant).
+ */
+export async function propagateRecurringEnvelopeToFuturePeriods(
+  envelope: {
+    budgetId: Types.ObjectId | string;
+    pillar: string;
+    name: string;
+    icon: string;
+    color: string;
+    allocatedAmount: number;
+    date: Date;
+    isRecurring: boolean;
+    recurrenceFrequency?: string;
+    recurrenceEndDate?: Date | null;
+    recurrenceRemainingCount?: number | null;
+    memberId?: Types.ObjectId | string | null;
+    order?: number;
+  },
+  sourcePeriod: { _id: Types.ObjectId; year: number; month: number }
+): Promise<number> {
+  if (
+    !envelope.isRecurring ||
+    (envelope.pillar !== 'income' && envelope.pillar !== 'fixed_charge')
+  ) {
+    return 0;
+  }
+
+  const futurePeriods = await BudgetPeriodModel.find({
+    budgetId: envelope.budgetId,
+    $or: [
+      { year: { $gt: sourcePeriod.year } },
+      { year: sourcePeriod.year, month: { $gt: sourcePeriod.month } }
+    ]
+  })
+    .sort({ year: 1, month: 1 })
+    .lean();
+
+  let createdCount = 0;
+  const sourceDay = new Date(envelope.date).getUTCDate();
+  const normalizedName = envelope.name.trim().toLowerCase();
+
+  for (const targetPeriod of futurePeriods) {
+    const existingEnvelopes = await EnvelopeModel.find({
+      budgetPeriodId: targetPeriod._id,
+      pillar: envelope.pillar
+    })
+      .select('name')
+      .lean();
+
+    const alreadyExists = existingEnvelopes.some(
+      (item) => item.name.trim().toLowerCase() === normalizedName
+    );
+    if (alreadyExists) continue;
+
+    const maxDay = new Date(Date.UTC(targetPeriod.year, targetPeriod.month, 0)).getUTCDate();
+    const targetDate = new Date(
+      Date.UTC(targetPeriod.year, targetPeriod.month - 1, Math.min(sourceDay, maxDay), 12, 0, 0)
+    );
+
+    await EnvelopeModel.create({
+      budgetId: envelope.budgetId,
+      budgetPeriodId: targetPeriod._id,
+      pillar: envelope.pillar,
+      name: envelope.name,
+      icon: envelope.icon,
+      color: envelope.color,
+      allocatedAmount: envelope.allocatedAmount,
+      spentOrPaidAmount: 0,
+      date: targetDate,
+      isRecurring: true,
+      recurrenceFrequency: envelope.recurrenceFrequency ?? 'monthly',
+      recurrenceEndDate: envelope.recurrenceEndDate ?? null,
+      recurrenceRemainingCount: envelope.recurrenceRemainingCount ?? null,
+      isPaid: false,
+      ...(envelope.memberId ? { memberId: envelope.memberId } : {}),
+      order: envelope.order ?? 0
+    });
+
+    createdCount += 1;
+  }
+
+  return createdCount;
+}
+
+/**
+ * Copie dans `targetPeriod` les revenus et dépenses fixes récurrents du mois précédent
+ * qui n'y figurent pas encore.
+ */
+export async function syncMissingRecurringFromPreviousPeriod(
+  budgetId: Types.ObjectId | string,
+  targetPeriod: { _id: Types.ObjectId; year: number; month: number }
+): Promise<number> {
+  const prevMonth = targetPeriod.month === 1 ? 12 : targetPeriod.month - 1;
+  const prevYear = targetPeriod.month === 1 ? targetPeriod.year - 1 : targetPeriod.year;
+
+  const previousPeriod = await BudgetPeriodModel.findOne({
+    budgetId,
+    year: prevYear,
+    month: prevMonth
+  }).lean();
+
+  if (!previousPeriod) {
+    return 0;
+  }
+
+  const [sourceRecurring, targetExisting] = await Promise.all([
+    EnvelopeModel.find({
+      budgetPeriodId: previousPeriod._id,
+      pillar: { $in: ['income', 'fixed_charge'] },
+      isRecurring: true
+    }).lean(),
+    EnvelopeModel.find({
+      budgetPeriodId: targetPeriod._id,
+      pillar: { $in: ['income', 'fixed_charge'] }
+    })
+      .select('pillar name')
+      .lean()
+  ]);
+
+  const existingKeys = new Set(
+    targetExisting.map((item) => `${item.pillar}::${item.name.trim().toLowerCase()}`)
+  );
+
+  let addedCount = 0;
+  for (const item of sourceRecurring) {
+    const key = `${item.pillar}::${item.name.trim().toLowerCase()}`;
+    if (existingKeys.has(key)) continue;
+
+    const sourceDay = new Date(item.date).getUTCDate();
+    const maxDay = new Date(Date.UTC(targetPeriod.year, targetPeriod.month, 0)).getUTCDate();
+    const targetDate = new Date(
+      Date.UTC(targetPeriod.year, targetPeriod.month - 1, Math.min(sourceDay, maxDay), 12, 0, 0)
+    );
+
+    await EnvelopeModel.create({
+      budgetId: item.budgetId,
+      budgetPeriodId: targetPeriod._id,
+      pillar: item.pillar,
+      name: item.name,
+      icon: item.icon,
+      color: item.color,
+      allocatedAmount: item.allocatedAmount,
+      spentOrPaidAmount: 0,
+      date: targetDate,
+      isRecurring: true,
+      recurrenceFrequency: item.recurrenceFrequency ?? 'monthly',
+      recurrenceEndDate: item.recurrenceEndDate ?? null,
+      recurrenceRemainingCount: item.recurrenceRemainingCount ?? null,
+      isPaid: false,
+      ...(item.memberId ? { memberId: item.memberId } : {}),
+      order: item.order ?? 0
+    });
+
+    existingKeys.add(key);
+    addedCount += 1;
+  }
+
+  return addedCount;
+}

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { z } from 'zod';
+import { propagateRecurringEnvelopeToFuturePeriods } from '../services/periodRollover.service';
 import { AppError } from '../middlewares/error.middleware';
 import { toBudgetPeriodResponse } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, toEnvelopeResponse } from '../models/Envelope.model';
@@ -181,6 +182,8 @@ export async function createEnvelope(
       ? await recalculateSavingsGoalCurrentAmount(envelope.linkedGoalId)
       : null;
 
+    await propagateRecurringEnvelopeToFuturePeriods(envelope, period);
+
     res.status(201).json({
       status: 'ok',
       envelope: toEnvelopeResponse(envelope),
@@ -272,6 +275,8 @@ export async function updateEnvelope(
       updatedGoal = await recalculateSavingsGoalCurrentAmount(envelope.linkedGoalId);
     }
 
+    await propagateRecurringEnvelopeToFuturePeriods(envelope, period);
+
     res.status(200).json({
       status: 'ok',
       envelope: toEnvelopeResponse(envelope),
@@ -348,6 +353,8 @@ export async function deleteEnvelope(
     const updatedGoal = linkedGoalId
       ? await recalculateSavingsGoalCurrentAmount(linkedGoalId)
       : null;
+
+    await propagateRecurringEnvelopeToFuturePeriods(envelope, period);
 
     res.status(200).json({
       status: 'ok',

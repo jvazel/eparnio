@@ -311,7 +311,8 @@ export function GlobalSearchModal({
                     const member = item.memberId ? memberMap.get(item.memberId) : undefined;
                     const formattedDate = new Date(item.date).toLocaleDateString('fr-FR', {
                       day: 'numeric',
-                      month: 'short'
+                      month: 'long',
+                      year: 'numeric'
                     });
                     return (
                       <button

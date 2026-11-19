@@ -92,3 +92,12 @@ Revenus du mois − Dépenses fixes − Enveloppes variables − Épargne = 0 �
 
 - **Installer l'application :** sur mobile (iOS Safari / Android Chrome) ou ordinateur, utilisez *« Ajouter à l'écran d'accueil »* pour profiter d'Eparnio comme d'une application native.
 - **Mode Hors-Ligne :** vos consultations et saisies continuent de fonctionner sans réseau ; les actions en attente sont synchronisées automatiquement dès le retour de la connexion.
+
+
+---
+
+## 9. Recherche Globale Multi-Mois & Reconduction des Récurrences
+
+- **Recherche globale (`🔍`) :** depuis la loupe en haut à droite de l'application, recherchez instantanément une dépense, un revenu, une note ou un montant sur l'ensemble de vos mois et enveloppes (avec filtres rapides *Tout*, *Dépenses variables*, *Dépenses fixes*, *Revenus*, *Notes* et historique des 5 dernières recherches). Un tap sur un résultat vous emmène directement sur le mois et l'enveloppe concernés.
+- **Propagation & Reconduction manuelle des récurrences :** toute nouvelle dépense fixe ou revenu récurrent est automatiquement propagé vers les mois suivants déjà créés ; le bouton **« Reconduire le mois précédent »** dans l'onglet **Dépenses** permet également de rattraper en 1 tap les éléments récurrents manquants du mois précédent.
+- **Feedback haptique :** micro-vibrations légères sur mobile lors de la saisie au pavé numérique, du pointage `✓` et de la validation d'une opération.

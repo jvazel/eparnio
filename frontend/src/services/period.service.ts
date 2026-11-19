@@ -62,3 +62,13 @@ export async function closePeriod(
   );
   return data;
 }
+
+export async function syncRecurringFromPrevious(
+  budgetId: string,
+  periodId: string
+): Promise<{ status: string; addedCount: number }> {
+  const { data } = await apiClient.post<{ status: string; addedCount: number }>(
+    `/budgets/${budgetId}/periods/${periodId}/sync-recurring`
+  );
+  return data;
+}

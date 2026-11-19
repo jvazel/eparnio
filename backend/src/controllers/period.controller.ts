@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { AppError } from '../middlewares/error.middleware';
+import { BudgetModel } from '../models/Budget.model';
+import { recalculatePeriodSummary } from '../services/remainingToLive.service';
 import { BudgetPeriodModel, toBudgetPeriodResponse } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, toEnvelopeResponse } from '../models/Envelope.model';
 import { toSavingsGoalResponse } from '../models/SavingsGoal.model';
@@ -11,7 +13,8 @@ import {
   computeCycleBounds,
   getOrCreatePeriodWithRollover,
   resolveCycleYearMonthForDate,
-  rolloverToNextPeriod
+  rolloverToNextPeriod,
+  syncMissingRecurringFromPreviousPeriod
 } from '../services/periodRollover.service';
 
 const objectIdSchema = z
@@ -230,6 +233,51 @@ export async function closePeriod(
       updatedGoals: result.updatedGoals.map(toSavingsGoalResponse),
       transferredTotal: result.transferredTotal
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Synchronise dans la période cible les revenus et dépenses fixes récurrents
+ * manquants depuis le mois précédent.
+ */
+export async function syncRecurringFromPrevious(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { budgetId, periodId } = req.params as { budgetId: string; periodId: string };
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+
+    const budget = await BudgetModel.findOne({
+      _id: budgetId,
+      'members.userId': userId
+    }).lean();
+    if (!budget) {
+      res.status(404).json({ message: 'Budget introuvable.' });
+      return;
+    }
+
+    const targetPeriod = await BudgetPeriodModel.findOne({
+      _id: periodId,
+      budgetId: budget._id
+    }).lean();
+    if (!targetPeriod) {
+      res.status(404).json({ message: 'Période introuvable.' });
+      return;
+    }
+
+    const addedCount = await syncMissingRecurringFromPreviousPeriod(budget._id, targetPeriod);
+    if (addedCount > 0) {
+      await recalculatePeriodSummary(targetPeriod._id);
+    }
+    res.status(200).json({ status: 'ok', addedCount });
   } catch (err) {
     next(err);
   }

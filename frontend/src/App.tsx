@@ -73,7 +73,8 @@ import {
 import {
   closePeriod,
   type ClosePeriodPayload,
-  getPeriodByMonth
+  getPeriodByMonth,
+  syncRecurringFromPrevious
 } from './services/period.service';
 import {
   createTransaction,
@@ -1018,6 +1019,12 @@ export function App() {
           onTogglePaid={handleTogglePaid}
           onReorder={handleReorder}
           onDeleteFixedCharge={(item) => handleDeleteById(item.id)}
+          onSyncRecurring={async () => {
+            if (!activeBudget || !activePeriod) return;
+            await syncRecurringFromPrevious(activeBudget.id, activePeriod.id);
+            await queryClient.invalidateQueries({ queryKey: periodQueryKey });
+            await queryClient.invalidateQueries({ queryKey: analyticsQueryKey });
+          }}
           zeroBasedActions={zeroBasedActions}
         />
       );
