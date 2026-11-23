@@ -531,3 +531,66 @@
 - [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Frontend :** Tests unitaires sur `whatIfSimulator.ts` (achat ponctuel, charge mensuelle, paiement en Nx, calcul Avant/Après du Reste à vivre et du budget quotidien, seuils de faisabilité) + tests UI sur `WhatIfSimulatorSheet` (saisie au `NumericKeypad`, bascule de mode, conversion via « Enregistrer réellement », modes clair et sombre).
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 40 : Bilan Annuel « Eparnio Wrapped » *(Rétrospective & Sélecteur d'Année)*
+
+- [ ] **Backend (`annualWrapped.service.ts`, `analytics.controller.ts`, `budget.routes.ts`) :**
+  * Créer un service `annualWrapped.service.ts` et l'endpoint `GET /api/budgets/:budgetId/wrapped?year=YYYY` (protégé par JWT et vérification d'appartenance au budget ; `year` par défaut = année en cours).
+  * Retourner la liste des années disponibles (`availableYears: number[]` déduites des `BudgetPeriod` du budget) pour alimenter le sélecteur d'année côté frontend.
+  * Agréger sur l'année demandée :
+    1. **Vue macro :** `totalIncome`, `totalFixedCharges`, `totalVariableSpent`, `totalSaved` et **taux d'épargne annuel (%)**.
+    2. **Faits marquants :** mois le plus économe (meilleur `remainingToLive`), **Top 3 des enveloppes** les plus dépensées, enveloppe la mieux maîtrisée (respect du plafond) et **score Base Zéro** (nombre de mois à l'équilibre `remainingToAllocate === 0`).
+    3. **Tags & Partage :** Top tags de l'année (si utilisés) et bilan annuel comparatif par membre (si budget `shared`).
+- [ ] **Frontend (`WrappedModal.tsx`, `WrappedCarousel.tsx`, `App.tsx`) :**
+  * Ajouter un point d'entrée **`✨ Bilan annuel`** dans l'onglet **`Budget`** (et/ou `ProfileSheet`) ouvrant `WrappedModal.tsx` en plein écran.
+  * **Sélecteur d'année :** permettre à l'utilisateur de **choisir son année** librement parmi `availableYears` (pilules ou flèches `< 2025 | 2026 >` en haut de la modale), avec rechargement dynamique des données et état vide pédagogique si l'année sélectionnée ne contient aucune période.
+  * **Carrousel « Stories » (5 slides) :** navigation par tap gauche/droite ou swipe horizontal avec barre de progression en haut et dégradés signature Eparnio :
+    1. *L'année en un coup d'œil* (Revenus vs Dépenses vs Épargne),
+    2. *Votre épargne* (total épargné + objectif le plus avancé),
+    3. *Vos enveloppes phares* (Top 3 + graphique Recharts),
+    4. *Vos records* (meilleur mois + score Base Zéro),
+    5. *Carte récapitulative finale* (compatible **modes clair et sombre**).
+- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend :** Tests unitaires sur `annualWrapped.service.ts` (calculs annuels, `availableYears`, meilleur mois, top 3 enveloppes, score Base Zéro, bilan membre en budget partagé) + tests API Supertest sur `GET /api/budgets/:budgetId/wrapped?year=...` (contrôle d'accès JWT, changement d'année, année vide).
+  * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur `WrappedModal` / `WrappedCarousel` (changement d'année, navigation entre les 5 slides, état vide, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 41 : Détecteur d'Écarts & Hausses d'Abonnements *(Inflation Cachée)*
+
+- [ ] **Backend (`fixedChargeVariance.service.ts`, `envelope.controller.ts`, `analytics.controller.ts`) :**
+  * Créer un service `fixedChargeVariance.service.ts` comparant chaque `EnvelopeModel` (`fixed_charge` et `income`) de la période active avec son prédécesseur via `previousEnvelopeId` (ou rapprochement par `name` normalisé sur la période `N-1`).
+  * Calculer `previousAmount`, `deltaAmount` (`allocatedAmount - previousAmount`) et `deltaPercent` dès que `Math.abs(deltaAmount) >= 0.01`, en distinguant les hausses (`> 0`) des baisses (`< 0`).
+  * Exposer ces métriques dans la réponse de `GET /api/periods/:periodId/envelopes` (champ optionnel `variance?: { previousAmount: number; deltaAmount: number; deltaPercent: number }`) et dans `GET /api/periods/:periodId/analytics` (résumé global `fixedChargesVarianceSummary`).
+- [ ] **Frontend (`FixedChargesList.tsx`, `CreationFormModal.tsx`, `MonthlyInsights.tsx`) :**
+  * **`FixedChargesList.tsx` :** Afficher une pilule discrète sur les lignes concernées : **`↗ +X €`** (ambre/rouge doux) en cas de hausse, **`↘ -X €`** (émeraude doux) en cas de baisse.
+  * **`MonthlyInsights.tsx` (onglet `Budget`) :** Afficher une carte compacte **« Évolution des charges fixes »** (uniquement si au moins un écart existe sur le mois) résumant le delta net du mois et la liste des abonnements/charges ayant varié.
+  * **`CreationFormModal.tsx` :** En mode édition d'une charge fixe ou d'un revenu, afficher un rappel discret *« Mois précédent : X € »* sous le montant.
+  * Supporter intégralement les **modes clair et sombre**.
+- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend :** Tests unitaires sur `fixedChargeVariance.service.ts` (hausse, baisse, absence de `previousEnvelopeId`, seuil `0.01 €`) et tests API Supertest sur `GET /envelopes` et `GET /analytics`.
+  * **Nouveaux tests Frontend :** Tests de rendu sur `FixedChargesList` (pilules `↗` / `↘`), `MonthlyInsights` (carte d'évolution) et `CreationFormModal` (rappel mois précédent), en modes clair et sombre.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 42 : Assistant d'Équilibrage Base Zéro en 1 Tap *(Rééquilibrage Guidé)*
+
+- [ ] **Backend (`zeroBasedAutoBalance.service.ts`, `period.controller.ts`, `period.routes.ts`) :**
+  * Créer un service `zeroBasedAutoBalance.service.ts` calculant une proposition d'équilibrage pour atteindre `remainingToAllocate === 0` :
+    * **Si surplus (`remainingToAllocate > 0`) :** proposer d'affecter le surplus vers l'objectif d'épargne actif prioritaire (ou l'enveloppe `savings` / `variable_envelope` sélectionnée).
+    * **Si déficit (`remainingToAllocate < 0`) :** ne jamais modifier les `fixed_charge` ni descendre sous `spentOrPaidAmount` ; calculer la marge disponible (`allocatedAmount - spentOrPaidAmount`) de chaque `variable_envelope` et proposer de réduire en priorité celle(s) ayant la plus grande marge (ou l'épargne planifiée en dernier recours).
+  * Exposer `GET /api/periods/:periodId/auto-balance/suggestion` (retourne la suggestion calculée + les cibles alternatives possibles) et `POST /api/periods/:periodId/auto-balance/apply` (applique atomiquement l'ajustement choisi et recalcule `remainingToAllocate` et `remainingToLive`).
+- [ ] **Frontend (`ZeroBasedBanner.tsx`, `AutoBalanceSheet.tsx`, `App.tsx`) :**
+  * **`ZeroBasedBanner.tsx` :** Dès que `remainingToAllocate !== 0`, afficher un bouton **`Équilibrer en 1 tap`**.
+  * **`AutoBalanceSheet.tsx` :** Ouvrir un `BottomSheet` affichant l'écart actuel, la suggestion recommandée (ex. *« Ajouter +120,00 € à Épargne de précaution »* ou *« Réduire Courses de 85,00 € »*), un sélecteur rapide pour choisir une autre enveloppe cible si souhaité, et un bouton **`Confirmer l'équilibrage`** ramenant le budget à `0,00 €`, en **modes clair et sombre**.
+- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend :** Tests unitaires sur `zeroBasedAutoBalance.service.ts` (surplus vers épargne, déficit sur enveloppe avec marge, protection `spentOrPaidAmount`, exclusion des `fixed_charge`) + tests API Supertest sur `GET /auto-balance/suggestion` et `POST /auto-balance/apply`.
+  * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur `ZeroBasedBanner` (affichage conditionnel du bouton) et `AutoBalanceSheet` (changement de cible, confirmation en 1 tap, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
