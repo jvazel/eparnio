@@ -256,34 +256,20 @@ export function BudgetPatrimoineView({
         </div>
       )}
 
-      {/* Filtres par catégorie */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-            categoryFilter === 'all'
-              ? 'bg-violet-600 text-white'
-              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700'
-          }`}
-        >
-          Tout
-        </button>
-        {CATEGORY_OPTIONS.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setCategoryFilter(c.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-              categoryFilter === c.key
-                ? 'bg-violet-600 text-white'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700'
-            }`}
-          >
-            {c.icon} {c.label}
-          </button>
-        ))}
-      </div>
+      {/* Filtre par catégorie */}
+      <DropdownSelect
+        label="Filtrer par catégorie"
+        value={categoryFilter}
+        onChange={(v) => setCategoryFilter(v as AssetCategory | 'all')}
+        options={[
+          { value: 'all', label: 'Toutes les catégories', icon: '📋' },
+          ...CATEGORY_OPTIONS.map((c) => ({
+            value: c.key,
+            label: c.label,
+            icon: c.icon,
+          })),
+        ]}
+      />
 
       {/* Liste des comptes */}
       <div className="space-y-2.5">

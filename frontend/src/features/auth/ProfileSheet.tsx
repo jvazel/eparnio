@@ -37,6 +37,7 @@ import { downloadRecoveryKeyFile, validateStrongPassword } from '../../utils/for
 export interface ProfileSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  onProfileSaved?: () => void;
 }
 
 const PROFILE_EMOJIS = [
@@ -48,7 +49,7 @@ const PROFILE_EMOJIS = [
  * Tiroir de profil utilisateur (ouvert via l'avatar violet du TopHeader) :
  * édition prénom/avatar, jour de début de cycle, thème, clé de récupération, mot de passe et déconnexion.
  */
-export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
+export function ProfileSheet({ isOpen, onClose, onProfileSaved }: ProfileSheetProps) {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const setSession = useAuthStore((state) => state.setSession);
@@ -149,6 +150,8 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
       updateUser(updated);
       await queryClient.invalidateQueries({ queryKey: ['budgets'] });
       setProfileStatus('Profil enregistré.');
+      onProfileSaved?.();
+      onClose();
     } catch (err) {
       setProfileError(getApiErrorMessage(err, 'Impossible de mettre à jour le profil.'));
     } finally {

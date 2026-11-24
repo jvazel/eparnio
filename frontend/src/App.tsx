@@ -183,6 +183,13 @@ export function App() {
   const [budgetSubView, setBudgetSubView] = useState<'synthese' | 'calendrier' | 'patrimoine'>('synthese');
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [isWrappedOpen, setIsWrappedOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = window.setTimeout(() => setToastMessage(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
   const [activeTab, setActiveTab] = useState<TabId>(
     () => user?.preferences?.defaultTab ?? 'depenses'
   );
@@ -1519,7 +1526,20 @@ export function App() {
           </div>
         </BottomSheet>
 
-      <ProfileSheet isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+      <ProfileSheet
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        onProfileSaved={() => setToastMessage('Modification du profil enregistrée !')}
+      />
+
+      {toastMessage && (
+        <div
+          role="status"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-semibold shadow-lg"
+        >
+          ✓ {toastMessage}
+        </div>
+      )}
 
       <BudgetSwitcherOverlay
         isOpen={isSwitcherOpen}
