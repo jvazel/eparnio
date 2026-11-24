@@ -4,7 +4,12 @@ import { z } from 'zod';
 import { validate } from '../middlewares/validate.middleware';
 import { requireAuth } from '../middlewares/auth.middleware';
 import {
+  applyAutoBalanceHandler,
+  getAutoBalanceSuggestionHandler,
+} from '../controllers/period.controller';
+import {
   getPeriodAnalytics,
+  getPeriodCalendarHandler,
   periodAnalyticsParamsSchema,
   periodAnalyticsQuerySchema
 } from '../controllers/analytics.controller';
@@ -18,6 +23,7 @@ import { authRouter } from './auth.routes';
 import { budgetRouter } from './budget.routes';
 import { envelopeRouter } from './envelope.routes';
 import { goalRouter } from './goal.routes';
+import { notificationRouter } from './notification.routes';
 import { periodRouter } from './period.routes';
 import { transactionRouter } from './transaction.routes';
 
@@ -59,6 +65,7 @@ apiRouter.get(
   exportBudgetJson
 );
 apiRouter.use('/budgets/:budgetId/goals', goalRouter);
+apiRouter.use('/notifications', notificationRouter);
 apiRouter.use('/budgets/:budgetId/periods', periodRouter);
 apiRouter.use('/periods/:periodId/envelopes', envelopeRouter);
 apiRouter.use('/periods/:periodId/transactions', transactionRouter);
@@ -67,6 +74,24 @@ apiRouter.get(
   requireAuth,
   validate({ params: periodAnalyticsParamsSchema, query: periodAnalyticsQuerySchema }),
   getPeriodAnalytics
+);
+apiRouter.get(
+  '/periods/:periodId/calendar',
+  requireAuth,
+  validate({ params: periodAnalyticsParamsSchema, query: periodAnalyticsQuerySchema }),
+  getPeriodCalendarHandler
+);
+apiRouter.get(
+  '/periods/:periodId/auto-balance/suggestion',
+  requireAuth,
+  validate({ params: periodAnalyticsParamsSchema }),
+  getAutoBalanceSuggestionHandler
+);
+apiRouter.post(
+  '/periods/:periodId/auto-balance/apply',
+  requireAuth,
+  validate({ params: periodAnalyticsParamsSchema }),
+  applyAutoBalanceHandler
 );
 
 export { apiRouter };

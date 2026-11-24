@@ -25,12 +25,19 @@ const PASTEL_THEME_MAP: Record<string, PastelTheme> = {
  */
 export function resolvePastelTheme(color: string): PastelTheme {
   const normalized = color.trim().toUpperCase();
-  return (
-    PASTEL_THEME_MAP[normalized] ?? {
-      background: '#D6F0F3',
-      ring: '#0EA5E9'
-    }
-  );
+  if (PASTEL_THEME_MAP[normalized]) {
+    return PASTEL_THEME_MAP[normalized];
+  }
+  if (/^#[0-9A-F]{6}$/.test(normalized)) {
+    return {
+      background: `${normalized}24`,
+      ring: normalized,
+    };
+  }
+  return {
+    background: '#D6F0F3',
+    ring: '#0EA5E9',
+  };
 }
 
 export interface PastelEnvelopeCardProps {

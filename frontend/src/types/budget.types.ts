@@ -32,6 +32,11 @@ export interface QuickTemplateItem {
   envelopeName: string;
   defaultAmount?: number;
   order: number;
+  variance?: {
+    previousAmount: number;
+    deltaAmount: number;
+    deltaPercent: number;
+  };
 }
 
 export interface BudgetMember {
@@ -130,6 +135,11 @@ export interface EnvelopeItem {
   memberId?: string;
   linkedGoalId?: string;
   order: number;
+  variance?: {
+    previousAmount: number;
+    deltaAmount: number;
+    deltaPercent: number;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -178,6 +188,11 @@ export interface SavingsGoalItem {
   deadline?: string;
   withdrawals?: SavingsWithdrawalItem[];
   order: number;
+  variance?: {
+    previousAmount: number;
+    deltaAmount: number;
+    deltaPercent: number;
+  };
   createdAt?: string;
   updatedAt?: string;
 }

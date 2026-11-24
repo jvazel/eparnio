@@ -22,6 +22,7 @@ Application **Mobile-First (PWA)** de gestion budgétaire personnelle et partag�
 - **Filtres & tri rapide :** Recherche instantanée, tri (date/montant) et sous-total dynamique sur les dépenses fixes et variables (avec filtre par membre en budget partagé).
 - **Projection de fin de mois (Burn Rate) :** Indicateur de rythme de dépense dans l'onglet `Budget` estimant le solde de fin de cycle et la date éventuelle de passage en négatif.
 - **Indicateurs avancés de pilotage :** Comparatif avancement du mois vs consommation des enveloppes, taux d'épargne, matelas de sécurité (en mois de charges fixes), top enveloppes en tension et **détection des dépenses atypiques** (alertes préventives).
+- **Vue Calendrier & Trésorerie Prévisionnelle :** Bascule `Synthèse | Calendrier` dans l'onglet `Budget` avec carte de chaleur des dépenses, filtres par pilier (revenus, fixes, variables, épargne) et par membre, courbe Recharts de trésorerie projetée, pointage `✓` en 1 tap depuis le tiroir du jour (`DD/MM/YYYY`) et suivi des échéances périodiques à 3 mois.
 
 ## Prérequis
 

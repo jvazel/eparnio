@@ -101,3 +101,13 @@ Revenus du mois − Dépenses fixes − Enveloppes variables − Épargne = 0 �
 - **Recherche globale (`🔍`) :** depuis la loupe en haut à droite de l'application, recherchez instantanément une dépense, un revenu, une note ou un montant sur l'ensemble de vos mois et enveloppes (avec filtres rapides *Tout*, *Dépenses variables*, *Dépenses fixes*, *Revenus*, *Notes* et historique des 5 dernières recherches). Un tap sur un résultat vous emmène directement sur le mois et l'enveloppe concernés.
 - **Propagation & Reconduction manuelle des récurrences :** toute nouvelle dépense fixe ou revenu récurrent est automatiquement propagé vers les mois suivants déjà créés ; le bouton **« Reconduire le mois précédent »** dans l'onglet **Dépenses** permet également de rattraper en 1 tap les éléments récurrents manquants du mois précédent.
 - **Feedback haptique :** micro-vibrations légères sur mobile lors de la saisie au pavé numérique, du pointage `✓` et de la validation d'une opération.
+
+---
+
+## 10. Vue Calendrier & Trésorerie Prévisionnelle
+
+Dans l'onglet **Budget**, utilisez le sélecteur **Synthèse | Calendrier** en haut de l'écran :
+- **Carte de chaleur :** plus une journée concentre de dépenses, plus son fond bleu est intense ; des repères discrets signalent les revenus, les échéances à venir et les retards.
+- **Filtres rapides :** filtrez par pilier (**Tout**, **Revenus**, **Fixes**, **Variables**, **Épargne**) ou par membre en budget commun.
+- **Détail du jour (`JJ/MM/AAAA`) :** tapez sur un jour pour voir ses opérations, pointer une charge fixe ou un revenu (`✓`) en 1 tap, ou ajouter une dépense.
+- **Courbe de trésorerie :** visualisez votre solde réalisé et projeté jusqu'à la fin du cycle (avec option pour inclure votre budget quotidien moyen) ainsi que vos prochaines échéances trimestrielles ou annuelles.

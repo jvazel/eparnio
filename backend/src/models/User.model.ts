@@ -11,6 +11,13 @@ export interface IUserPreferences {
   defaultTab?: DefaultTabId;
 }
 
+export interface NotificationPreferences {
+  dailyReminderEnabled: boolean;
+  dailyReminderHour: string;
+  upcomingDueAlertEnabled: boolean;
+  envelopeThresholdAlertEnabled: boolean;
+}
+
 export interface IWebAuthnCredential {
   credentialId: string;
   publicKey: string;
@@ -21,6 +28,7 @@ export interface IWebAuthnCredential {
 export interface IUser extends Document {
   email: string;
   passwordHash: string;
+  notificationPreferences?: NotificationPreferences;
   recoveryKeyHash?: string;
   recoveryKeyHint?: string;
   resetEmailCodeHash?: string;
@@ -146,6 +154,23 @@ const userSchema = new Schema<IUser>(
         currency: 'EUR',
         budgetStartDay: 1,
         theme: 'light'
+      })
+    },
+    notificationPreferences: {
+      type: new Schema(
+        {
+          dailyReminderEnabled: { type: Boolean, default: false },
+          dailyReminderHour: { type: String, default: '20:00' },
+          upcomingDueAlertEnabled: { type: Boolean, default: true },
+          envelopeThresholdAlertEnabled: { type: Boolean, default: true }
+        },
+        { _id: false }
+      ),
+      default: () => ({
+        dailyReminderEnabled: false,
+        dailyReminderHour: '20:00',
+        upcomingDueAlertEnabled: true,
+        envelopeThresholdAlertEnabled: true
       })
     }
   },

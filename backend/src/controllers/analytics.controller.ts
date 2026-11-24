@@ -317,7 +317,17 @@ export async function getPeriodAnalytics(
             period.summary.plannedIncome > 0 &&
             Math.abs(period.summary.remainingToAllocate) < 0.01
         },
-        memberBreakdown
+        memberBreakdown,
+        fixedChargesVarianceSummary: await (async () => {
+          const { computePeriodEnvelopesVariance } = await import(
+            '../services/fixedChargeVariance.service'
+          );
+          const { fixedChargesVarianceSummary } = await computePeriodEnvelopesVariance(
+            String(period._id),
+            envelopes
+          );
+          return fixedChargesVarianceSummary;
+        })()
       }
     });
   } catch (err) {
@@ -428,6 +438,58 @@ export async function getTagDetailAnalytics(
     const { getBudgetTagDetailAnalytics } = await import('../services/tagAnalytics.service');
     const analytics = await getBudgetTagDetailAnalytics(id, tag);
     res.status(200).json({ status: 'ok', analytics });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getPeriodCalendarHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+
+    const { periodId } = req.params as { periodId: string };
+    const referenceDateParam = req.query.referenceDate as string | undefined;
+    const referenceDate = referenceDateParam ? new Date(referenceDateParam) : new Date();
+
+    const { getPeriodCalendar } = await import('../services/calendar.service');
+    const calendar = await getPeriodCalendar(periodId, userId, referenceDate);
+    res.status(200).json({ status: 'ok', calendar });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getBudgetWrappedHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+
+    const { budgetId } = req.params as { budgetId: string };
+    const yearParam = req.query.year as string | undefined;
+    const year = yearParam ? Number.parseInt(yearParam, 10) : undefined;
+
+    const { getAnnualWrapped } = await import('../services/annualWrapped.service');
+    const wrapped = await getAnnualWrapped(
+      budgetId,
+      userId,
+      Number.isFinite(year) ? year : undefined
+    );
+    res.status(200).json({ status: 'ok', wrapped });
   } catch (err) {
     next(err);
   }

@@ -103,10 +103,21 @@ export async function listEnvelopes(
     }
 
     const envelopes = await EnvelopeModel.find(filter).sort({ order: 1, createdAt: 1 });
+    const { computePeriodEnvelopesVariance } = await import(
+      '../services/fixedChargeVariance.service'
+    );
+    const { varianceByEnvelopeId } = await computePeriodEnvelopesVariance(
+      String(period._id),
+      envelopes
+    );
 
     res.status(200).json({
       status: 'ok',
-      envelopes: envelopes.map(toEnvelopeResponse),
+      envelopes: envelopes.map((env) => {
+        const base = toEnvelopeResponse(env);
+        const variance = varianceByEnvelopeId.get(base.id);
+        return variance ? { ...base, variance } : base;
+      }),
       period: toBudgetPeriodResponse(period)
     });
   } catch (err) {

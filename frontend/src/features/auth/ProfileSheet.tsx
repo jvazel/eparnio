@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import {
   Check,
   Copy,
@@ -528,6 +529,8 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
             {isRegeneratingKey ? 'Génération...' : 'Générer une nouvelle clé de secours'}
           </Button>
         </div>
+
+        <NotificationsSettingsSection />
 
         {isNotificationsSupported ? (
           <div className="space-y-2 border-t border-slate-100 pt-4 dark:border-slate-800">

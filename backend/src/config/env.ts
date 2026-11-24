@@ -40,7 +40,10 @@ const envSchema = z
     SMTP_FROM: z.string().trim().min(1).default('Eparnio <no-reply@eparnio.app>'),
     SMTP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(15000),
     PASSWORD_RESET_CODE_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
-    PASSWORD_RESET_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5)
+    PASSWORD_RESET_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+    VAPID_PUBLIC_KEY: z.string().trim().default(''),
+    VAPID_PRIVATE_KEY: z.string().trim().default(''),
+    VAPID_SUBJECT: z.string().trim().default('mailto:contact@eparnio.app')
   })
   .superRefine((data, ctx) => {
     if (

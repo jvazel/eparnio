@@ -471,20 +471,21 @@
 
 ## Étape 37 : Vue Calendrier & Trésorerie Prévisionnelle *(Visibilité Temporelle & Échéances Futures)*
 
-- [ ] **Backend (`calendar.service.ts`, `analytics.controller.ts`, `periodRollover.service.ts`) :**
-  * Créer un service `calendar.service.ts` et l'endpoint `GET /api/periods/:periodId/calendar` (protégé par JWT et vérification d'appartenance au budget) agrégeant sur la fenêtre `[BudgetPeriod.startDate, BudgetPeriod.endDate]` :
-    1. Les **opérations passées / réalisées** : `TransactionModel` (`date`, `amount`, `label`, `envelopeId`, `paidByUserId`) et `EnvelopeModel` (`income`, `fixed_charge`) pointées `isPaid: true`.
-    2. Les **échéances à venir sur le cycle** : `EnvelopeModel` (`income`, `fixed_charge`) avec `isPaid: false` positionnées sur leur `date` prévue (avec gestion des fins de mois courtes : 29/30/31).
-    3. La **courbe journalière de trésorerie projetée** : solde cumulé jour par jour (réel jusqu'à la date du jour, puis prévisionnel en intégrant les revenus et charges fixes restants jusqu'à `endDate`).
+- [x] **Backend (`calendar.service.ts`, `analytics.controller.ts`, `periodRollover.service.ts`) :**
+  * Créer un service `calendar.service.ts` et l'endpoint `GET /api/periods/:periodId/calendar` (protégé par JWT et vérification d'appartenance au budget) agrégeant sur la fenêtre `[BudgetPeriod.startDate, BudgetPeriod.endDate]` (avec normalisation stricte des clés `YYYY-MM-DD` pour éviter tout décalage UTC/local) :
+    1. Les **opérations passées / réalisées** : `TransactionModel` (`date`, `amount`, `label`, `envelopeId`, `paidByUserId`) et `EnvelopeModel` (`income`, `fixed_charge`, `savings`) pointées `isPaid: true`.
+    2. Les **échéances à venir et en retard sur le cycle** : `EnvelopeModel` (`income`, `fixed_charge`, `savings`) avec `isPaid: false` positionnées sur leur `date` prévue (avec gestion des fins de mois courtes : 29/30/31, repli propre sur `startDate` si `date` est absente, et distinction des échéances en retard `date < aujourd'hui`).
+    3. La **courbe journalière de trésorerie projetée** : solde cumulé jour par jour (réel jusqu'à la date du jour, puis prévisionnel en intégrant les revenus, charges fixes, versements d'épargne restants et échéances en retard imputées dès aujourd'hui jusqu'à `endDate`, avec option de lissage du reste des enveloppes variables).
     4. Un résumé des **échéances périodiques futures hors cycle** (`recurrenceFrequency`: `quarterly`, `semiannual`, `yearly`) sur les 3 prochains mois pour anticiper les gros débits.
   * Vérifier et garantir que `periodRollover.service.ts` conserve bien le jour d'échéance (`date`) lors de la reconduction automatique d'un mois à l'autre.
-- [ ] **Frontend (`BudgetCalendarView.tsx`, `CalendarGrid.tsx`, `CashFlowProjectionChart.tsx`, `CalendarDaySheet.tsx`, `App.tsx`) :**
+- [x] **Frontend (`BudgetCalendarView.tsx`, `CalendarGrid.tsx`, `CashFlowProjectionChart.tsx`, `CalendarDaySheet.tsx`, `App.tsx`) :**
   * Ajouter un switcher segmenté **`Synthèse | Calendrier`** en haut de l'onglet **`Budget`** (conservant la `BottomNav` à 5 onglets et réutilisant le `PeriodSelector` `< Mois Année >` pour naviguer dans le passé comme dans le futur).
-  * **`CalendarGrid.tsx` :** Grille calendrier calée sur le cycle budgétaire (`budgetStartDay`), affichant des pastilles colorées par pilier (🟢 Revenu, 🟣 Dépense fixe, 🔵 Dépense variable) — **pleines** pour le réalisé (`isPaid: true` ou `TransactionItem`) et **en contour pointillé** pour l'à-venir (`isPaid: false`), avec mise en évidence du jour actuel.
-  * **`CalendarDaySheet.tsx` :** Au tap sur un jour, ouverture d'un `BottomSheet` listant les opérations du jour (passées et à venir) avec possibilité de pointer `✓` une charge fixe ou un revenu directement en 1 tap, et pastille membre en budget commun.
-  * **`CashFlowProjectionChart.tsx` :** Graphique **Recharts** affichant la courbe de solde projeté sur le cycle (ligne pleine jusqu'à aujourd'hui, ligne pointillée jusqu'à `endDate`, seuil `0 €` matérialisé pour repérer immédiatement tout risque de creux de trésorerie).
+  * Ajouter des **filtres rapides en pilules** (`Tout`, `Revenus`, `Fixes`, `Variables`, et par membre en budget commun).
+  * **`CalendarGrid.tsx` :** Grille calendrier calée sur le cycle budgétaire (`budgetStartDay`), affichant des pastilles colorées par pilier (🟢 Revenu, 🟣 Dépense fixe, 🔵 Dépense variable) — **pleines** pour le réalisé (`isPaid: true` ou `TransactionItem`), **en contour pointillé** pour l'à-venir (`isPaid: false`), **en contour orange/rouge** pour les échéances en retard — avec indicateur compact du solde net du jour et mise en évidence du jour actuel.
+  * **`CalendarDaySheet.tsx` :** Au tap sur un jour, ouverture d'un `BottomSheet` affichant la date au format `JJ/MM/YYYY` et listant les opérations du jour (passées, en retard et à venir) avec possibilité de pointer `✓` une charge fixe ou un revenu directement en 1 tap (avec invalidation des caches TanStack Query `calendar` + `period`), pastille membre en budget commun, et bouton rapide **« + Ajouter une dépense ce jour »**.
+  * **`CashFlowProjectionChart.tsx` :** Graphique **Recharts** affichant la courbe de solde projeté sur le cycle (dates affichées au format `JJ/MM/YYYY`, ligne pleine jusqu'à aujourd'hui, ligne pointillée jusqu'à `endDate`, seuil `0 €` matérialisé pour repérer immédiatement tout risque de creux de trésorerie, et toggle optionnel **« Inclure le budget quotidien moyen »**).
   * Afficher un bandeau compact **« Prochaines échéances périodiques »** (trimestrielles / annuelles) et supporter intégralement les **modes clair et sombre**.
-- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Backend :** Tests unitaires sur `calendar.service.ts` (agrégation réalisé vs à venir, calcul de la courbe de trésorerie cumulée, gestion des jours 29/30/31, projection des échéances `quarterly`/`yearly`) et tests API Supertest sur `GET /api/periods/:periodId/calendar` (contrôle d'accès JWT, cohérence des montants).
   * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur `BudgetCalendarView` (bascule `Synthèse | Calendrier` dans `Budget`), `CalendarGrid` (distinction visuelle passé/à venir), `CalendarDaySheet` (sélection d'un jour et pointage `✓` en 1 tap), `CashFlowProjectionChart` et vérification des modes clair et sombre.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
@@ -494,24 +495,24 @@
 
 ## Étape 38 : Rappels & Notifications Push Intelligentes PWA *(Rétention & Anticipation)*
 
-- [ ] **Infrastructure & Configuration (VAPID & Service Worker) :**
+- [x] **Infrastructure & Configuration (VAPID & Service Worker) :**
   * Ajouter `web-push` (et `@types/web-push`) ainsi que `node-cron` (ou planificateur léger) dans `backend/package.json`.
   * Ajouter les variables d'environnement `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` et `VAPID_SUBJECT` dans `backend/.env.example` et `parseEnvConfig`.
   * Mettre à jour la configuration `vite-plugin-pwa` / Service Worker personnalisé (`sw.ts`) côté `frontend/` pour écouter les événements `push` et `notificationclick` (ouverture directe de l'application sur l'onglet concerné).
-- [ ] **Backend (`PushSubscription.model.ts`, `pushNotification.service.ts`, `notification.controller.ts`) :**
+- [x] **Backend (`PushSubscription.model.ts`, `pushNotification.service.ts`, `notification.controller.ts`) :**
   * Créer le modèle `PushSubscriptionModel` (`userId`, `endpoint`, `keys: { p256dh, auth }`, `userAgent`, `createdAt`) et étendre `User.model.ts` avec `notificationPreferences` :
     * `dailyReminderEnabled` (`boolean`) + `dailyReminderHour` (ex. `20:00`),
     * `upcomingDueAlertEnabled` (`boolean`, alerte **J-2** avant une `fixed_charge` avec `isPaid: false`),
     * `envelopeThresholdAlertEnabled` (`boolean`, alerte à `>= 80 %` ou dépassement de plafond d'une enveloppe variable).
   * Exposer les routes protégées par JWT : `GET /api/notifications/vapid-public-key`, `POST /api/notifications/subscribe`, `DELETE /api/notifications/unsubscribe`, `PATCH /api/notifications/preferences` et `POST /api/notifications/test` (envoi d'une notification de test).
   * Créer `pushNotification.service.ts` et le job planifié qui vérifie quotidiennement les rappels de saisie, les échéances fixes à J-2 et les seuils d'enveloppes, en nettoyant automatiquement les abonnements expirés (`410 Gone` / `404`).
-- [ ] **Frontend (`notification.service.ts`, `ProfileSheet.tsx`) :**
+- [x] **Frontend (`notification.service.ts`, `ProfileSheet.tsx`) :**
   * Créer `notification.service.ts` gérant la demande de permission navigateur (`Notification.requestPermission()`), l'abonnement `pushManager.subscribe` avec la clé publique VAPID et la synchronisation des préférences.
   * Ajouter dans `ProfileSheet.tsx` une section **« Notifications & Rappels »** avec :
     * État de la permission navigateur (accordée, refusée, non supportée),
     * 3 interrupteurs indépendants (Rappel quotidien de saisie + sélecteur d'heure, Alerte échéances J-2, Alerte seuil d'enveloppe),
     * Bouton **« Envoyer une notification test »**, en **modes clair et sombre**.
-- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Backend :** Tests unitaires sur `pushNotification.service.ts` (filtrage des échéances J-2, détection seuil 80%/100%, nettoyage des abonnements `410 Gone` avec mock `web-push`) + tests API Supertest sur `/api/notifications/*` (subscribe, unsubscribe, preferences, contrôle d'accès JWT).
   * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur la section Notifications de `ProfileSheet` (bascule des 3 interrupteurs, gestion du refus de permission, modes clair et sombre).
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
@@ -520,7 +521,7 @@
 
 ## Étape 39 : Simulateur « Et si… ? » *(Impact d'un Achat, Abonnement ou Projet)*
 
-- [ ] **Frontend — Moteur de Simulation Éphémère (`whatIfSimulator.ts`, `WhatIfSimulatorSheet.tsx`) :**
+- [x] **Frontend — Moteur de Simulation Éphémère (`whatIfSimulator.ts`, `WhatIfSimulatorSheet.tsx`) :**
   * Créer un module pur `whatIfSimulator.ts` (sans écriture en base) calculant en temps réel l'impact d'une opération hypothétique sur les données de la période active :
     1. **Type de simulation :** `Achat ponctuel` (dépense variable), `Nouvelle charge récurrente` (dépense fixe mensuelle), ou `Paiement en plusieurs fois` (montant divisé sur `N` mensualités, ex. 3x, 4x, 12x).
     2. **Indicateurs Avant / Après :** impact immédiat sur le **Reste à vivre** (`remainingToLive`), le **Budget quotidien** (`Y €/jour`), le **Reste à attribuer** (Base Zéro) et, si la vue Calendrier (Étape 37) est active, la **courbe de trésorerie projetée** sur les prochains mois.
@@ -528,7 +529,7 @@
   * Créer `WhatIfSimulatorSheet.tsx` (accessible depuis un bouton **`Simuler un achat / projet`** dans l'onglet **`Budget`** et depuis la vue **Calendrier**) équipé du `NumericKeypad`, du sélecteur de type, de la date/durée et d'un bouton d'action **`Enregistrer réellement`** :
     * Si l'utilisateur clique sur **`Enregistrer réellement`**, la simulation est convertie en vraie transaction (`POST /api/periods/:periodId/transactions`) ou en vraie charge fixe (`POST /api/periods/:periodId/envelopes`) avec invalidation des caches TanStack Query.
   * Supporter intégralement les **modes clair et sombre**.
-- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Frontend :** Tests unitaires sur `whatIfSimulator.ts` (achat ponctuel, charge mensuelle, paiement en Nx, calcul Avant/Après du Reste à vivre et du budget quotidien, seuils de faisabilité) + tests UI sur `WhatIfSimulatorSheet` (saisie au `NumericKeypad`, bascule de mode, conversion via « Enregistrer réellement », modes clair et sombre).
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
 
@@ -537,14 +538,14 @@
 
 ## Étape 40 : Bilan Annuel « Eparnio Wrapped » *(Rétrospective & Sélecteur d'Année)*
 
-- [ ] **Backend (`annualWrapped.service.ts`, `analytics.controller.ts`, `budget.routes.ts`) :**
+- [x] **Backend (`annualWrapped.service.ts`, `analytics.controller.ts`, `budget.routes.ts`) :**
   * Créer un service `annualWrapped.service.ts` et l'endpoint `GET /api/budgets/:budgetId/wrapped?year=YYYY` (protégé par JWT et vérification d'appartenance au budget ; `year` par défaut = année en cours).
   * Retourner la liste des années disponibles (`availableYears: number[]` déduites des `BudgetPeriod` du budget) pour alimenter le sélecteur d'année côté frontend.
   * Agréger sur l'année demandée :
     1. **Vue macro :** `totalIncome`, `totalFixedCharges`, `totalVariableSpent`, `totalSaved` et **taux d'épargne annuel (%)**.
     2. **Faits marquants :** mois le plus économe (meilleur `remainingToLive`), **Top 3 des enveloppes** les plus dépensées, enveloppe la mieux maîtrisée (respect du plafond) et **score Base Zéro** (nombre de mois à l'équilibre `remainingToAllocate === 0`).
     3. **Tags & Partage :** Top tags de l'année (si utilisés) et bilan annuel comparatif par membre (si budget `shared`).
-- [ ] **Frontend (`WrappedModal.tsx`, `WrappedCarousel.tsx`, `App.tsx`) :**
+- [x] **Frontend (`WrappedModal.tsx`, `WrappedCarousel.tsx`, `App.tsx`) :**
   * Ajouter un point d'entrée **`✨ Bilan annuel`** dans l'onglet **`Budget`** (et/ou `ProfileSheet`) ouvrant `WrappedModal.tsx` en plein écran.
   * **Sélecteur d'année :** permettre à l'utilisateur de **choisir son année** librement parmi `availableYears` (pilules ou flèches `< 2025 | 2026 >` en haut de la modale), avec rechargement dynamique des données et état vide pédagogique si l'année sélectionnée ne contient aucune période.
   * **Carrousel « Stories » (5 slides) :** navigation par tap gauche/droite ou swipe horizontal avec barre de progression en haut et dégradés signature Eparnio :
@@ -553,7 +554,7 @@
     3. *Vos enveloppes phares* (Top 3 + graphique Recharts),
     4. *Vos records* (meilleur mois + score Base Zéro),
     5. *Carte récapitulative finale* (compatible **modes clair et sombre**).
-- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Backend :** Tests unitaires sur `annualWrapped.service.ts` (calculs annuels, `availableYears`, meilleur mois, top 3 enveloppes, score Base Zéro, bilan membre en budget partagé) + tests API Supertest sur `GET /api/budgets/:budgetId/wrapped?year=...` (contrôle d'accès JWT, changement d'année, année vide).
   * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur `WrappedModal` / `WrappedCarousel` (changement d'année, navigation entre les 5 slides, état vide, modes clair et sombre).
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
@@ -563,16 +564,16 @@
 
 ## Étape 41 : Détecteur d'Écarts & Hausses d'Abonnements *(Inflation Cachée)*
 
-- [ ] **Backend (`fixedChargeVariance.service.ts`, `envelope.controller.ts`, `analytics.controller.ts`) :**
+- [x] **Backend (`fixedChargeVariance.service.ts`, `envelope.controller.ts`, `analytics.controller.ts`) :**
   * Créer un service `fixedChargeVariance.service.ts` comparant chaque `EnvelopeModel` (`fixed_charge` et `income`) de la période active avec son prédécesseur via `previousEnvelopeId` (ou rapprochement par `name` normalisé sur la période `N-1`).
   * Calculer `previousAmount`, `deltaAmount` (`allocatedAmount - previousAmount`) et `deltaPercent` dès que `Math.abs(deltaAmount) >= 0.01`, en distinguant les hausses (`> 0`) des baisses (`< 0`).
   * Exposer ces métriques dans la réponse de `GET /api/periods/:periodId/envelopes` (champ optionnel `variance?: { previousAmount: number; deltaAmount: number; deltaPercent: number }`) et dans `GET /api/periods/:periodId/analytics` (résumé global `fixedChargesVarianceSummary`).
-- [ ] **Frontend (`FixedChargesList.tsx`, `CreationFormModal.tsx`, `MonthlyInsights.tsx`) :**
+- [x] **Frontend (`FixedChargesList.tsx`, `CreationFormModal.tsx`, `MonthlyInsights.tsx`) :**
   * **`FixedChargesList.tsx` :** Afficher une pilule discrète sur les lignes concernées : **`↗ +X €`** (ambre/rouge doux) en cas de hausse, **`↘ -X €`** (émeraude doux) en cas de baisse.
   * **`MonthlyInsights.tsx` (onglet `Budget`) :** Afficher une carte compacte **« Évolution des charges fixes »** (uniquement si au moins un écart existe sur le mois) résumant le delta net du mois et la liste des abonnements/charges ayant varié.
   * **`CreationFormModal.tsx` :** En mode édition d'une charge fixe ou d'un revenu, afficher un rappel discret *« Mois précédent : X € »* sous le montant.
   * Supporter intégralement les **modes clair et sombre**.
-- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Backend :** Tests unitaires sur `fixedChargeVariance.service.ts` (hausse, baisse, absence de `previousEnvelopeId`, seuil `0.01 €`) et tests API Supertest sur `GET /envelopes` et `GET /analytics`.
   * **Nouveaux tests Frontend :** Tests de rendu sur `FixedChargesList` (pilules `↗` / `↘`), `MonthlyInsights` (carte d'évolution) et `CreationFormModal` (rappel mois précédent), en modes clair et sombre.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
@@ -582,15 +583,15 @@
 
 ## Étape 42 : Assistant d'Équilibrage Base Zéro en 1 Tap *(Rééquilibrage Guidé)*
 
-- [ ] **Backend (`zeroBasedAutoBalance.service.ts`, `period.controller.ts`, `period.routes.ts`) :**
+- [x] **Backend (`zeroBasedAutoBalance.service.ts`, `period.controller.ts`, `period.routes.ts`) :**
   * Créer un service `zeroBasedAutoBalance.service.ts` calculant une proposition d'équilibrage pour atteindre `remainingToAllocate === 0` :
     * **Si surplus (`remainingToAllocate > 0`) :** proposer d'affecter le surplus vers l'objectif d'épargne actif prioritaire (ou l'enveloppe `savings` / `variable_envelope` sélectionnée).
     * **Si déficit (`remainingToAllocate < 0`) :** ne jamais modifier les `fixed_charge` ni descendre sous `spentOrPaidAmount` ; calculer la marge disponible (`allocatedAmount - spentOrPaidAmount`) de chaque `variable_envelope` et proposer de réduire en priorité celle(s) ayant la plus grande marge (ou l'épargne planifiée en dernier recours).
   * Exposer `GET /api/periods/:periodId/auto-balance/suggestion` (retourne la suggestion calculée + les cibles alternatives possibles) et `POST /api/periods/:periodId/auto-balance/apply` (applique atomiquement l'ajustement choisi et recalcule `remainingToAllocate` et `remainingToLive`).
-- [ ] **Frontend (`ZeroBasedBanner.tsx`, `AutoBalanceSheet.tsx`, `App.tsx`) :**
+- [x] **Frontend (`ZeroBasedBanner.tsx`, `AutoBalanceSheet.tsx`, `App.tsx`) :**
   * **`ZeroBasedBanner.tsx` :** Dès que `remainingToAllocate !== 0`, afficher un bouton **`Équilibrer en 1 tap`**.
   * **`AutoBalanceSheet.tsx` :** Ouvrir un `BottomSheet` affichant l'écart actuel, la suggestion recommandée (ex. *« Ajouter +120,00 € à Épargne de précaution »* ou *« Réduire Courses de 85,00 € »*), un sélecteur rapide pour choisir une autre enveloppe cible si souhaité, et un bouton **`Confirmer l'équilibrage`** ramenant le budget à `0,00 €`, en **modes clair et sombre**.
-- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Backend :** Tests unitaires sur `zeroBasedAutoBalance.service.ts` (surplus vers épargne, déficit sur enveloppe avec marge, protection `spentOrPaidAmount`, exclusion des `fixed_charge`) + tests API Supertest sur `GET /auto-balance/suggestion` et `POST /auto-balance/apply`.
   * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur `ZeroBasedBanner` (affichage conditionnel du bouton) et `AutoBalanceSheet` (changement de cible, confirmation en 1 tap, modes clair et sombre).
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.

@@ -8,6 +8,9 @@ import { MobileShell } from './components/layout/MobileShell';
 import { BottomSheet } from './components/ui/BottomSheet';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
+import { BudgetCalendarView } from './features/budget/BudgetCalendarView';
+import { WhatIfSimulatorSheet } from './features/budget/WhatIfSimulatorSheet';
+import { WrappedModal } from './features/budget/WrappedModal';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { getTagsSummary } from './services/analytics.service';
 import { TagAnalyticsCard } from './features/analytics/TagAnalyticsCard';
@@ -176,6 +179,9 @@ export function App() {
     root.style.colorScheme = activeTheme;
   }, [activeTheme]);
 
+  const [budgetSubView, setBudgetSubView] = useState<'synthese' | 'calendrier'>('synthese');
+  const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
+  const [isWrappedOpen, setIsWrappedOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>(
     () => user?.preferences?.defaultTab ?? 'depenses'
   );
@@ -1102,7 +1108,61 @@ export function App() {
 
     return (
       <div className="space-y-4">
-        <MonthlyInsights
+        {/* Switcher segmenté Synthèse | Calendrier */}
+        <div className="bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setBudgetSubView('synthese')}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
+              budgetSubView === 'synthese'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400'
+            }`}
+          >
+            Synthèse
+          </button>
+          <button
+            type="button"
+            onClick={() => setBudgetSubView('calendrier')}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
+              budgetSubView === 'calendrier'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400'
+            }`}
+          >
+            Calendrier
+          </button>
+        </div>
+
+        {activePeriod && (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsWhatIfOpen(true)}
+              className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <span>✨</span>
+              <span>Simuler un achat</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsWrappedOpen(true)}
+              className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <span>🎉</span>
+              <span>Bilan annuel</span>
+            </button>
+          </div>
+        )}
+
+        {budgetSubView === 'calendrier' && activePeriod ? (
+          <BudgetCalendarView
+            periodId={activePeriod.id}
+            onAddExpenseOnDay={() => setActiveTab('enveloppes')}
+          />
+        ) : (
+          <>
+          <MonthlyInsights
         analytics={resolvedAnalytics}
         envelopes={envelopes}
         trends={trendsQuery.data?.items ?? []}
@@ -1168,6 +1228,27 @@ export function App() {
           tags={tagsSummaryQuery.data ?? []}
           onSelectTag={setSelectedTag}
         />
+        </>
+        )}
+        {activePeriod && (
+          <WhatIfSimulatorSheet
+            isOpen={isWhatIfOpen}
+            onClose={() => setIsWhatIfOpen(false)}
+            periodId={activePeriod.id}
+            remainingToLive={summary.remainingToLive}
+            remainingToAllocate={summary.remainingToAllocate}
+            daysRemaining={resolvedAnalytics.dailyBudget.daysRemaining}
+            totalIncome={summary.plannedIncome}
+            variableEnvelopes={variableEnvelopes}
+          />
+        )}
+        {activeBudget && (
+          <WrappedModal
+            isOpen={isWrappedOpen}
+            onClose={() => setIsWrappedOpen(false)}
+            budgetId={activeBudget.id}
+          />
+        )}
       </div>
     );
   };

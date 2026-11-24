@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getBudgetTrends,
+  getBudgetWrappedHandler,
   getTagDetailAnalytics,
   getTagsSummary
 } from '../controllers/analytics.controller';
@@ -71,6 +72,7 @@ budgetRouter.patch(
 budgetRouter.delete('/:id', validate({ params: budgetIdParamsSchema }), deleteBudget);
 
 budgetRouter.get('/:budgetId/trends', requireAuth, getBudgetTrends);
+budgetRouter.get('/:budgetId/wrapped', requireAuth, getBudgetWrappedHandler);
 
 budgetRouter.get(
   '/:id/search',

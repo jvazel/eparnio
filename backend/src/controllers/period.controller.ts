@@ -282,3 +282,53 @@ export async function syncRecurringFromPrevious(
     next(err);
   }
 }
+
+export async function getAutoBalanceSuggestionHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+    const { periodId } = req.params as { periodId: string };
+    const { getAutoBalanceSuggestion } = await import(
+      '../services/zeroBasedAutoBalance.service'
+    );
+    const suggestion = await getAutoBalanceSuggestion(periodId, userId);
+    res.status(200).json({ status: 'ok', suggestion });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function applyAutoBalanceHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+    const { periodId } = req.params as { periodId: string };
+    const { targetEnvelopeId, deltaAmount } = req.body as {
+      targetEnvelopeId: string;
+      deltaAmount: number;
+    };
+    if (!targetEnvelopeId || typeof deltaAmount !== 'number') {
+      res.status(400).json({ message: 'Paramètres invalides.' });
+      return;
+    }
+    const { applyAutoBalance } = await import('../services/zeroBasedAutoBalance.service');
+    const result = await applyAutoBalance(periodId, userId, targetEnvelopeId, deltaAmount);
+    res.status(200).json({ status: 'ok', result });
+  } catch (err) {
+    next(err);
+  }
+}
