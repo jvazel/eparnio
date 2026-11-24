@@ -222,12 +222,11 @@ export function AuthScreen() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center bg-[#F6F7FB] px-4 py-8">
       <div className="mb-6 text-center">
-        <div
-          className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#8B3DFF] text-2xl text-white shadow-md"
-          aria-hidden="true"
-        >
-          💰
-        </div>
+        <img
+          src="/icon.svg"
+          alt="Eparnio"
+          className="mx-auto mb-3 h-14 w-14 rounded-2xl shadow-md"
+        />
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Eparnio</h1>
         <p className="mt-1 text-sm text-slate-500">
           Reprenez le contrôle de chaque euro avec le Budget Base Zéro

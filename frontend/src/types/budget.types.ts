@@ -18,6 +18,12 @@ export interface UserProfile {
   hasBiometrics?: boolean;
   hasCompletedOnboarding: boolean;
   preferences: UserPreferences;
+  notificationPreferences?: {
+    dailyReminderEnabled: boolean;
+    dailyReminderHour: string;
+    upcomingDueAlertEnabled: boolean;
+    envelopeThresholdAlertEnabled: boolean;
+  };
   createdAt?: string;
   updatedAt?: string;
 }

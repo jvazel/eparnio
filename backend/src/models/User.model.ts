@@ -197,6 +197,9 @@ export function toUserResponse(user: IUser): UserResponse {
       theme: user.preferences.theme,
       defaultTab: user.preferences.defaultTab ?? 'depenses'
     },
+    ...(user.notificationPreferences
+      ? { notificationPreferences: user.notificationPreferences }
+      : {}),
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString()
   };

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock } from 'lucide-react';
 import { useState } from 'react';
+import { DropdownSelect } from '../../components/ui/DropdownSelect';
 import {
   fetchPeriodCalendar,
   formatDateKeyDDMMYYYY,
@@ -76,27 +77,28 @@ export function BudgetCalendarView({
       ? calendar.days.find((d) => d.dateKey === selectedDateKey) ?? null
       : null;
 
+  const allEvents = calendar.days.flatMap((d) => d.events);
+  const overdueEvents = allEvents.filter((ev) => ev.isOverdue);
+  const upcomingEvents = allEvents.filter((ev) => !ev.isPaid && !ev.isOverdue);
+  const overdueTotal = overdueEvents.reduce((sum, ev) => sum + ev.amount, 0);
+  const upcomingTotal = upcomingEvents.reduce((sum, ev) => sum + ev.amount, 0);
+
   return (
     <div className="space-y-4">
-      {/* Filtres rapides en pilules */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        {PILLAR_FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            onClick={() => setActivePillarFilter(f.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-              activePillarFilter === f.key
-                ? 'bg-violet-600 text-white'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Filtre pilier en liste déroulante */}
+      <DropdownSelect
+        label="Filtrer le calendrier"
+        value={activePillarFilter}
+        onChange={(v) => setActivePillarFilter(v as CalendarPillar | 'all')}
+        options={PILLAR_FILTERS.map((f) => ({
+          value: f.key,
+          label: f.label,
+        }))}
+      />
 
-        {calendar.members.length > 1 &&
-          calendar.members.map((m) => (
+      {calendar.members.length > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {calendar.members.map((m) => (
             <button
               key={m.userId}
               type="button"
@@ -113,6 +115,32 @@ export function BudgetCalendarView({
               <span>{m.displayName}</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Résumé rapide échéances & raccourci Aujourd'hui */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {overdueEvents.length > 0 && (
+            <span className="px-3 py-1.5 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 text-xs font-semibold tabular-nums">
+              ⚠️ {overdueEvents.length} en retard ({overdueTotal.toFixed(0)} €)
+            </span>
+          )}
+          {upcomingEvents.length > 0 && (
+            <span className="px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 text-xs font-semibold tabular-nums">
+              ⏳ {upcomingEvents.length} à venir ({upcomingTotal.toFixed(0)} €)
+            </span>
+          )}
+        </div>
+        {calendar.days.some((d) => d.isToday) && (
+          <button
+            type="button"
+            onClick={() => setSelectedDateKey(calendar.todayKey)}
+            className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold"
+          >
+            Aujourd’hui
+          </button>
+        )}
       </div>
 
       {/* Grille Calendrier */}

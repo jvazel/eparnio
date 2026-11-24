@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Landmark, Pencil, Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, History, Landmark, Pencil, Plus, Search, Settings, X } from 'lucide-react';
 import { useState } from 'react';
 import {
   CartesianGrid,
@@ -49,7 +49,7 @@ export function BudgetPatrimoineView({
   const [fullHistoryAccount, setFullHistoryAccount] = useState<AssetAccountDTO | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [editMode, setEditMode] = useState<'add' | 'withdraw' | 'set'>('add');
-  const [sheetTab, setSheetTab] = useState<'operation' | 'history'>('operation');
+  const [sheetTab, setSheetTab] = useState<'operation' | 'settings'>('operation');
   const [opLabel, setOpLabel] = useState('');
   const [counterpartyType, setCounterpartyType] = useState<
     'external' | 'asset' | 'savings_goal' | 'budget_period'
@@ -272,6 +272,28 @@ export function BudgetPatrimoineView({
       />
 
       {/* Liste des comptes */}
+      {netWorth.accounts.length === 0 ? (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100/80 dark:border-slate-700/80 shadow-sm p-6 text-center space-y-3">
+          <p className="text-3xl">🏦</p>
+          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            Aucun compte patrimonial
+          </h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Ajoutez votre Livret A, PEA, bien immobilier ou crédit pour suivre votre Patrimoine Net.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setAmountInput('0');
+              setIsAddOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-violet-600 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Ajouter mon premier compte
+          </button>
+        </div>
+      ) : (
       <div className="space-y-2.5">
         {netWorth.accounts
           .filter((acc) => categoryFilter === 'all' || acc.category === categoryFilter)
@@ -285,6 +307,7 @@ export function BudgetPatrimoineView({
             aria-label={`Modifier ${acc.name}`}
             onClick={() => {
               setEditingAccount(acc);
+              setSheetTab('operation');
               setEditMode('add');
               setNewName(acc.name);
               setNewCategory(acc.category);
@@ -334,6 +357,7 @@ export function BudgetPatrimoineView({
             );
           })}
       </div>
+      )}
 
       {/* BottomSheet Ajout / Mise à jour */}
       {(isAddOpen || editingAccount) && (
@@ -351,26 +375,60 @@ export function BudgetPatrimoineView({
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 {editingAccount
-                  ? `Mettre à jour : ${editingAccount.name}`
+                  ? editingAccount.name
                   : 'Nouveau compte patrimonial'}
               </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddOpen(false);
-                  setEditingAccount(null);
-                }}
-                className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                {editingAccount && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Voir l'historique"
+                      onClick={() => {
+                        setFullHistoryAccount(editingAccount);
+                        setHistorySearch('');
+                        setEditingAccount(null);
+                      }}
+                      className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center"
+                    >
+                      <History className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Paramètres du compte"
+                      onClick={() =>
+                        setSheetTab((prev) => (prev === 'settings' ? 'operation' : 'settings'))
+                      }
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                        sheetTab === 'settings'
+                          ? 'bg-violet-600 text-white'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <Settings className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddOpen(false);
+                    setEditingAccount(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <p className="text-center text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
-              {amountInput} €
-            </p>
+            {(!editingAccount || sheetTab === 'operation') && (
+              <p className="text-center text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
+                {amountInput} €
+              </p>
+            )}
 
-            {editingAccount && (
+            {editingAccount && sheetTab === 'operation' && (
               <div className="space-y-2">
                 <div className="grid grid-cols-3 gap-1.5 bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl">
                   {(
@@ -419,60 +477,35 @@ export function BudgetPatrimoineView({
 
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-3 space-y-2">
               {editingAccount ? (
-                <>
-                  <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setSheetTab('operation')}
-                      className={`py-1 rounded-lg text-xs font-semibold ${
-                        sheetTab === 'operation'
-                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      Opération
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSheetTab('history')}
-                      className={`py-1 rounded-lg text-xs font-semibold ${
-                        sheetTab === 'history'
-                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-                          : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      Historique ({editingAccount.operations?.length ?? 0})
-                    </button>
+                sheetTab === 'settings' ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="Nom du compte"
+                      className="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-700 px-2.5 py-2 text-slate-900 dark:text-slate-100 outline-none"
+                    />
+                    <DropdownSelect
+                      label="Catégorie"
+                      value={newCategory}
+                      onChange={(v) => setNewCategory(v as AssetCategory)}
+                      options={CATEGORY_OPTIONS.map((c) => ({
+                        value: c.key,
+                        label: c.label,
+                        icon: c.icon,
+                      }))}
+                    />
                   </div>
-
-                  {sheetTab === 'operation' ? (
-                    <div className="space-y-2">
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
-                          placeholder="Nom du compte"
-                          className="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-700 px-2.5 py-2 text-slate-900 dark:text-slate-100 outline-none"
-                        />
-                        <DropdownSelect
-                          label="Catégorie"
-                          value={newCategory}
-                          onChange={(v) => setNewCategory(v as AssetCategory)}
-                          options={CATEGORY_OPTIONS.map((c) => ({
-                            value: c.key,
-                            label: c.label,
-                            icon: c.icon,
-                          }))}
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        value={opLabel}
-                        onChange={(e) => setOpLabel(e.target.value)}
-                        placeholder="Libellé de l'opération (ex. Virement, Intérêts...)"
-                        className="w-full text-sm bg-transparent text-slate-900 dark:text-slate-100 outline-none"
-                      />
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={opLabel}
+                      onChange={(e) => setOpLabel(e.target.value)}
+                      placeholder="Libellé de l'opération (ex. Virement, Intérêts...)"
+                      className="w-full text-sm bg-transparent text-slate-900 dark:text-slate-100 outline-none"
+                    />
                       {editMode !== 'set' && (
                         <div className="space-y-2">
                           <DropdownSelect
@@ -543,66 +576,7 @@ export function BudgetPatrimoineView({
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {(editingAccount.operations ?? []).length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFullHistoryAccount(editingAccount);
-                            setHistorySearch('');
-                            setEditingAccount(null);
-                          }}
-                          className="w-full py-2 rounded-xl bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs font-semibold"
-                        >
-                          Voir tout l’historique en plein écran
-                        </button>
-                      )}
-                      <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
-                      {(editingAccount.operations ?? []).length === 0 ? (
-                        <p className="text-xs text-center text-slate-400 py-4">
-                          Aucune opération enregistrée.
-                        </p>
-                      ) : (
-                        editingAccount.operations?.map((op) => {
-                          const isPos = op.type === 'add' || op.type === 'transfer_in';
-                          return (
-                            <div
-                              key={op.id || op.date}
-                              className="py-2 flex items-center justify-between gap-2 text-xs"
-                            >
-                              <div className="min-w-0">
-                                <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                                  {op.label}
-                                </p>
-                                <p className="text-[11px] text-slate-400">
-                                  {new Date(op.date).toLocaleDateString('fr-FR')}
-                                  {op.counterpartyName ? ` • ${op.counterpartyName}` : ''}
-                                </p>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <p
-                                  className={`font-bold tabular-nums ${
-                                    isPos
-                                      ? 'text-emerald-600 dark:text-emerald-400'
-                                      : 'text-red-500 dark:text-red-400'
-                                  }`}
-                                >
-                                  {isPos ? '+' : '-'}
-                                  {op.amount.toFixed(2)} €
-                                </p>
-                                <p className="text-[10px] text-slate-400 tabular-nums">
-                                  Solde : {op.balanceAfter.toFixed(2)} €
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                    </div>
-                  )}
-                </>
+                )
               ) : (
                 <>
                   <input

@@ -108,7 +108,7 @@ Revenus du mois − Dépenses fixes − Enveloppes variables − Épargne = 0 �
 
 Dans l'onglet **Budget**, utilisez le sélecteur **Synthèse | Calendrier** en haut de l'écran :
 - **Carte de chaleur :** plus une journée concentre de dépenses, plus son fond bleu est intense ; des repères discrets signalent les revenus, les échéances à venir et les retards.
-- **Filtres rapides :** filtrez par pilier (**Tout**, **Revenus**, **Fixes**, **Variables**, **Épargne**) ou par membre en budget commun.
+- **Filtres & résumé rapide :** filtrez par pilier via la liste déroulante (**Tout**, **Revenus**, **Fixes**, **Variables**, **Épargne**, **Patrimoine**) ou par membre en budget commun, visualisez en un coup d'œil les échéances à venir ou en retard et accédez au jour actuel via le bouton **« Aujourd’hui »**.
 - **Détail du jour (`JJ/MM/AAAA`) :** tapez sur un jour pour voir ses opérations, pointer une charge fixe ou un revenu (`✓`) en 1 tap, ou ajouter une dépense.
 - **Courbe de trésorerie :** visualisez votre solde réalisé et projeté jusqu'à la fin du cycle (avec option pour inclure votre budget quotidien moyen) ainsi que vos prochaines échéances trimestrielles ou annuelles.
 

@@ -63,7 +63,7 @@ describe('BudgetPatrimoineView', () => {
     expect(screen.getByText(/• Projets : Vacances Italie/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Modifier Livret A'));
-    expect(await screen.findByText('Mettre à jour : Livret A')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Paramètres du compte')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Chiffre 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Chiffre 0' }));
