@@ -1,5 +1,9 @@
 import cron from 'node-cron';
-import webpush from 'web-push';
+import * as webpushNamespace from 'web-push';
+
+const webpush =
+  (webpushNamespace as unknown as { default?: typeof webpushNamespace }).default ??
+  webpushNamespace;
 import { env } from '../config/env';
 import { BudgetModel } from '../models/Budget.model';
 import { BudgetPeriodModel } from '../models/BudgetPeriod.model';

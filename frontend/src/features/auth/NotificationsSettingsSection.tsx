@@ -64,9 +64,13 @@ export function NotificationsSettingsSection({
     setIsSendingTest(true);
     setStatusMsg(null);
     try {
-      if (permission !== 'granted') {
-        await subscribeToPushNotifications();
-        setPermission(getNotificationPermission());
+      const subscribed = await subscribeToPushNotifications();
+      setPermission(getNotificationPermission());
+      if (!subscribed) {
+        setStatusMsg(
+          'Impossible d’abonner ce navigateur (vérifiez que le Service Worker PWA est actif).'
+        );
+        return;
       }
       const res = await sendTestPushNotification();
       setStatusMsg(

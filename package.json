@@ -1,6 +1,6 @@
 {
   "name": "eparnio",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "Orchestrateur racine pour l'application Eparnio (Frontend React + Backend Express/MongoDB)",
   "scripts": {
