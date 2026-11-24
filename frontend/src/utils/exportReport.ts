@@ -1,4 +1,5 @@
 import { apiClient } from '../services/api';
+import type { NetWorthData } from '../services/netWorth.service';
 import type {
   EnvelopeItem,
   PeriodAnalytics,
@@ -14,6 +15,7 @@ export interface PeriodPdfReportInput {
   envelopes: EnvelopeItem[];
   goals: SavingsGoalItem[];
   transactions?: TransactionItem[];
+  netWorth?: NetWorthData;
   generatedAt?: Date;
 }
 
@@ -575,6 +577,25 @@ function buildReportLineSpecs(input: PeriodPdfReportInput): PdfLineSpec[] {
             ]
           }
         });
+      });
+    }
+  }
+
+  if (input.netWorth && input.netWorth.accounts.length > 0) {
+    lines.push({ text: '', font: 'F1', size: 10, spacingAfter: 10 });
+    lines.push({
+      text: `Patrimoine Net (${input.netWorth.netWorth.toFixed(2)} EUR)`,
+      font: 'F2',
+      size: 12,
+      spacingAfter: 16,
+    });
+    for (const acc of input.netWorth.accounts) {
+      const sign = acc.category === 'liability' ? '-' : '';
+      lines.push({
+        text: `  - ${acc.name} (${acc.category}) : ${sign}${acc.currentBalance.toFixed(2)} EUR`,
+        font: 'F1',
+        size: 9.5,
+        spacingAfter: 14,
       });
     }
   }

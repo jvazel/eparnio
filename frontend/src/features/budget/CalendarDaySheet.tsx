@@ -21,6 +21,8 @@ function getPillarBadgeLabel(ev: CalendarEvent): string {
       return 'Charge fixe';
     case 'savings':
       return 'Épargne';
+    case 'asset':
+      return 'Patrimoine';
     default:
       return 'Dépense variable';
   }

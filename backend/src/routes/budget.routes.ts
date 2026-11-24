@@ -1,5 +1,16 @@
 import { Router } from 'express';
 import {
+  createAssetHandler,
+  createAssetSchema,
+  deleteAssetHandler,
+  getNetWorthHandler,
+  importGoalsToAssetsHandler,
+  recordAssetOperationHandler,
+  recordAssetOperationSchema,
+  updateAssetHandler,
+  updateAssetSchema,
+} from '../controllers/netWorth.controller';
+import {
   getBudgetTrends,
   getBudgetWrappedHandler,
   getTagDetailAnalytics,
@@ -73,6 +84,31 @@ budgetRouter.delete('/:id', validate({ params: budgetIdParamsSchema }), deleteBu
 
 budgetRouter.get('/:budgetId/trends', requireAuth, getBudgetTrends);
 budgetRouter.get('/:budgetId/wrapped', requireAuth, getBudgetWrappedHandler);
+budgetRouter.get('/:budgetId/net-worth', requireAuth, getNetWorthHandler);
+budgetRouter.post(
+  '/:budgetId/assets',
+  requireAuth,
+  validate({ body: createAssetSchema }),
+  createAssetHandler
+);
+budgetRouter.patch(
+  '/:budgetId/assets/:assetId',
+  requireAuth,
+  validate({ body: updateAssetSchema }),
+  updateAssetHandler
+);
+budgetRouter.delete('/:budgetId/assets/:assetId', requireAuth, deleteAssetHandler);
+budgetRouter.post(
+  '/:budgetId/assets/import-goals',
+  requireAuth,
+  importGoalsToAssetsHandler
+);
+budgetRouter.post(
+  '/:budgetId/assets/:assetId/operations',
+  requireAuth,
+  validate({ body: recordAssetOperationSchema }),
+  recordAssetOperationHandler
+);
 
 budgetRouter.get(
   '/:id/search',

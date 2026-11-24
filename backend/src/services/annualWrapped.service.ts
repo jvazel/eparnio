@@ -1,3 +1,4 @@
+import { AssetAccountModel } from '../models/AssetAccount.model';
 import { BudgetModel } from '../models/Budget.model';
 import { BudgetPeriodModel } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, type IEnvelope } from '../models/Envelope.model';
@@ -59,6 +60,11 @@ export interface AnnualWrappedResponse {
   };
   topTags: WrappedTagItem[];
   memberBreakdown: WrappedMemberItem[];
+  patrimoine?: {
+    totalAssets: number;
+    totalLiabilities: number;
+    netWorth: number;
+  };
 }
 
 export async function getAnnualWrapped(
@@ -114,10 +120,23 @@ export async function getAnnualWrapped(
 
   const periodIds = periods.map((p) => p._id);
 
-  const [envelopes, transactions] = await Promise.all([
+  const [envelopes, transactions, assetAccounts] = await Promise.all([
     EnvelopeModel.find({ budgetPeriodId: { $in: periodIds } }).lean<IEnvelope[]>(),
     TransactionModel.find({ budgetPeriodId: { $in: periodIds } }).lean<ITransaction[]>(),
+    AssetAccountModel.find({ budgetId }).lean(),
   ]);
+
+  let totalAssets = 0;
+  let totalLiabilities = 0;
+  for (const acc of assetAccounts) {
+    if (acc.category === 'liability') {
+      totalLiabilities += acc.currentBalance || 0;
+    } else {
+      totalAssets += acc.currentBalance || 0;
+    }
+  }
+  totalAssets = roundCurrency(totalAssets);
+  totalLiabilities = roundCurrency(totalLiabilities);
 
   let totalIncome = 0;
   let totalFixedCharges = 0;
@@ -286,5 +305,10 @@ export async function getAnnualWrapped(
     },
     topTags,
     memberBreakdown,
+    patrimoine: {
+      totalAssets,
+      totalLiabilities,
+      netWorth: roundCurrency(totalAssets - totalLiabilities),
+    },
   };
 }

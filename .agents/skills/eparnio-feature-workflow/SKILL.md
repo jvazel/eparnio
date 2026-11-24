@@ -13,7 +13,7 @@ Suivre ces 4 étapes dans l'ordre pour chaque fonctionnalité ou étape de `ROAD
 ## Étape 1 : Lecture du Contexte
 1. Lire la section concernée dans [ROADMAP.md](../../../ROADMAP.md) pour identifier exactement les sous-tâches à livrer.
 2. Vérifier le modèle de données et les endpoints attendus dans [ARCHITECTURE.md](../../../ARCHITECTURE.md).
-3. Vérifier les règles métier et parcours utilisateur dans [SPECIFICATIONS_FINZEE.md](../../../SPECIFICATIONS_FINZEE.md).
+3. Vérifier les règles métier et parcours utilisateur dans [SPECIFICATIONS_EPARNIO.md](../../../SPECIFICATIONS_EPARNIO.md).
 
 ## Étape 2 : Implémentation Backend (`backend/`)
 1. **Modèles (`src/models/`) :** Créer ou mettre à jour le schéma Mongoose et ses index.

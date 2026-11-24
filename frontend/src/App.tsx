@@ -9,6 +9,7 @@ import { BottomSheet } from './components/ui/BottomSheet';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
 import { BudgetCalendarView } from './features/budget/BudgetCalendarView';
+import { BudgetPatrimoineView } from './features/budget/BudgetPatrimoineView';
 import { WhatIfSimulatorSheet } from './features/budget/WhatIfSimulatorSheet';
 import { WrappedModal } from './features/budget/WrappedModal';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
@@ -179,7 +180,7 @@ export function App() {
     root.style.colorScheme = activeTheme;
   }, [activeTheme]);
 
-  const [budgetSubView, setBudgetSubView] = useState<'synthese' | 'calendrier'>('synthese');
+  const [budgetSubView, setBudgetSubView] = useState<'synthese' | 'calendrier' | 'patrimoine'>('synthese');
   const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
   const [isWrappedOpen, setIsWrappedOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>(
@@ -1132,6 +1133,17 @@ export function App() {
           >
             Calendrier
           </button>
+          <button
+            type="button"
+            onClick={() => setBudgetSubView('patrimoine')}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
+              budgetSubView === 'patrimoine'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400'
+            }`}
+          >
+            Patrimoine
+          </button>
         </div>
 
         {activePeriod && (
@@ -1155,7 +1167,13 @@ export function App() {
           </div>
         )}
 
-        {budgetSubView === 'calendrier' && activePeriod ? (
+        {budgetSubView === 'patrimoine' && activeBudget ? (
+          <BudgetPatrimoineView
+            budgetId={activeBudget.id}
+            activePeriodId={activePeriod?.id}
+            goals={goals}
+          />
+        ) : budgetSubView === 'calendrier' && activePeriod ? (
           <BudgetCalendarView
             periodId={activePeriod.id}
             onAddExpenseOnDay={() => setActiveTab('enveloppes')}
@@ -1195,6 +1213,8 @@ export function App() {
         onExportPdf={
           activeBudget
             ? async () => {
+                const { fetchBudgetNetWorth } = await import('./services/netWorth.service');
+                const netWorthData = await fetchBudgetNetWorth(activeBudget.id).catch(() => undefined);
                 const txs = activePeriod
                   ? (await listTransactions(activePeriod.id).catch(() => ({ transactions: [] })))
                       .transactions
@@ -1205,7 +1225,8 @@ export function App() {
                   analytics: resolvedAnalytics,
                   envelopes,
                   goals,
-                  transactions: txs
+                  transactions: txs,
+                  netWorth: netWorthData
                 });
               }
             : undefined
@@ -1442,6 +1463,7 @@ export function App() {
         <GoalFormSheet
           isOpen={goalFormState.isOpen}
           onClose={() => setGoalFormState({ isOpen: false, goal: null })}
+          budgetId={activeBudget?.id}
           initialGoal={goalFormState.goal}
           isSubmitting={isMutating}
           onSubmit={handleSaveGoal}

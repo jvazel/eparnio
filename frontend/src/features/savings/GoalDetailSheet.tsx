@@ -17,6 +17,9 @@ import type {
   SavingsGoalItem,
   SavingsWithdrawalItem
 } from '../../types/budget.types';
+import { useQuery } from '@tanstack/react-query';
+import { DropdownSelect } from '../../components/ui/DropdownSelect';
+import { fetchBudgetNetWorth } from '../../services/netWorth.service';
 import { formatCurrency, formatFullDate, toDateInputValue } from '../../utils/format';
 import {
   AmountHeroField,
@@ -44,6 +47,7 @@ const GOAL_EMOJIS = [
 export interface GoalFormSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  budgetId?: string;
   initialGoal?: SavingsGoalItem | null;
   isSubmitting?: boolean;
   onSubmit: (payload: CreateGoalPayload) => Promise<void> | void;
@@ -56,6 +60,7 @@ export interface GoalFormSheetProps {
 export function GoalFormSheet({
   isOpen,
   onClose,
+  budgetId,
   initialGoal,
   isSubmitting = false,
   onSubmit,
@@ -66,6 +71,13 @@ export function GoalFormSheet({
   const [name, setName] = useState('');
   const [initialAmountInput, setInitialAmountInput] = useState('');
   const [deadlineValue, setDeadlineValue] = useState('');
+  const [assetAccountId, setAssetAccountId] = useState('');
+
+  const { data: netWorth } = useQuery({
+    queryKey: ['net-worth', budgetId],
+    queryFn: () => fetchBudgetNetWorth(budgetId!),
+    enabled: isOpen && Boolean(budgetId),
+  });
   const [icon, setIcon] = useState('🐷');
   const [color, setColor] = useState('#16A34A');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -81,6 +93,7 @@ export function GoalFormSheet({
     if (initialGoal) {
       setTargetInput(formatAmountToKeypadString(initialGoal.targetAmount));
       setName(initialGoal.name);
+      setAssetAccountId(initialGoal.assetAccountId ?? '');
       setInitialAmountInput(
         initialGoal.initialAmount > 0
           ? formatAmountToKeypadString(initialGoal.initialAmount)
@@ -92,6 +105,7 @@ export function GoalFormSheet({
     } else {
       setTargetInput('');
       setName('');
+      setAssetAccountId('');
       setInitialAmountInput('');
       setDeadlineValue('');
       setIcon('🐷');
@@ -130,6 +144,7 @@ export function GoalFormSheet({
         initialAmount: numericInitial,
         icon,
         color,
+        assetAccountId: assetAccountId || null,
         deadline: deadlineValue ? new Date(`${deadlineValue}T12:00:00.000Z`).toISOString() : null
       });
       onClose();
@@ -267,6 +282,24 @@ export function GoalFormSheet({
                 className="min-h-11 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-medium text-slate-700 focus:border-violet-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               />
             </div>
+            {netWorth && netWorth.accounts.length > 0 && (
+              <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-700">
+                <DropdownSelect
+                  label="Placé sur le compte (optionnel)"
+                  emptyOptionLabel="Aucun compte lié"
+                  value={assetAccountId}
+                  onChange={setAssetAccountId}
+                  options={netWorth.accounts
+                    .filter((a) => a.category !== 'liability')
+                    .map((a) => ({
+                      value: a.id,
+                      label: a.name,
+                      icon: a.icon,
+                      sublabel: `${a.currentBalance.toFixed(0)} €`,
+                    }))}
+                />
+              </div>
+            )}
             {(() => {
               if (!deadlineValue || numericTarget <= 0) {
                 return null;

@@ -23,6 +23,7 @@ const PILLAR_FILTERS: Array<{ key: CalendarPillar | 'all'; label: string }> = [
   { key: 'fixed_charge', label: 'Fixes' },
   { key: 'variable_expense', label: 'Variables' },
   { key: 'savings', label: 'Épargne' },
+  { key: 'asset', label: 'Patrimoine' },
 ];
 
 export function BudgetCalendarView({

@@ -186,6 +186,7 @@ export interface SavingsGoalItem {
   initialAmount: number;
   currentAmount: number;
   deadline?: string;
+  assetAccountId?: string;
   withdrawals?: SavingsWithdrawalItem[];
   order: number;
   variance?: {

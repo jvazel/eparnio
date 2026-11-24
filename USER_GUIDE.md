@@ -111,3 +111,11 @@ Dans l'onglet **Budget**, utilisez le sélecteur **Synthèse | Calendrier** en h
 - **Filtres rapides :** filtrez par pilier (**Tout**, **Revenus**, **Fixes**, **Variables**, **Épargne**) ou par membre en budget commun.
 - **Détail du jour (`JJ/MM/AAAA`) :** tapez sur un jour pour voir ses opérations, pointer une charge fixe ou un revenu (`✓`) en 1 tap, ou ajouter une dépense.
 - **Courbe de trésorerie :** visualisez votre solde réalisé et projeté jusqu'à la fin du cycle (avec option pour inclure votre budget quotidien moyen) ainsi que vos prochaines échéances trimestrielles ou annuelles.
+
+---
+
+## 11. Patrimoine Net, Simulateur & Bilan Annuel
+
+- **Patrimoine Net (`Budget > Patrimoine`) :** suivez vos comptes (liquidités, placements, immobilier, crypto, crédits), filtrez par catégorie, ajoutez/retirez des montants avec libellé et source/destination (autre compte, objectif d'épargne ou restant à répartir du mois), consultez l'historique plein écran et retrouvez votre patrimoine dans l'export PDF.
+- **Lier un projet d'épargne :** dans l'onglet **Epargne**, choisissez **« Placé sur le compte (optionnel) »** pour rattacher vos cagnottes (ex. *Vacances Italie*) à un compte physique (ex. *Livret A*).
+- **Simulateur « Et si… ? » & Bilan annuel :** depuis l'onglet **Budget**, simulez l'impact d'un achat (ponctuel, mensuel ou en `Nx`) avant de l'enregistrer, ou lancez **Eparnio Wrapped** pour revivre votre année financière en 5 slides.

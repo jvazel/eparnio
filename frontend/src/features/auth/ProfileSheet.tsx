@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { DropdownSelect } from '../../components/ui/DropdownSelect';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import {
   Check,
@@ -230,7 +231,7 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Mon profil & préférences">
       <div className="space-y-6 pb-2">
-        <form method="post" onSubmit={handleProfileSubmit} className="space-y-4">
+        <form id="profile-settings-form" method="post" onSubmit={handleProfileSubmit} className="space-y-4">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Avatar
@@ -297,31 +298,22 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="profile-default-tab"
-                className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200"
-              >
-                Onglet d&apos;ouverture par défaut
-              </label>
-              <select
-                id="profile-default-tab"
-                name="defaultTab"
-                value={defaultTab ?? 'depenses'}
-                onChange={(e) =>
-                  setDefaultTab(
-                    e.target.value as 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget'
-                  )
-                }
-                className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-semibold text-slate-900 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50"
-              >
-                <option value="depenses">Dépenses fixes</option>
-                <option value="enveloppes">Enveloppes</option>
-                <option value="revenus">Revenus</option>
-                <option value="epargne">Épargne</option>
-                <option value="budget">Budget</option>
-              </select>
-            </div>
+            <DropdownSelect
+              label="Onglet d'ouverture par défaut"
+              value={defaultTab ?? 'depenses'}
+              onChange={(val) =>
+                setDefaultTab(
+                  val as 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget'
+                )
+              }
+              options={[
+                { value: 'depenses', label: 'Dépenses fixes', icon: '💳' },
+                { value: 'enveloppes', label: 'Enveloppes', icon: '✉️' },
+                { value: 'revenus', label: 'Revenus', icon: '💵' },
+                { value: 'epargne', label: 'Épargne', icon: '🐷' },
+                { value: 'budget', label: 'Budget', icon: '📊' },
+              ]}
+            />
 
             <div>
               <span className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -365,11 +357,6 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
             </p>
           ) : null}
 
-          <div className="sticky bottom-0 z-10 -mx-1 bg-white/95 px-1 pb-2 pt-3 backdrop-blur dark:bg-slate-900/95">
-            <Button type="submit" variant="violet" fullWidth disabled={isSavingProfile}>
-              {isSavingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
-            </Button>
-          </div>
         </form>
 
         <div className="border-t border-slate-100 pt-4">
@@ -623,14 +610,24 @@ export function ProfileSheet({ isOpen, onClose }: ProfileSheetProps) {
           </div>
         ) : null}
 
-        <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+        <div className="space-y-2.5 border-t border-slate-100 pt-4 dark:border-slate-800">
+          <Button
+            type="submit"
+            form="profile-settings-form"
+            variant="violet"
+            fullWidth
+            disabled={isSavingProfile}
+          >
+            {isSavingProfile ? 'Enregistrement...' : 'Enregistrer le profil'}
+          </Button>
           <Button variant="danger" fullWidth onClick={handleLogout}>
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Se déconnecter
           </Button>
-          <p className="mt-3 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">
-            Eparnio v{packageJson.version}
-          </p>
+          <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+            <img src="/icon.svg" alt="Eparnio" className="h-4 w-4 rounded" />
+            <span>Eparnio v{packageJson.version}</span>
+          </div>
         </div>
       </div>
     </BottomSheet>

@@ -3,7 +3,7 @@
 Tu travailles sur **Eparnio**, une application **Mobile-First (PWA)** de gestion budgétaire personnelle et partagée, inspirée de Finzee, reposant sur la méthode du **Budget Base Zéro** et la **saisie manuelle proactive**.
 
 ## Documents de Référence
-* @[SPECIFICATIONS_FINZEE.md](./SPECIFICATIONS_FINZEE.md) — Cahier des charges fonctionnel, architecture des écrans et Design System.
+* @[SPECIFICATIONS_EPARNIO.md](./SPECIFICATIONS_EPARNIO.md) — Cahier des charges fonctionnel, architecture des écrans et Design System.
 * @[ARCHITECTURE.md](./ARCHITECTURE.md) — Stack technique, arborescence `frontend/` vs `backend/`, contrat d'API REST et schémas MongoDB.
 * @[ROADMAP.md](./ROADMAP.md) — Feuille de route séquentielle et suivi d'avancement.
 

@@ -92,3 +92,11 @@ Tous les formulaires d'ajout (revenu, dépense fixe, enveloppe, dépense variabl
   * Taper sur une **`PastelEnvelopeCard`** ouvre son tiroir de détail (`EnvelopeDetailSheet` : budget alloué, restant, historique des dépenses de l'enveloppe et bouton d'ajout).
   * Le formulaire de saisie d'une dépense (`AddExpenseSheet`) reprend le gabarit ci-dessus (grand montant centré + `Restant dans l'enveloppe: X €`, cartes `Nom`, `Date`, `Payé par...` en budget commun) avec le **pavé numérique tactile (`NumericKeypad`)** intégré au tiroir (`rounded-t-3xl`).
 * **Zones tactiles :** Hauteur minimale `44px` (`min-h-11`) pour chaque élément cliquable.
+
+
+## 7. Sélecteurs & Listes Déroulantes (Interdiction des `<select>` natifs)
+* **Ne jamais utiliser de `<select>` HTML natif** dans l'interface utilisateur.
+* **Listes déroulantes (`DropdownSelect.tsx`) :** pour choisir un compte, un objectif ou une contrepartie :
+  * Bouton déclencheur tactile (`w-full min-h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs font-medium`), affichant icône, libellé, sous-libellé `tabular-nums` et chevron `ChevronDown` animé.
+  * Menu déroulant flottant (`rounded-2xl bg-white dark:bg-slate-800 border shadow-xl max-h-48 overflow-y-auto divide-y`) avec coche `Check` violette sur l'élément actif.
+* **Choix courts (`PillSelect.tsx`) :** pour 2 à 5 options visibles en un tap (ex. catégories, enveloppe cible), utiliser des pilules `rounded-full px-3 py-1.5 text-xs font-semibold` (actif : `bg-violet-600 text-white`, inactif : `bg-slate-100 dark:bg-slate-700`).

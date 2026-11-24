@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { fetchBudgetNetWorth } from '../../services/netWorth.service';
 import {
   ArrowDownLeft,
   ChevronDown,
@@ -28,6 +30,7 @@ import { ZeroBasedBanner, type ZeroBasedQuickActions } from '../budget/ZeroBased
 
 export interface SavingsGoalCardProps {
   goal: SavingsGoalItem;
+  linkedAssetLabel?: string;
   contributions: EnvelopeItem[];
   members?: BudgetMember[];
   currentUserId?: string;
@@ -48,6 +51,7 @@ export interface SavingsGoalCardProps {
  */
 export function SavingsGoalCard({
   goal,
+  linkedAssetLabel,
   contributions,
   members = [],
   currentUserId,
@@ -128,6 +132,11 @@ export function SavingsGoalCard({
           </span>
           <div className="min-w-0">
             <h3 className="truncate text-base font-bold text-slate-900 dark:text-slate-50">{goal.name}</h3>
+            {linkedAssetLabel && (
+              <p className="text-[11px] font-medium text-violet-600 dark:text-violet-400 truncate">
+                {linkedAssetLabel}
+              </p>
+            )}
             {goal.deadline ? (
               <div>
                 <p className="text-xs font-medium text-slate-400">
@@ -618,6 +627,21 @@ export function SavingsGoalsList({
     return segments;
   }, [goals, contributionsByGoal, savingsEnvelopes]);
 
+  const budgetIdForNetWorth = goals[0]?.budgetId;
+  const { data: netWorth } = useQuery({
+    queryKey: ['net-worth', budgetIdForNetWorth],
+    queryFn: () => fetchBudgetNetWorth(budgetIdForNetWorth!),
+    enabled: Boolean(budgetIdForNetWorth),
+  });
+
+  const assetById = useMemo(() => {
+    const map = new Map<string, { name: string; icon: string }>();
+    for (const acc of netWorth?.accounts ?? []) {
+      map.set(acc.id, { name: acc.name, icon: acc.icon });
+    }
+    return map;
+  }, [netWorth]);
+
   return (
     <div className="space-y-4">
       <DonutSummaryCard
@@ -665,6 +689,13 @@ export function SavingsGoalsList({
               <SavingsGoalCard
                 key={goal.id}
                 goal={goal}
+                linkedAssetLabel={
+                  goal.assetAccountId && assetById.get(goal.assetAccountId)
+                    ? `${assetById.get(goal.assetAccountId)!.icon} Placé sur : ${
+                        assetById.get(goal.assetAccountId)!.name
+                      }`
+                    : undefined
+                }
                 contributions={contributionsByGoal.get(goal.id) ?? []}
                 members={members}
                 currentUserId={currentUserId}

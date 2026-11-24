@@ -13,6 +13,7 @@ export interface CreateGoalPayload {
   icon?: string;
   color?: string;
   deadline?: string | null;
+  assetAccountId?: string | null;
 }
 
 export interface UpdateGoalPayload {
@@ -23,6 +24,7 @@ export interface UpdateGoalPayload {
   icon?: string;
   color?: string;
   deadline?: string | null;
+  assetAccountId?: string | null;
   order?: number;
 }
 

@@ -1,6 +1,11 @@
 import { apiClient } from './api';
 
-export type CalendarPillar = 'income' | 'fixed_charge' | 'variable_expense' | 'savings';
+export type CalendarPillar =
+  | 'income'
+  | 'fixed_charge'
+  | 'variable_expense'
+  | 'savings'
+  | 'asset';
 
 export interface CalendarMemberInfo {
   userId: string;

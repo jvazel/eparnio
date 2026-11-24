@@ -154,6 +154,16 @@ export function WrappedModal({ isOpen, onClose, budgetId }: WrappedModalProps) {
                       Soit un taux d’épargne annuel de{' '}
                       <strong className="tabular-nums">{wrapped.macro.savingsRate} %</strong>.
                     </p>
+                    {wrapped.patrimoine && (wrapped.patrimoine.totalAssets > 0 || wrapped.patrimoine.totalLiabilities > 0) && (
+                      <div className="p-3 rounded-2xl bg-violet-50 dark:bg-violet-900/30">
+                        <p className="text-xs text-violet-700 dark:text-violet-300">
+                          Patrimoine Net actuel
+                        </p>
+                        <p className="text-xl font-bold tabular-nums text-violet-700 dark:text-violet-200">
+                          {wrapped.patrimoine.netWorth.toLocaleString('fr-FR')} €
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 

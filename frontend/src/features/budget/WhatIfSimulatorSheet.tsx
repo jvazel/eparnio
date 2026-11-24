@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sparkles, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { NumericKeypad } from '../../components/ui/NumericKeypad';
+import { PillSelect } from '../../components/ui/PillSelect';
 import type { CashFlowPoint } from '../../services/calendar.service';
 import { createEnvelope } from '../../services/envelope.service';
 import { createTransaction } from '../../services/transaction.service';
@@ -269,18 +270,16 @@ export function WhatIfSimulatorSheet({
             className="w-full text-sm bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none"
           />
           {simType === 'one_time' && variableEnvelopes.length > 0 && (
-            <select
-              aria-label="Enveloppe cible"
+            <PillSelect
+              label="Enveloppe cible"
               value={selectedEnvelopeId}
-              onChange={(e) => setSelectedEnvelopeId(e.target.value)}
-              className="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2.5 py-2 outline-none"
-            >
-              {variableEnvelopes.map((env) => (
-                <option key={env.id} value={env.id}>
-                  {env.icon} {env.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedEnvelopeId}
+              options={variableEnvelopes.map((env) => ({
+                value: env.id,
+                label: env.name,
+                icon: env.icon,
+              }))}
+            />
           )}
         </div>
 

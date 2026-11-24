@@ -595,3 +595,56 @@
   * **Nouveaux tests Backend :** Tests unitaires sur `zeroBasedAutoBalance.service.ts` (surplus vers épargne, déficit sur enveloppe avec marge, protection `spentOrPaidAmount`, exclusion des `fixed_charge`) + tests API Supertest sur `GET /auto-balance/suggestion` et `POST /auto-balance/apply`.
   * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur `ZeroBasedBanner` (affichage conditionnel du bouton) et `AutoBalanceSheet` (changement de cible, confirmation en 1 tap, modes clair et sombre).
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 43 : Patrimoine Net & Suivi Actifs/Passifs *(Comptes Physiques & Projets Liés)*
+
+- [x] **Backend (`AssetAccount.model.ts`, `SavingsGoal.model.ts`, `netWorth.service.ts`, `netWorth.controller.ts`, `budget.routes.ts`) :**
+  * Créer le modèle `AssetAccountModel` (`budgetId`, `name`, `category`: `'cash' | 'investment' | 'real_estate' | 'crypto' | 'liability'`, `icon`, `color`, `currentBalance`, `history: [{ date: Date, balance: number }]`).
+  * Ajouter un champ optionnel `assetAccountId?: Types.ObjectId` sur `SavingsGoalModel` (relation `N → 1` : plusieurs projets virtuels comme *Vacances Italie* ou *Matelas de sécurité* peuvent pointer vers un même compte physique comme *Livret A*).
+  * Synchroniser automatiquement `AssetAccount.currentBalance` (et son `history`) lors des versements et retraits sur un `SavingsGoal` lié, tout en conservant la possibilité d'ajuster manuellement le solde (ex. intérêts annuels).
+  * Créer `netWorth.service.ts` et exposer les routes protégées par JWT et vérification d'appartenance au budget :
+    * `GET /api/budgets/:budgetId/net-worth` (retourne `totalAssets`, `totalLiabilities`, `netWorth`, répartition par catégorie, courbe historique et liste des comptes avec projets liés),
+    * `POST /api/budgets/:budgetId/assets`, `PATCH /api/budgets/:budgetId/assets/:assetId` (mise à jour rapide du solde), `DELETE /api/budgets/:budgetId/assets/:assetId`.
+- [x] **Frontend (`netWorth.service.ts`, `BudgetPatrimoineView.tsx`, `AssetAccountSheet.tsx`, `GoalFormModal.tsx`, `App.tsx`) :**
+  * Étendre le switcher segmenté de l'onglet **`Budget`** en **`Synthèse | Calendrier | Patrimoine`**.
+  * **`BudgetPatrimoineView.tsx` :** Carte Hero **« Patrimoine Net »** (`Actifs − Passifs = X €`) avec **Donut de répartition** par classe d'actifs, **courbe d'évolution Recharts** et liste des comptes (avec badge des projets d'épargne rattachés et bouton rapide **« Mettre à jour »** via `NumericKeypad`).
+  * **`GoalFormModal.tsx` :** Ajouter un sélecteur optionnel **« Compte de placement (optionnel) »** (*ex. Livret A*) pour lier un projet d'épargne à un compte patrimonial.
+  * Supporter intégralement les **modes clair et sombre**.
+- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend :** Tests unitaires sur `netWorth.service.ts` (calcul `Actifs − Passifs`, relation `N → 1` avec `SavingsGoal`, mise à jour d'historique) + tests API Supertest sur `/api/budgets/:budgetId/net-worth` et `/assets`.
+  * **Nouveaux tests Frontend :** Tests de rendu et d'interaction sur `BudgetPatrimoineView` (affichage patrimoine net, mise à jour de solde, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 44 : Opérations Patrimoniales, Historique & Transferts *(Comptes, Épargne & Budget)*
+
+- [x] **Backend (`AssetAccount.model.ts`, `netWorth.service.ts`, `netWorth.controller.ts`, `budget.routes.ts`) :**
+  * Ajouter `operations[]` sur `AssetAccountModel` (`date`, `type`: `'add' | 'withdraw' | 'set' | 'transfer_in' | 'transfer_out'`, `amount`, `label`, `balanceAfter`, `counterpartyType`: `'external' | 'asset' | 'savings_goal' | 'budget_period'`, `counterpartyId`, `counterpartyName`).
+  * Créer `recordAssetOperation` et exposer `POST /api/budgets/:budgetId/assets/:assetId/operations` gérant :
+    * `external` : ajout/retrait/ajustement simple avec libellé,
+    * `asset` : transfert compte ↔ compte (débit source, crédit destination, patrimoine net inchangé),
+    * `savings_goal` : transfert épargne ↔ patrimoine (retrait/versement sur `SavingsGoal` + recalcul),
+    * `budget_period` : transfert Restant à répartir ↔ patrimoine (création enveloppe `savings` ou `income` + recalcul `recalculatePeriodSummary`).
+- [x] **Frontend (`netWorth.service.ts`, `BudgetPatrimoineView.tsx`, `App.tsx`) :**
+  * Dans le tiroir d'un compte patrimonial, ajouter le champ **Libellé**, le sélecteur **Source / Destination** (*Externe*, *Autre compte*, *Objectif d'épargne*, *Budget du mois*) et la liste **Historique des opérations** (`DD/MM/YYYY`, libellé, montant, contrepartie, solde après).
+  * Invalider les caches TanStack Query (`['net-worth']`, `['goals']`, `['period']`, `['envelopes']`, `['analytics']`) après opération.
+- [ ] **Tests & Documentation :**
+  * Tests Backend sur `POST /assets/:assetId/operations` (`asset ↔ asset`, `savings_goal ↔ asset`, `budget_period ↔ asset`).
+  * Vérification `npm run typecheck` et mise à jour de `ROADMAP.md`.
+
+
+---
+
+## Étape 45 : Harmonisation UX des Sélecteurs & Listes Déroulantes *(Design Mobile-First)*
+
+- [x] **Audit préalable (Obligatoire avant toute modification) :**
+  * Recenser et lister tous les éléments `<select>` natifs ou listes déroulantes non travaillées dans `frontend/src/` (ex. sélecteur *Placé sur le compte* dans `GoalDetailSheet.tsx`, sélecteurs dans `BudgetPatrimoineView.tsx`, `WhatIfSimulatorSheet.tsx`, etc.).
+- [x] **Refonte UI (`SelectPickerSheet` / Pilules tactiles) :**
+  * Remplacer chaque `<select>` natif recensé par un composant tactile cohérent avec le Design System Eparnio (pilules cliquables `rounded-full` pour les listes courtes, ou `BottomSheet` de sélection avec icône, libellé et solde/détail pour les listes longues), en **modes clair et sombre**.
+- [x] **Tests & Vérifications :**
+  * Vérifier `npm run typecheck`, la non-régression des tests UI existants et mettre à jour `ROADMAP.md`.

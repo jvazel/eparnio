@@ -1,17 +1,16 @@
-# Spécifications Fonctionnelles & Style Graphique — Inspiration Finzee (Projet Eparnio)
+# Cahier des Charges & Spécifications Fonctionnelles — Eparnio
 
-> **Source analysée :** Écosystème **Finzee** (`https://www.finzee-app.fr/#fonctionnalites`, fiches App Store / Google Play et présentation produit).
-> **Objectif :** Servir de cahier des charges fonctionnel, UI/UX (Mobile-First) et de base de modélisation **MongoDB** pour la création de l'application **Eparnio**.
+> **Objectif :** Cahier des charges fonctionnel, UI/UX (Mobile-First) et de modélisation **MongoDB** de l'application **Eparnio**.
 
 ---
 
-## 1. Présentation Générale & Philosophie de Finzee
+## 1. Présentation Générale & Philosophie d'Eparnio
 
 * **Origine :** Application mobile française de gestion budgétaire personnelle fondée par Johann Nguelet (alias *Monsieur Budget* / AJL Budget).
 * **Public cible :** Accessible à tous — étudiants, jeunes actifs, familles, couples, colocataires, indépendants — et particulièrement pensée pour les personnes qui n'aiment pas les chiffres, le jargon financier complexe ou les tableaux Excel.
 * **Promesse centrale :** Reprendre le contrôle de ses finances, éviter les découverts bancaires, réduire le stress et la charge mentale de fin de mois, et épargner plus sereinement.
 * **Méthode fondamentale — Le Budget Base Zéro (*Zero-Based Budgeting*) :**
-  * **Principe :** Contrairement aux applications passives qui se contentent d'afficher l'historique des dépenses bancaires, Finzee impose d'attribuer un rôle précis à chaque euro gagné **avant** même de le dépenser.
+  * **Principe :** Contrairement aux applications passives qui se contentent d'afficher l'historique des dépenses bancaires, Eparnio impose d'attribuer un rôle précis à chaque euro gagné **avant** même de le dépenser.
   * **Formule d'équilibre :**
     ```text
     Revenus du mois - Dépenses fixes (incluant mensualités de crédits) - Enveloppes variables - Épargne = 0 €
@@ -98,7 +97,7 @@
 
 ---
 
-## 3. Architecture des Écrans (Mobile-First — Calquée sur les Captures Finzee)
+## 3. Architecture des Écrans (Mobile-First)
 
 L'interface doit être pensée **pouce-centrée (Mobile-First)** avec une structure homogène sur l'ensemble des écrans :
 
@@ -234,7 +233,7 @@ L'interface doit être pensée **pouce-centrée (Mobile-First)** avec une struct
 
 ---
 
-## 4. Style Graphique & Design System (Calibré sur les Captures Finzee)
+## 4. Style Graphique & Design System Eparnio
 
 ### 4.1. Direction Artistique Générale
 * **Clarté & Pédagogie :** Hiérarchie visuelle immédiate où les montants clés (*Reste à dépenser*, *Reste dans les enveloppes*, *Total*, *Restant*) sont immédiatement lisibles.
@@ -244,7 +243,7 @@ L'interface doit être pensée **pouce-centrée (Mobile-First)** avec une struct
 ### 4.2. Palette de Couleurs (Design Tokens exacts)
 
 #### Couleurs de Marque & d'Action
-* **Primaire Navigation Active & Liens (`Violet Finzee`) :** `#7C3AED` / `#8B5CF6` (Avatar top-left `#8B3DFF`, icônes et labels actifs de la `BottomNav`, lien `Tout voir ▶`).
+* **Primaire Navigation Active & Liens (`Violet Eparnio`) :** `#7C3AED` / `#8B5CF6` (Avatar top-left `#8B3DFF`, icônes et labels actifs de la `BottomNav`, lien `Tout voir ▶`).
 * **Action Principale (`FAB +` & Anneaux de jauge) :** Bleu vif `#1D7DFA` / `#2563EB` (jauges circulaires `#3B82F6`).
 * **Validation / Pointage (`Check ✓`) :** Vert émeraude `#22C55E` / `#10B981` (bordure et coche verte sur les revenus perçus et charges fixes payées ; gris clair `#CBD5E1` quand en attente).
 
@@ -294,7 +293,7 @@ L'interface doit être pensée **pouce-centrée (Mobile-First)** avec une struct
 
 ## 5. Proposition d'Architecture de Données MongoDB (Pour Eparnio)
 
-Pour transposer fidèlement le modèle fonctionnel de Finzee sur une stack **MongoDB** (Node.js / Mongoose ou driver natif, avec Next.js / React Native / PWA Mobile-First), voici une structure de collections adaptée :
+Pour implémenter le modèle fonctionnel d'Eparnio sur une stack **MongoDB** (Node.js / Mongoose, PWA Mobile-First), voici la structure de collections :
 
 ### 5.1. `users`
 Profil utilisateur, authentification et préférences de cycle budgétaire.
@@ -425,3 +424,16 @@ Collection transversale reliée aux versements mensuels (`linkedGoalId`) pour su
 * `envelopes`: index `{ budgetPeriodId: 1, pillar: 1, order: 1 }`.
 * `budget_periods`: index `{ budgetId: 1, startDate: -1 }`.
 * `budgets`: index `{ "members.userId": 1 }` et index unique `{ inviteCode: 1 }` (sparse).
+
+
+---
+
+## 9. Modules Avancés Eparnio
+
+* **Vue Calendrier & Trésorerie Prévisionnelle (`Budget > Calendrier`) :** Grille calendrier en mode carte de chaleur (intensité des dépenses), filtres pilules (`Tout`, `Revenus`, `Fixes`, `Variables`, `Épargne`, `Patrimoine`, membres), courbe Recharts de trésorerie projetée, tiroir du jour (`Mardi 24 novembre 2026`) avec pointage `✓` en 1 tap et suivi des échéances périodiques à 3 mois.
+* **Patrimoine Net, Opérations & Transferts (`Budget > Patrimoine`) :** Suivi `Actifs − Passifs` (liquidités, placements, immobilier, crypto, crédits), liaison `N → 1` avec les objectifs d'épargne (`assetAccountId`), opérations avec libellé et source/destination (`Externe`, `Autre compte`, `Objectif d'épargne`, `Restant à répartir du mois`), historique plein écran avec recherche et inclusion dans l'export PDF.
+* **Simulateur « Et si… ? » :** Simulation éphémère (ponctuel, mensuel, `Nx`) avec impact Avant/Après sur le Reste à vivre, le budget quotidien et badge de faisabilité, convertible en transaction ou charge fixe réelle.
+* **Notifications Push PWA (VAPID) :** Rappels quotidiens paramétrables, alertes échéances fixes à J-2 et alertes de seuil d'enveloppe (`≥ 80 %`).
+* **Eparnio Wrapped :** Rétrospective annuelle en 5 slides « Stories » avec sélecteur d'année, top enveloppes, score Base Zéro et Patrimoine Net.
+* **Détecteur d'écarts & Auto-équilibrage Base Zéro :** Détection des hausses/baisses d'abonnements (`N` vs `N-1`) et rééquilibrage guidé à `0,00 €` en 1 tap.
+* **Sélecteurs tactiles unifiés :** Interdiction des `<select>` natifs au profit de `DropdownSelect` et `PillSelect` en modes clair et sombre.

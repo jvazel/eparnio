@@ -1,4 +1,5 @@
 import { Star, X } from 'lucide-react';
+import { DropdownSelect } from '../../components/ui/DropdownSelect';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { TagInput } from '../../components/ui/TagInput';
@@ -257,36 +258,21 @@ export function QuickAddExpenseSheet({
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-            Enveloppe concernée
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {envelopes.map((env) => {
-              const isSelected = env.id === selectedEnvelope?.id;
-              const available = env.allocatedAmount + (env.rolloverAmount ?? 0) - env.spentOrPaidAmount;
-              return (
-                <button
-                  key={env.id}
-                  type="button"
-                  onClick={() => setSelectedEnvelopeId(env.id)}
-                  aria-pressed={isSelected}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-xs font-semibold transition ${
-                    isSelected
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950/60 dark:text-blue-200'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
-                  }`}
-                >
-                  <span aria-hidden="true">{env.icon || '✉️'}</span>
-                  <span>{env.name}</span>
-                  <span className="text-[11px] opacity-75 tabular-nums">
-                    ({formatCurrency(available)})
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <DropdownSelect
+          label="Enveloppe concernée"
+          value={selectedEnvelope?.id ?? ''}
+          onChange={setSelectedEnvelopeId}
+          options={envelopes.map((env) => {
+            const available =
+              env.allocatedAmount + (env.rolloverAmount ?? 0) - env.spentOrPaidAmount;
+            return {
+              value: env.id,
+              label: env.name,
+              icon: env.icon || '✉️',
+              sublabel: formatCurrency(available),
+            };
+          })}
+        />
 
         <div className="rounded-2xl bg-slate-50 p-3 text-center dark:bg-slate-800/70">
           <p className="text-4xl font-extrabold tabular-nums text-slate-900 dark:text-slate-50">
@@ -351,22 +337,21 @@ export function QuickAddExpenseSheet({
 
                 {splitParts.map((part, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <select
-                      value={part.envelopeId}
-                      onChange={(e) =>
-                        setSplitParts((prev) =>
-                          prev.map((p, i) => (i === idx ? { ...p, envelopeId: e.target.value } : p))
-                        )
-                      }
-                      aria-label={`Enveloppe part ${idx + 1}`}
-                      className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    >
-                      {envelopes.map((env) => (
-                        <option key={env.id} value={env.id}>
-                          {env.icon} {env.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="min-w-0 flex-1">
+                      <DropdownSelect
+                        value={part.envelopeId}
+                        onChange={(val) =>
+                          setSplitParts((prev) =>
+                            prev.map((p, i) => (i === idx ? { ...p, envelopeId: val } : p))
+                          )
+                        }
+                        options={envelopes.map((env) => ({
+                          value: env.id,
+                          label: env.name,
+                          icon: env.icon,
+                        }))}
+                      />
+                    </div>
                     <input
                       type="text"
                       inputMode="decimal"

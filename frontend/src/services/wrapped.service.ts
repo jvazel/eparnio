@@ -54,6 +54,11 @@ export interface AnnualWrappedData {
   };
   topTags: WrappedTagItem[];
   memberBreakdown: WrappedMemberItem[];
+  patrimoine?: {
+    totalAssets: number;
+    totalLiabilities: number;
+    netWorth: number;
+  };
 }
 
 export async function fetchAnnualWrapped(

@@ -80,7 +80,8 @@ export const createGoalBodySchema = z.object({
   currentAmount: z.coerce.number().min(0, 'Le montant actuel doit être positif ou nul').optional(),
   icon: z.string().trim().min(1).max(16).optional(),
   color: z.string().trim().min(1).max(32).optional(),
-  deadline: optionalDeadlineSchema
+  deadline: optionalDeadlineSchema,
+  assetAccountId: objectIdSchema.nullable().optional()
 });
 
 export const updateGoalBodySchema = z.object({
@@ -94,6 +95,7 @@ export const updateGoalBodySchema = z.object({
   icon: z.string().trim().min(1).max(16).optional(),
   color: z.string().trim().min(1).max(32).optional(),
   deadline: optionalDeadlineSchema,
+  assetAccountId: objectIdSchema.nullable().optional(),
   order: z.coerce.number().int().min(0).optional()
 });
 
@@ -149,6 +151,7 @@ export async function createGoal(
       icon: payload.icon ?? '🐷',
       color: payload.color ?? '#16A34A',
       ...(payload.deadline ? { deadline: payload.deadline } : {}),
+      ...(payload.assetAccountId ? { assetAccountId: payload.assetAccountId } : {}),
       order: (lastGoal?.order ?? -1) + 1
     });
 
@@ -189,6 +192,11 @@ export async function updateGoal(
     if (payload.order !== undefined) goal.order = payload.order;
     if (payload.deadline !== undefined) {
       goal.deadline = payload.deadline ?? undefined;
+    }
+    if (payload.assetAccountId !== undefined) {
+      goal.assetAccountId = payload.assetAccountId
+        ? (payload.assetAccountId as unknown as typeof goal.assetAccountId)
+        : undefined;
     }
 
     if (payload.initialAmount !== undefined) {

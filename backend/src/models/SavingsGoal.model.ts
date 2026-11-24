@@ -29,6 +29,7 @@ export interface ISavingsGoal extends Document {
   initialAmount: number;
   currentAmount: number;
   deadline?: Date;
+  assetAccountId?: Types.ObjectId;
   withdrawals: ISavingsWithdrawal[];
   order: number;
   createdAt: Date;
@@ -45,6 +46,7 @@ export interface SavingsGoalResponse {
   initialAmount: number;
   currentAmount: number;
   deadline?: string;
+  assetAccountId?: string;
   withdrawals: SavingsWithdrawalResponse[];
   order: number;
   createdAt: string;
@@ -126,6 +128,10 @@ const savingsGoalSchema = new Schema<ISavingsGoal>(
     deadline: {
       type: Date
     },
+    assetAccountId: {
+      type: Schema.Types.ObjectId,
+      ref: 'AssetAccount'
+    },
     withdrawals: {
       type: [savingsWithdrawalSchema],
       default: []
@@ -160,6 +166,7 @@ export function toSavingsGoalResponse(goal: ISavingsGoal): SavingsGoalResponse {
     initialAmount: goal.initialAmount ?? 0,
     currentAmount: goal.currentAmount,
     ...(goal.deadline ? { deadline: goal.deadline.toISOString() } : {}),
+    ...(goal.assetAccountId ? { assetAccountId: String(goal.assetAccountId) } : {}),
     withdrawals: sortedWithdrawals.map((item) => ({
       id: item._id.toString(),
       amount: item.amount,

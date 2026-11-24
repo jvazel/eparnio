@@ -1,3 +1,4 @@
+import { AssetAccountModel } from '../models/AssetAccount.model';
 import { BudgetPeriodModel } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, type IEnvelope } from '../models/Envelope.model';
 import { TransactionModel, type ITransaction } from '../models/Transaction.model';
@@ -7,7 +8,12 @@ import { roundCurrency } from './zeroBasedBudget.service';
 
 const MS_PER_DAY = 86_400_000;
 
-export type CalendarPillar = 'income' | 'fixed_charge' | 'variable_expense' | 'savings';
+export type CalendarPillar =
+  | 'income'
+  | 'fixed_charge'
+  | 'variable_expense'
+  | 'savings'
+  | 'asset';
 
 export interface CalendarMemberInfo {
   userId: string;
@@ -124,9 +130,10 @@ export async function getPeriodCalendar(
   const endDateKey = toUtcDateKey(endDate);
   const todayKey = toUtcDateKey(referenceDate);
 
-  const [envelopes, transactions] = await Promise.all([
+  const [envelopes, transactions, assetAccounts] = await Promise.all([
     EnvelopeModel.find({ budgetPeriodId: periodId }).lean<IEnvelope[]>(),
     TransactionModel.find({ budgetPeriodId: periodId }).lean<ITransaction[]>(),
+    AssetAccountModel.find({ budgetId: period.budgetId }).lean(),
   ]);
 
   const memberIds = Array.from(
@@ -223,6 +230,34 @@ export async function getPeriodCalendar(
       paidByUser: paidById ? memberMap.get(paidById) ?? null : null,
       recurrenceFrequency: env.recurrenceFrequency as CalendarEvent['recurrenceFrequency'],
     });
+  }
+
+  // 3. Opérations patrimoniales dans la fenêtre du cycle (hors budget_period pour éviter les doublons)
+  for (const acc of assetAccounts) {
+    for (const op of acc.operations ?? []) {
+      if (op.counterpartyType === 'budget_period') continue;
+      if (op.type === 'set') continue;
+      const opDate = new Date(op.date);
+      const dateKey = toUtcDateKey(opDate);
+      if (dateKey < startDateKey || dateKey > endDateKey) continue;
+
+      events.push({
+        id: `asset_${String(acc._id)}_${String(op._id ?? dateKey)}`,
+        kind: 'transaction',
+        pillar: 'asset',
+        dateKey,
+        originalDate: opDate.toISOString(),
+        label: `${acc.name} — ${op.label}`,
+        amount: roundCurrency(op.amount),
+        emoji: acc.icon || '🏦',
+        color: acc.color || '#06B6D4',
+        isPaid: true,
+        isOverdue: false,
+        envelopeId: String(acc._id),
+        paidByUserId: null,
+        paidByUser: null,
+      });
+    }
   }
 
   // Regrouper les événements par dateKey
