@@ -1,4 +1,4 @@
-import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { getApiErrorMessage } from '../../services/api';
@@ -20,8 +20,8 @@ export interface ExportActionsCardProps {
  */
 export function ExportActionsCard({
   variant = 'card',
-  title = 'Exports & Sauvegarde',
-  subtitle = 'Téléchargez vos données pour Excel, vos archives PDF ou une sauvegarde JSON.',
+  title = 'Exports & Souveraineté des données',
+  subtitle = 'Vos données vous appartiennent : exportez-les à tout moment en 1 clic, sans frais ni verrouillage.',
   onExportCsv,
   onExportPdf,
   onExportJson
@@ -62,8 +62,11 @@ export function ExportActionsCard({
   const content = (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50">{title}</h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50">{title}</h3>
+        </div>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
       </div>
 
       <div className="space-y-2">

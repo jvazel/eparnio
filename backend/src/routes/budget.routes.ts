@@ -11,6 +11,7 @@ import {
   updateAssetSchema,
 } from '../controllers/netWorth.controller';
 import {
+  getBudgetStreakHandler,
   getBudgetTrends,
   getBudgetWrappedHandler,
   getTagDetailAnalytics,
@@ -124,6 +125,7 @@ budgetRouter.get(
   '/:id/tags/:tag/analytics',
   getTagDetailAnalytics
 );
+budgetRouter.get('/:id/streak', getBudgetStreakHandler);
 
 budgetRouter.get(
   '/:id/transactions/suggestions',

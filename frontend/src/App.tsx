@@ -13,6 +13,8 @@ import { BudgetPatrimoineView } from './features/budget/BudgetPatrimoineView';
 import { WhatIfSimulatorSheet } from './features/budget/WhatIfSimulatorSheet';
 import { WrappedModal } from './features/budget/WrappedModal';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
+import { StreakBadgeCard } from './features/analytics/StreakBadgeCard';
+import { WeeklyRecapSheet } from './features/analytics/WeeklyRecapSheet';
 import { getTagsSummary } from './services/analytics.service';
 import { TagAnalyticsCard } from './features/analytics/TagAnalyticsCard';
 import { TagDetailModal } from './features/analytics/TagDetailModal';
@@ -260,6 +262,7 @@ export function App() {
   const [isClosingWizardOpen, setIsClosingWizardOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
   const [isBalanceReconcileOpen, setIsBalanceReconcileOpen] = useState(false);
+  const [isWeeklyRecapOpen, setIsWeeklyRecapOpen] = useState(false);
 
   const canLoadApp = Boolean(isAuthenticated && user && token && user.hasCompletedOnboarding);
 
@@ -403,6 +406,15 @@ export function App() {
     queryKey: analyticsQueryKey,
     queryFn: () => getPeriodAnalytics(activePeriod!.id),
     enabled: canLoadApp && Boolean(activePeriod?.id) && activeTab === 'budget'
+  });
+
+  const streakQuery = useQuery({
+    queryKey: ['budget-streak', activeBudget?.id],
+    queryFn: async () => {
+      const { fetchBudgetStreak } = await import('./services/analytics.service');
+      return fetchBudgetStreak(activeBudget!.id);
+    },
+    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
   });
 
   const selectedEnvelope = useMemo(
@@ -1153,7 +1165,7 @@ export function App() {
           </button>
         </div>
 
-        {activePeriod && (
+        {activePeriod && (user.preferences?.budgetViewMode ?? 'essential') === 'advanced' && (
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -1187,6 +1199,12 @@ export function App() {
           />
         ) : (
           <>
+          {streakQuery.data ? (
+            <StreakBadgeCard
+              streak={streakQuery.data}
+              onOpenRecap={() => setIsWeeklyRecapOpen(true)}
+            />
+          ) : null}
           <MonthlyInsights
         analytics={resolvedAnalytics}
         envelopes={envelopes}
@@ -1251,14 +1269,38 @@ export function App() {
         onAutoBalanceToEnvelope={handleAutoBalanceToEnvelope}
         onAutoBalanceToGoal={handleAutoBalanceToGoal}
         onNavigateToTab={setActiveTab}
+        budgetViewMode={user.preferences?.budgetViewMode ?? 'essential'}
+        onChangeBudgetViewMode={async (mode) => {
+          useAuthStore.setState({
+            user: {
+              ...user,
+              preferences: { ...user.preferences, budgetViewMode: mode }
+            }
+          });
+          try {
+            const { updateMe } = await import('./services/auth.service');
+            const updated = await updateMe({ budgetViewMode: mode });
+            useAuthStore.setState({ user: updated });
+          } catch {
+            // L'état optimiste reste actif en session même hors-ligne.
+          }
+        }}
       />
-        <TagAnalyticsCard
-          tags={tagsSummaryQuery.data ?? []}
-          onSelectTag={setSelectedTag}
-        />
+        {(user.preferences?.budgetViewMode ?? 'essential') === 'advanced' && (
+          <TagAnalyticsCard
+            tags={tagsSummaryQuery.data ?? []}
+            onSelectTag={setSelectedTag}
+          />
+        )}
         </>
         )}
         {activePeriod && (
+          <>
+          <WeeklyRecapSheet
+            isOpen={isWeeklyRecapOpen}
+            onClose={() => setIsWeeklyRecapOpen(false)}
+            streak={streakQuery.data ?? null}
+          />
           <WhatIfSimulatorSheet
             isOpen={isWhatIfOpen}
             onClose={() => setIsWhatIfOpen(false)}
@@ -1269,6 +1311,7 @@ export function App() {
             totalIncome={summary.plannedIncome}
             variableEnvelopes={variableEnvelopes}
           />
+          </>
         )}
         {activeBudget && (
           <WrappedModal

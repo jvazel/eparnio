@@ -1,12 +1,14 @@
 export type CurrencyCode = 'EUR';
 export type ThemeMode = 'light' | 'dark';
 export type DefaultTabId = 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget';
+export type BudgetViewMode = 'essential' | 'advanced';
 
 export interface UserPreferences {
   currency: CurrencyCode;
   budgetStartDay: number;
   theme: ThemeMode;
   defaultTab?: DefaultTabId;
+  budgetViewMode?: BudgetViewMode;
 }
 
 export interface UserProfile {

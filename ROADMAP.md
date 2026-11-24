@@ -654,10 +654,10 @@
 
 ## Étape 46 : Mode « Essentiel » vs Mode « Avancé » dans l'onglet Budget *(Maîtrise de la Charge Cognitive)*
 
-- [ ] **Backend (`User.model.ts`, `auth.controller.ts`, `auth.service.ts`) :**
+- [x] **Backend (`User.model.ts`, `auth.controller.ts`, `auth.service.ts`) :**
   * Ajouter une préférence utilisateur `preferences.budgetViewMode` (`'essential' | 'advanced'`, valeur par défaut `'essential'`) sur `UserModel` afin que tout nouvel utilisateur démarre avec une vue épurée et que son choix soit persisté multi-appareils.
   * Exposer la mise à jour de `budgetViewMode` via `PATCH /api/auth/me` (ou route de préférences existante) et retourner la préférence dans `GET /api/auth/me`.
-- [ ] **Frontend (`App.tsx`, `BudgetSettingsSheet.tsx` / `ProfileSheet.tsx`, `frontend/src/features/analytics/`) :**
+- [x] **Frontend (`App.tsx`, `BudgetSettingsSheet.tsx` / `ProfileSheet.tsx`, `frontend/src/features/analytics/`) :**
   * **Sélecteur de mode (`Essentiel | Avancé`) :** Ajouter un switch pilule discret en haut de la vue `Synthèse` de l'onglet **Budget** (et/ou dans les préférences utilisateur) permettant de basculer instantanément entre :
     * **Mode Essentiel (par défaut) :** N'afficher que les **3 cartes clés** de référence (*Entrées et sorties d'argent* `CashFlowSummaryCard`, *Gestion du budget quotidien* `DailyBudgetCard`, *Part des dépenses par rapport aux revenus* `AllocationDonut`) + le bandeau d'équilibre Base Zéro (`ZeroBasedBanner`).
     * **Mode Avancé :** Afficher en plus les cartes d'analyse approfondie (*Dépenses atypiques* `AnomalousExpensesCard`, *Enveloppes à risque* `EnvelopesAtRiskCard`, *Projection de rythme* `PaceProjectionCard`, *Tendances* `TrendsCard`, *Écarts d'abonnements* `FixedChargesVarianceCard`, *Tags* `TagAnalyticsCard`, *Simulateur What-If*, *Export*, etc.) dans une section dédiée ou un tiroir dépliable **« Analyses avancées »** avec compteur de cartes/alertes actives.
@@ -673,10 +673,10 @@
 
 ## Étape 47 : Onboarding Interactif Guidé sur le 1er Mois *(Atteindre `0 €` en 3 minutes & Célébration)*
 
-- [ ] **Backend (`User.model.ts`, `auth.controller.ts`) :**
+- [x] **Backend (`User.model.ts`, `auth.controller.ts`) :**
   * Ajouter `onboardingCompletedAt?: Date` (et/ou `onboardingStep?: number`) sur `UserModel` pour suivre l'achèvement réel du premier budget Base Zéro sans bloquer les utilisateurs existants.
   * Exposer `POST /api/auth/onboarding/complete` (ou mise à jour via `PATCH /api/auth/me`).
-- [ ] **Frontend (`OnboardingWizard.tsx`, `App.tsx`, `ZeroBasedBanner.tsx`) :**
+- [x] **Frontend (`OnboardingWizard.tsx`, `App.tsx`, `ZeroBasedBanner.tsx`) :**
   * **Parcours guidé en 4 micro-étapes (< 3 minutes) :**
     1. **Cycle budgétaire :** Choix rapide du jour de début de mois (`budgetStartDay`, ex. 1er, 25, 28) avec explication en 1 phrase.
     2. **Revenus du mois :** Saisie d'un ou plusieurs revenus (avec suggestions rapides *Salaire*, *Aides*) via `NumericKeypad`.
@@ -694,12 +694,12 @@
 
 ## Étape 48 : Série de Saisie (Streak) & Bilans Hebdomadaires Bienveillants *(Gamification & Rétention Douce)*
 
-- [ ] **Backend (`streak.service.ts`, `analytics.controller.ts`, `budget.routes.ts`) :**
+- [x] **Backend (`streak.service.ts`, `analytics.controller.ts`, `budget.routes.ts`) :**
   * Créer `streak.service.ts` calculant sans culpabilisation :
     * **Série hebdomadaire / mensuelle :** nombre de semaines consécutives avec au moins une saisie active ou un budget maintenu dans le vert (*« 3e semaine dans le vert »*), et nombre de mois consécutifs où le budget global est respecté (*« Budget respecté 2 mois de suite »*).
     * **Bilan hebdomadaire synthétique :** dépenses de la semaine en cours vs moyenne hebdomadaire du cycle, enveloppe la mieux maîtrisée et reste à dépenser par jour actualisé.
   * Exposer `GET /api/budgets/:budgetId/streak` (protégé par JWT et appartenance au budget).
-- [ ] **Frontend (`StreakBadgeCard.tsx`, `WeeklyRecapSheet.tsx`, `App.tsx`) :**
+- [x] **Frontend (`StreakBadgeCard.tsx`, `WeeklyRecapSheet.tsx`, `App.tsx`) :**
   * **`StreakBadgeCard.tsx` :** Petit badge/carte motivante et bienveillante (sans rouge punitif ni perte brutale de score ; en cas de dépassement, afficher un message constructif *« Nouveau départ cette semaine »*).
   * **`WeeklyRecapSheet.tsx` :** Tiroir de bilan hebdomadaire accessible au tap sur le badge de série, affichant le résumé de la semaine écoulée et les encouragements.
   * Supporter intégralement les **modes clair et sombre**.
@@ -713,11 +713,11 @@
 
 ## Étape 49 : Export & Portabilité Rassurante *(Souveraineté des Données CSV / JSON en 1 Clic)*
 
-- [ ] **Backend (`export.controller.ts`, `export.service.ts`, `budget.routes.ts`) :**
+- [x] **Backend (`export.controller.ts`, `export.service.ts`, `budget.routes.ts`) :**
   * Étendre l'export existant pour proposer un **export complet et portable** de l'espace budgétaire (ou de tout le compte utilisateur) :
     * **Export CSV** propre (encodage UTF-8 avec BOM pour Excel/Numbers, séparateur `;` ou `,`, colonnes normalisées : date, type, libellé, enveloppe/catégorie, montant, payé par, tags).
     * **Export JSON complet** (`GET /api/budgets/:budgetId/export?format=json`) incluant métadonnées du budget, périodes, enveloppes, transactions, objectifs d'épargne et comptes patrimoniaux, afin de garantir une **réversibilité totale**.
-- [ ] **Frontend (`ExportActionsCard.tsx`, `ProfileSheet.tsx` / `BudgetSettingsSheet.tsx`) :**
+- [x] **Frontend (`ExportActionsCard.tsx`, `ProfileSheet.tsx` / `BudgetSettingsSheet.tsx`) :**
   * Mettre en avant la **souveraineté des données** dans `ExportActionsCard.tsx` et dans les paramètres du profil/budget avec un message rassurant (*« Vos données vous appartiennent — Exportez-les à tout moment sans frais »*).
   * Proposer deux boutons d'action directs en **1 clic** : **`Exporter en CSV (Excel)`** et **`Exporter en JSON (Sauvegarde complète)`**, avec feedback visuel de téléchargement réussi.
   * Supporter intégralement les **modes clair et sombre**.

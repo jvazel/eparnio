@@ -494,3 +494,34 @@ export async function getBudgetWrappedHandler(
     next(err);
   }
 }
+
+export async function getBudgetStreakHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+
+    const { id: budgetId } = req.params as { id: string };
+    const { BudgetModel } = await import('../models/Budget.model');
+    const budget = await BudgetModel.findOne({
+      _id: budgetId,
+      'members.userId': userId
+    }).select('_id');
+    if (!budget) {
+      res.status(404).json({ message: 'Budget introuvable ou accès refusé.' });
+      return;
+    }
+
+    const { computeBudgetStreak } = await import('../services/streak.service');
+    const streak = await computeBudgetStreak(budgetId);
+    res.status(200).json({ status: 'ok', streak });
+  } catch (err) {
+    next(err);
+  }
+}

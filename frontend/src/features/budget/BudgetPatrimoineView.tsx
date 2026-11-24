@@ -634,10 +634,10 @@ export function BudgetPatrimoineView({
             <button
               type="button"
               onClick={() => setFullHistoryAccount(null)}
-              className="flex items-center gap-1.5 text-sm font-semibold text-violet-600 dark:text-violet-400"
+              aria-label="Retour au patrimoine"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-800 shadow-card transition-transform active:scale-95 dark:border dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Retour
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </button>
             <div className="text-right">
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100">

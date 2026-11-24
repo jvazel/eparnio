@@ -4,7 +4,7 @@ import type { TabId } from '../../components/layout/BottomNav';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import type { BudgetTrendItem } from '../../services/analytics.service';
-import type { EnvelopeItem, PeriodAnalytics, SavingsGoalItem } from '../../types/budget.types';
+import type { EnvelopeItem, PeriodAnalytics, SavingsGoalItem, BudgetViewMode } from '../../types/budget.types';
 import { formatFullDate } from '../../utils/format';
 import { ExportActionsCard } from '../budget/ExportActionsCard';
 import { ZeroBasedBanner, type ZeroBasedQuickActions } from '../budget/ZeroBasedBanner';
@@ -77,6 +77,8 @@ export interface MonthlyInsightsProps
   onOpenBalanceReconcile?: () => void;
   anomalies?: DetectedAnomalyItem[];
   onDismissAnomaly?: (transactionId: string) => void;
+  budgetViewMode?: BudgetViewMode;
+  onChangeBudgetViewMode?: (mode: BudgetViewMode) => void;
 }
 
 /**
@@ -101,6 +103,8 @@ export function MonthlyInsights({
   onOpenBalanceReconcile,
   anomalies = [],
   onDismissAnomaly,
+  budgetViewMode = 'essential',
+  onChangeBudgetViewMode,
   goals = [],
   isAutoBalancing = false,
   onAutoBalanceToEnvelope,
@@ -199,6 +203,70 @@ export function MonthlyInsights({
 
   return (
     <div className="space-y-4">
+      {onChangeBudgetViewMode && (
+        <div className="flex items-center justify-between gap-2 px-1">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Affichage
+          </span>
+          <div
+            role="group"
+            aria-label="Mode d'affichage du budget"
+            className="inline-flex rounded-full bg-slate-100 p-0.5 dark:bg-slate-800"
+          >
+            <button
+              type="button"
+              onClick={() => onChangeBudgetViewMode('essential')}
+              aria-pressed={budgetViewMode === 'essential'}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                budgetViewMode === 'essential'
+                  ? 'bg-white text-[#7C3AED] shadow-sm dark:bg-slate-900 dark:text-violet-300'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50'
+              }`}
+            >
+              Essentiel
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeBudgetViewMode('advanced')}
+              aria-pressed={budgetViewMode === 'advanced'}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                budgetViewMode === 'advanced'
+                  ? 'bg-white text-[#7C3AED] shadow-sm dark:bg-slate-900 dark:text-violet-300'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50'
+              }`}
+            >
+              Avancé
+            </button>
+          </div>
+        </div>
+      )}
+
+      {budgetViewMode === 'essential' ? (
+        <div className="space-y-4">
+          <CashFlowSummaryCard cashFlow={analytics.cashFlow} />
+
+          <DailyBudgetCard dailyBudget={analytics.dailyBudget} />
+
+          <ZeroBasedBanner
+            remainingToAllocate={analytics.zeroBased.remainingToAllocate}
+            plannedIncome={analytics.zeroBased.plannedIncome}
+            {...zeroBasedProps}
+          />
+
+          <AllocationDonutCard allocation={analytics.allocation} />
+
+          {onChangeBudgetViewMode && (
+            <button
+              type="button"
+              onClick={() => onChangeBudgetViewMode('advanced')}
+              className="w-full rounded-2xl border border-slate-200 bg-white/80 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Afficher les analyses avancées →
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
       <div
         role="tablist"
         aria-label="Sections du budget"
@@ -399,6 +467,8 @@ export function MonthlyInsights({
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

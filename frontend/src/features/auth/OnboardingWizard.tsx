@@ -30,10 +30,16 @@ export function OnboardingWizard() {
   const updateUser = useAuthStore((state) => state.updateUser);
   const setLastRecoveryKey = useAuthStore((state) => state.setLastRecoveryKey);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [budgetStartDay, setBudgetStartDay] = useState<number>(
     user?.preferences.budgetStartDay ?? 1
   );
+  const [monthlyIncome, setMonthlyIncome] = useState<number>(2000);
+  const [fixedAmount, setFixedAmount] = useState<number>(800);
+  const [groceriesAmount, setGroceriesAmount] = useState<number>(400);
+  const [leisureAmount, setLeisureAmount] = useState<number>(300);
+  const [savingsAmount, setSavingsAmount] = useState<number>(500);
+  const [isCelebrating, setIsCelebrating] = useState(false);
   const [copiedRecoveryKey, setCopiedRecoveryKey] = useState(false);
   const [downloadedRecoveryKey, setDownloadedRecoveryKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -313,11 +319,179 @@ export function OnboardingWizard() {
                 <Button variant="secondary" className="flex-1" onClick={() => setStep(2)}>
                   Précédent
                 </Button>
-                <Button type="submit" className="flex-[1.5]" disabled={isSaving}>
-                  {isSaving ? 'Enregistrement...' : 'Terminer'}
+                <Button type="button" className="flex-[1.5]" onClick={() => setStep(4)}>
+                  Simuler mon 1er mois →
                 </Button>
               </div>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="w-full pt-1 text-center text-xs font-medium text-slate-500 underline-offset-2 hover:underline dark:text-slate-400"
+              >
+                {isSaving ? 'Enregistrement...' : 'Configurer plus tard'}
+              </button>
             </form>
+          ) : null}
+
+          {step === 4 ? (
+            <div className="space-y-4">
+              {(() => {
+                const remaining =
+                  Math.round(
+                    (monthlyIncome -
+                      (fixedAmount + groceriesAmount + leisureAmount + savingsAmount)) *
+                      100
+                  ) / 100;
+                const isBalanced = remaining === 0 && monthlyIncome > 0;
+
+                return isCelebrating ? (
+                  <div className="space-y-4 py-4 text-center">
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl dark:bg-emerald-900/40 animate-bounce">
+                      🎉
+                    </div>
+                    <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
+                      Bravo ! Ton premier Budget Base Zéro est prêt
+                    </h2>
+                    <p className="text-xs text-slate-600 dark:text-slate-300">
+                      Chaque euro a un rôle précis (Restant à répartir :{' '}
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        0,00 €
+                      </span>
+                      ). Tu peux maintenant piloter ton mois sereinement.
+                    </p>
+                    <form onSubmit={handleFinish}>
+                      <Button type="submit" fullWidth disabled={isSaving}>
+                        {isSaving ? 'Ouverture...' : 'Découvrir mon budget'}
+                      </Button>
+                    </form>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-center">
+                      <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                        Atteins 0 € à répartir en 1 minute
+                      </h2>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Ajuste tes grands postes pour équilibrer ton 1er mois.
+                      </p>
+                    </div>
+
+                    <div
+                      className={`rounded-2xl p-3 text-center ${
+                        isBalanced
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'bg-violet-50 text-violet-800 dark:bg-violet-950/40 dark:text-violet-200'
+                      }`}
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-wide">
+                        Restant à répartir
+                      </p>
+                      <p className="text-2xl font-extrabold tabular-nums">
+                        {remaining.toFixed(2).replace('.', ',')} €
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 text-xs">
+                      <label className="space-y-1">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">
+                          Revenus (€)
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={monthlyIncome}
+                          onChange={(e) => setMonthlyIncome(Math.max(0, Number(e.target.value)))}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-bold tabular-nums dark:border-slate-700 dark:bg-slate-800"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">
+                          Charges fixes (€)
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={fixedAmount}
+                          onChange={(e) => setFixedAmount(Math.max(0, Number(e.target.value)))}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-bold tabular-nums dark:border-slate-700 dark:bg-slate-800"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">
+                          Courses (€)
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={groceriesAmount}
+                          onChange={(e) => setGroceriesAmount(Math.max(0, Number(e.target.value)))}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-bold tabular-nums dark:border-slate-700 dark:bg-slate-800"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">
+                          Sorties / Loisirs (€)
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={leisureAmount}
+                          onChange={(e) => setLeisureAmount(Math.max(0, Number(e.target.value)))}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-bold tabular-nums dark:border-slate-700 dark:bg-slate-800"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">
+                        Épargne (€)
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={savingsAmount}
+                        onChange={(e) => setSavingsAmount(Math.max(0, Number(e.target.value)))}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-bold tabular-nums dark:border-slate-700 dark:bg-slate-800"
+                      />
+                    </label>
+
+                    {!isBalanced && remaining > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSavingsAmount((prev) => prev + remaining)}
+                        className="w-full rounded-xl bg-emerald-50 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300"
+                      >
+                        Mettre les {remaining.toFixed(2).replace('.', ',')} € restants en Épargne
+                      </button>
+                    )}
+
+                    <div className="flex gap-3 pt-1">
+                      <Button variant="secondary" className="flex-1" onClick={() => setStep(3)}>
+                        Précédent
+                      </Button>
+                      <Button
+                        type="button"
+                        className="flex-[1.5]"
+                        disabled={!isBalanced}
+                        onClick={() => setIsCelebrating(true)}
+                      >
+                        Valider mon 0 €
+                      </Button>
+                    </div>
+
+                    <form onSubmit={handleFinish}>
+                      <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="w-full text-center text-xs font-medium text-slate-500 underline-offset-2 hover:underline dark:text-slate-400"
+                      >
+                        {isSaving ? 'Enregistrement...' : 'Configurer plus tard'}
+                      </button>
+                    </form>
+                  </>
+                );
+              })()}
+            </div>
           ) : null}
         </Card>
       </div>

@@ -3,12 +3,14 @@ import mongoose, { type Document, Schema } from 'mongoose';
 export type CurrencyCode = 'EUR';
 export type ThemeMode = 'light' | 'dark';
 export type DefaultTabId = 'revenus' | 'depenses' | 'enveloppes' | 'epargne' | 'budget';
+export type BudgetViewMode = 'essential' | 'advanced';
 
 export interface IUserPreferences {
   currency: CurrencyCode;
   budgetStartDay: number;
   theme: ThemeMode;
   defaultTab?: DefaultTabId;
+  budgetViewMode?: BudgetViewMode;
 }
 
 export interface NotificationPreferences {
@@ -76,6 +78,11 @@ const userPreferencesSchema = new Schema<IUserPreferences>(
       type: String,
       enum: ['light', 'dark'],
       default: 'light'
+    },
+    budgetViewMode: {
+      type: String,
+      enum: ['essential', 'advanced'],
+      default: 'essential'
     }
   },
   { _id: false }
@@ -195,7 +202,8 @@ export function toUserResponse(user: IUser): UserResponse {
       currency: user.preferences.currency,
       budgetStartDay: user.preferences.budgetStartDay,
       theme: user.preferences.theme,
-      defaultTab: user.preferences.defaultTab ?? 'depenses'
+      defaultTab: user.preferences.defaultTab ?? 'depenses',
+      budgetViewMode: user.preferences.budgetViewMode ?? 'essential'
     },
     ...(user.notificationPreferences
       ? { notificationPreferences: user.notificationPreferences }

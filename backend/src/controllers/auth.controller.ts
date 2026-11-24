@@ -69,6 +69,7 @@ export const updateProfileSchema = z.object({
   budgetStartDay: z.coerce.number().int().min(1).max(31).optional(),
   theme: z.enum(['light', 'dark']).optional(),
   defaultTab: z.enum(['revenus', 'depenses', 'enveloppes', 'epargne', 'budget']).optional(),
+  budgetViewMode: z.enum(['essential', 'advanced']).optional(),
   currency: z.literal('EUR').optional()
 });
 
@@ -239,6 +240,9 @@ export async function updateMe(req: Request, res: Response, next: NextFunction):
     }
     if (payload.defaultTab !== undefined) {
       user.preferences.defaultTab = payload.defaultTab;
+    }
+    if (payload.budgetViewMode !== undefined) {
+      user.preferences.budgetViewMode = payload.budgetViewMode;
     }
 
     await user.save();
