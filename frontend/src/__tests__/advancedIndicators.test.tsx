@@ -2,7 +2,10 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EnvelopesAtRiskCard } from '../features/analytics/EnvelopesAtRiskCard';
 import { MonthVsEnvelopesCard } from '../features/analytics/MonthVsEnvelopesCard';
-import { SavingsHealthCard } from '../features/analytics/SavingsHealthCard';
+import {
+  SavingsHealthCard,
+  computeEmergencyFundAmount
+} from '../features/analytics/SavingsHealthCard';
 import type { EnvelopeItem } from '../types/budget.types';
 
 describe('Étape 22 — Indicateurs Avancés de Pilotage (Onglet Budget)', () => {
@@ -35,6 +38,44 @@ describe('Étape 22 — Indicateurs Avancés de Pilotage (Onglet Budget)', () =>
     expect(screen.getByText('20%')).toBeInTheDocument();
     expect(screen.getByText('Excellent (≥ 20%)')).toBeInTheDocument();
     expect(screen.getByText('3.2 mois')).toBeInTheDocument();
+  });
+
+  it('calcule le matelas d’urgence en incluant uniquement les comptes liquidités (cash) sans double comptage', () => {
+    const result = computeEmergencyFundAmount(
+      [
+        { currentAmount: 1000, assetAccountId: 'acc-livret' }, // déjà compté dans acc-livret
+        { currentAmount: 500 }, // objectif non lié -> ajouté
+        { currentAmount: 700, assetAccountId: 'acc-pea' } // lié à un compte non-liquide -> ajouté
+      ],
+      [
+        { id: 'acc-livret', category: 'cash', currentBalance: 3000 },
+        { id: 'acc-courant', category: 'cash', currentBalance: 1000 },
+        { id: 'acc-pea', category: 'investment', currentBalance: 15000 },
+        { id: 'acc-immo', category: 'real_estate', currentBalance: 200000 },
+        { id: 'acc-crypto', category: 'crypto', currentBalance: 4000 },
+        { id: 'acc-pret', category: 'liability', currentBalance: 10000 }
+      ]
+    );
+
+    // liquidités = 3000 + 1000 = 4000 ; objectifs non liés à un compte cash = 500 + 700 = 1200
+    expect(result.liquidAssetsTotal).toBe(4000);
+    expect(result.totalAmount).toBe(5200);
+  });
+
+  it('affiche SavingsHealthCard avec le matelas combinant épargne et liquidités', () => {
+    render(
+      <SavingsHealthCard
+        plannedIncome={2000}
+        plannedSavings={300}
+        plannedFixedCharges={1000}
+        totalSavingsGoals={1000}
+        emergencyFundAmount={5200}
+        hasLiquidAssets={true}
+      />
+    );
+
+    expect(screen.getByText('5.2 mois')).toBeInTheDocument();
+    expect(screen.getByText('de charges fixes (incl. liquidités)')).toBeInTheDocument();
   });
 
   it('affiche EnvelopesAtRiskCard uniquement pour les enveloppes en tension (max 3)', () => {

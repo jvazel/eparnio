@@ -240,7 +240,7 @@
   * Comparer `% du mois écoulé` (`elapsedDays / totalDays`) vs `% des enveloppes variables consommées` (`spentVariables / plannedEnvelopes`) avec double barre de progression visuelle.
 - [x] **Taux d'épargne du mois & Matelas de sécurité (`SavingsHealthCard.tsx`) :**
   * Calculer le **taux d'épargne** (`plannedSavings / plannedIncome * 100`) avec repère visuel (`< 10 %`, `10–20 %`, `> 20 %`).
-  * Calculer le **matelas de sécurité** en mois de charges fixes (`totalSavingsGoals / plannedFixedCharges`, ex. *« 3,2 mois de charges fixes d'avance »*).
+  * Calculer le **matelas de sécurité** en mois de charges fixes en combinant les comptes patrimoniaux de catégorie **liquidités (`cash`)** et les objectifs d'épargne non liés à un compte liquide (`computeEmergencyFundAmount` sans double comptage, ex. *« 3,2 mois de charges fixes (incl. liquidités) »*).
 - [x] **Top enveloppes en tension (`EnvelopesAtRiskCard.tsx`) :**
   * Identifier et afficher les 2 à 3 enveloppes dont le taux de consommation dépasse le plus l'avancement du mois.
 - [x] **Tests & Documentation :**
@@ -724,4 +724,37 @@
 - [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Backend :** Tests API Supertest sur `GET /api/budgets/:budgetId/export?format=csv` et `?format=json` (vérification des en-têtes `Content-Disposition`, `Content-Type`, structure JSON et échappement CSV).
   * **Nouveaux tests Frontend :** Tests de rendu et de déclenchement du téléchargement sur `ExportActionsCard` (modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 50 : Saisie Vocale & Langage Naturel dans le Quick-Add (100 % Local) *(Zéro Friction & Rétention Quotidienne)*
+
+- [x] **Moteur de Parsing 100 % Local (`frontend/src/utils/parseNaturalExpense.ts`) :**
+  * Créer une fonction pure et déterministe `parseNaturalExpense(input, context)` (zéro appel réseau, zéro coût serveur, fonctionnement 100 % hors-ligne) prenant en entrée la phrase libre et le contexte actif (`envelopes`, `suggestions`, `members`, `isSharedBudget`, `referenceDate`) et retournant `{ amount?, label?, envelopeId?, envelopeMatchedBy?, date?, paidByUserId?, tags?, rawInput }`.
+  * **Extraction du montant (`amount`) :** supporter tous les formats écrits et dictés en français (`42,50 €`, `42.50`, `42 euros 50`, `42€50`, `15 euros`, `15 euro`, `15 balles`, `9,90`, montants entiers et décimaux), avec normalisation virgule/point et suppression propre du segment extrait.
+  * **Extraction de la date (`date`) :** reconnaître les expressions relatives (`aujourd'hui`, `hier`, `avant-hier`) et les jours de la semaine récents (ex. `lundi`, `samedi`) pour calculer la date cible au format `YYYY-MM-DD`.
+  * **Détection intelligente de l'enveloppe (`envelopeId`) à 2 niveaux :**
+    * *Niveau 1 — Correspondance directe :* comparaison insensible à la casse et aux accents (`NFD`) entre les mots de la phrase et les noms des `envelopes` actives (y compris correspondances partielles / singulier-pluriel, ex. *« course »* → *« Courses »*, *« resto »* → *« Restaurants »*).
+    * *Niveau 2 — Fallback sur l'historique (`suggestions`) :* si aucune enveloppe n'est nommée explicitement (ex. *« 42,50 euros Carrefour »*), rechercher le marchand/libellé dans `suggestions` (auto-complétion existante) pour pré-sélectionner automatiquement l'enveloppe habituellement associée.
+  * **Extraction des tags (`tags`) :** détecter les hashtags (`#vacances`, `#pro`) et les retirer du libellé final.
+  * **Détection du payeur en budget commun (`paidByUserId`) :** si `isSharedBudget` est actif, reconnaître les tournures `payé par <Prénom>` / `par <Prénom>` et faire correspondre au membre concerné dans `members`.
+  * **Nettoyage du libellé (`label`) :** retirer les segments déjà consommés (montant, date, nom d'enveloppe, tags, payeur) ainsi que les mots de liaison orphelins en début/fin de chaîne (`à`, `au`, `aux`, `chez`, `pour`, `dans`, `de`, `du`, `en`, `le`, `la`, `les`, `un`, `une`), puis appliquer une capitalisation propre (ex. *« 42 euros 50 chez Carrefour courses hier »* → `Carrefour`).
+- [x] **Hook de Dictée Vocale (`frontend/src/hooks/useSpeechRecognition.ts`) :**
+  * Encapsuler l'API native `window.SpeechRecognition || window.webkitSpeechRecognition` configurée en français (`lang = 'fr-FR'`, `interimResults = true`, `continuous = false`).
+  * Exposer un état clair : `{ isSupported, isListening, transcript, interimTranscript, error, startListening, stopListening, resetTranscript }`.
+  * Gérer proprement tous les cas d'erreur et de cycle de vie :
+    * **Dégradation élégante :** `isSupported === false` sur les navigateurs non compatibles (ex. Firefox) → le bouton micro est masqué tout en laissant le champ texte libre 100 % fonctionnel.
+    * **Gestion des erreurs :** `not-allowed` / `service-not-allowed` (message pédagogique invitant à autoriser le micro ou à utiliser la saisie texte), `no-speech` (aucune voix détectée), `network` (indication claire si la dictée OS nécessite du réseau, rappelant que la saisie texte fonctionne hors-ligne).
+    * **Nettoyage automatique :** arrêt propre (`abort()` / `stop()`) lors de la fermeture du `BottomSheet` ou du démontage du composant.
+- [x] **Intégration UI Mobile-First dans `QuickAddExpenseSheet.tsx` :**
+  * Ajouter en haut du tiroir une barre compacte **« Saisie express (voix ou texte) »** contenant :
+    * un champ texte libre (placeholder *« Ex. 42,50 € Carrefour courses hier »*) déclenchant le parsing à la validation (`Entrée` ou bouton `Appliquer`) ou à la fin de la dictée,
+    * un bouton tactile **Micro (`🎤`)** (≥ `44px × 44px`, `aria-label="Dicter une dépense"`) avec retour haptique (`triggerHaptic`), animation pulsante rouge en cours d'écoute et affichage en direct de la transcription intermédiaire (`interimTranscript`).
+  * **Pré-remplissage transparent (jamais de soumission automatique) :** appliquer les valeurs extraites dans les champs existants (`amountInput`, `label`, `selectedEnvelopeId`, `date`, `paidByUserId`, `tags`) et afficher sous la barre des **puces récapitulatives discrètes** (*« Détecté : 42,50 € · 🛒 Courses · Hier »*) avec possibilité d'ajuster chaque champ ou d'effacer en 1 tap avant d'appuyer sur **Ajouter**.
+  * Supporter intégralement les **modes clair et sombre** et l'accessibilité (`aria-live="polite"` pour le statut d'écoute et les champs détectés).
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests unitaires (`parseNaturalExpense.test.ts`) :** couverture exhaustive des formats de montants (`42,50 €`, `42.50`, `42 euros 50`, `42€50`, `15 balles`), dates relatives (`hier`, `avant-hier`), matching d'enveloppes (direct + sans accent + fallback via `suggestions`), extraction de `#tags`, `payé par <Prénom>` en budget commun, nettoyage des mots de liaison et phrases incomplètes/vides.
+  * **Nouveaux tests UI (`quickAddVoice.test.tsx`) :** mock de `SpeechRecognition` (écoute, transcription intermédiaire et finale, erreur `not-allowed`, navigateur non supporté masquant le micro), saisie texte libre pré-remplissant le formulaire `QuickAddExpenseSheet` (modes clair et sombre) et vérification qu'aucune soumission automatique n'a lieu sans validation utilisateur.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.

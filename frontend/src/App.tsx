@@ -13,6 +13,8 @@ import { BudgetPatrimoineView } from './features/budget/BudgetPatrimoineView';
 import { WhatIfSimulatorSheet } from './features/budget/WhatIfSimulatorSheet';
 import { WrappedModal } from './features/budget/WrappedModal';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
+import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
+import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { StreakBadgeCard } from './features/analytics/StreakBadgeCard';
 import { WeeklyRecapSheet } from './features/analytics/WeeklyRecapSheet';
 import { getTagsSummary } from './services/analytics.service';
@@ -393,6 +395,12 @@ export function App() {
   const trendsQuery = useQuery({
     queryKey: ['trends', activeBudget?.id, 6],
     queryFn: () => fetchBudgetTrends(activeBudget!.id, 6),
+    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
+  });
+
+  const netWorthQuery = useQuery({
+    queryKey: ['net-worth', activeBudget?.id],
+    queryFn: () => fetchBudgetNetWorth(activeBudget!.id),
     enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
   });
 
@@ -1210,6 +1218,12 @@ export function App() {
         envelopes={envelopes}
         trends={trendsQuery.data?.items ?? []}
         totalSavingsGoals={goals.reduce((sum, goal) => sum + goal.currentAmount, 0)}
+        emergencyFundAmount={
+          computeEmergencyFundAmount(goals, netWorthQuery.data?.accounts ?? []).totalAmount
+        }
+        hasLiquidAssets={
+          computeEmergencyFundAmount(goals, netWorthQuery.data?.accounts ?? []).liquidAssetsTotal > 0
+        }
         currentUserId={user.id}
         isPeriodClosed={Boolean(activePeriod?.closedAt)}
         periodClosedAt={activePeriod?.closedAt}

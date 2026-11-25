@@ -1,9 +1,14 @@
-import { Star, X } from 'lucide-react';
+import { Mic, MicOff, Sparkles, Star, X } from 'lucide-react';
 import { DropdownSelect } from '../../components/ui/DropdownSelect';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { TagInput } from '../../components/ui/TagInput';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import { triggerHaptic } from '../../utils/haptics';
+import {
+  parseNaturalExpense,
+  type ParsedNaturalExpense
+} from '../../utils/parseNaturalExpense';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import {
   formatAmountToKeypadString,
@@ -77,6 +82,64 @@ export function QuickAddExpenseSheet({
     { envelopeId: envelopes[1]?.id ?? envelopes[0]?.id ?? '', amount: '' }
   ]);
   const [error, setError] = useState<string | null>(null);
+  const [naturalInput, setNaturalInput] = useState('');
+  const [parsedPreview, setParsedPreview] = useState<ParsedNaturalExpense | null>(null);
+
+  const applyNaturalExpense = useCallback(
+    (rawText: string) => {
+      const parsed = parseNaturalExpense(rawText, {
+        envelopes,
+        suggestions,
+        members,
+        isSharedBudget
+      });
+
+      const hasAnyMatch =
+        parsed.amount !== undefined ||
+        Boolean(parsed.label) ||
+        Boolean(parsed.envelopeId) ||
+        Boolean(parsed.date) ||
+        Boolean(parsed.paidByUserId) ||
+        parsed.tags.length > 0;
+
+      if (!hasAnyMatch) {
+        setParsedPreview(null);
+        return;
+      }
+
+      if (parsed.amount !== undefined) {
+        setAmountInput(formatAmountToKeypadString(parsed.amount));
+      }
+      if (parsed.label) {
+        setLabel(parsed.label);
+      }
+      if (parsed.envelopeId) {
+        setSelectedEnvelopeId(parsed.envelopeId);
+      }
+      if (parsed.date) {
+        setDate(parsed.date);
+      }
+      if (parsed.paidByUserId) {
+        setPaidByUserId(parsed.paidByUserId);
+      }
+      if (parsed.tags.length > 0) {
+        setTags((prev) => Array.from(new Set([...prev, ...parsed.tags])));
+      }
+
+      setParsedPreview(parsed);
+      setError(null);
+      triggerHaptic('light');
+    },
+    [envelopes, suggestions, members, isSharedBudget]
+  );
+
+  const speech = useSpeechRecognition({
+    lang: 'fr-FR',
+    onFinalTranscript: (transcript) => {
+      setNaturalInput(transcript);
+      applyNaturalExpense(transcript);
+    }
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -85,6 +148,11 @@ export function QuickAddExpenseSheet({
       );
       setPaidByUserId(currentUserId);
       setError(null);
+    } else {
+      speech.stopListening();
+      speech.resetTranscript();
+      setNaturalInput('');
+      setParsedPreview(null);
     }
   }, [isOpen, envelopes, currentUserId]);
 
@@ -210,6 +278,9 @@ export function QuickAddExpenseSheet({
       setLabel('');
       setTags([]);
       setIsSplitMode(false);
+      setNaturalInput('');
+      setParsedPreview(null);
+      speech.stopListening();
       triggerHaptic('success');
       onClose();
     } catch (err) {
@@ -220,6 +291,124 @@ export function QuickAddExpenseSheet({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Ajouter une dépense rapide">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2 rounded-2xl border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900/50 dark:bg-blue-950/30">
+          <div className="flex items-center justify-between gap-2">
+            <label
+              htmlFor="quick-add-natural-input"
+              className="flex items-center gap-1.5 text-xs font-semibold text-blue-800 dark:text-blue-200"
+            >
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Saisie express (voix ou texte)</span>
+            </label>
+            {parsedPreview && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNaturalInput('');
+                  setParsedPreview(null);
+                }}
+                className="text-[11px] font-semibold text-blue-700 hover:underline dark:text-blue-300"
+              >
+                Effacer
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="quick-add-natural-input"
+              type="text"
+              value={speech.isListening && speech.interimTranscript ? speech.interimTranscript : naturalInput}
+              onChange={(e) => setNaturalInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyNaturalExpense(naturalInput);
+                }
+              }}
+              placeholder="Ex. 42,50 € Carrefour courses hier"
+              className="min-h-[44px] flex-1 rounded-xl border border-blue-200/80 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <button
+              type="button"
+              onClick={() => applyNaturalExpense(naturalInput)}
+              disabled={!naturalInput.trim()}
+              className="min-h-[44px] rounded-xl bg-blue-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
+            >
+              Appliquer
+            </button>
+            {speech.isSupported && (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  if (speech.isListening) {
+                    speech.stopListening();
+                  } else {
+                    speech.startListening();
+                  }
+                }}
+                aria-label={speech.isListening ? 'Arrêter la dictée vocale' : 'Dicter une dépense'}
+                aria-pressed={speech.isListening}
+                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                  speech.isListening
+                    ? 'animate-pulse bg-red-600 text-white shadow-sm'
+                    : 'bg-white text-blue-600 ring-1 ring-blue-200 hover:bg-blue-50 dark:bg-slate-900 dark:text-blue-300 dark:ring-slate-700'
+                }`}
+              >
+                {speech.isListening ? (
+                  <MicOff className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Mic className="h-5 w-5" aria-hidden="true" />
+                )}
+              </button>
+            )}
+          </div>
+
+          <div aria-live="polite" className="space-y-1">
+            {speech.isListening && (
+              <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                Écoute en cours… Parlez naturellement (ex. « 18 euros 50 boulangerie courses »)
+              </p>
+            )}
+            {speech.error && (
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                {speech.error}
+              </p>
+            )}
+            {parsedPreview && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] font-semibold">
+                <span className="text-blue-700 dark:text-blue-300">Détecté :</span>
+                {parsedPreview.amount !== undefined && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-slate-800 shadow-sm dark:bg-slate-800 dark:text-slate-100">
+                    {formatCurrency(parsedPreview.amount)}
+                  </span>
+                )}
+                {parsedPreview.label && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-slate-800 shadow-sm dark:bg-slate-800 dark:text-slate-100">
+                    {parsedPreview.label}
+                  </span>
+                )}
+                {parsedPreview.envelopeName && (
+                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-violet-800 dark:bg-violet-950/70 dark:text-violet-200">
+                    {parsedPreview.envelopeName}
+                  </span>
+                )}
+                {parsedPreview.dateLabel && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200">
+                    {parsedPreview.dateLabel}
+                  </span>
+                )}
+                {parsedPreview.paidByName && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
+                    Payé par {parsedPreview.paidByName}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         {quickTemplates.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Favoris</p>

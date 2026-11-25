@@ -1,11 +1,45 @@
 import { PiggyBank, ShieldCheck } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
+import type { AssetAccountDTO } from '../../services/netWorth.service';
+import type { SavingsGoalItem } from '../../types/budget.types';
+
+/**
+ * Calcule le montant total du matelas d'urgence en combinant :
+ * - le solde des comptes patrimoniaux de catégorie « cash » (liquidités uniquement),
+ * - les objectifs d'épargne qui ne sont PAS déjà liés à un compte liquide (pour éviter le double comptage).
+ */
+export function computeEmergencyFundAmount(
+  goals: Array<Pick<SavingsGoalItem, 'currentAmount' | 'assetAccountId'>>,
+  accounts: Array<Pick<AssetAccountDTO, 'id' | 'category' | 'currentBalance'>> = []
+): { totalAmount: number; liquidAssetsTotal: number } {
+  const cashAccounts = accounts.filter((account) => account.category === 'cash');
+  const cashAccountIds = new Set(cashAccounts.map((account) => account.id));
+
+  const liquidAssetsTotal = cashAccounts.reduce(
+    (sum, account) => sum + Math.max(0, account.currentBalance),
+    0
+  );
+
+  const unlinkedGoalsTotal = goals.reduce((sum, goal) => {
+    if (goal.assetAccountId && cashAccountIds.has(goal.assetAccountId)) {
+      return sum;
+    }
+    return sum + Math.max(0, goal.currentAmount);
+  }, 0);
+
+  return {
+    totalAmount: liquidAssetsTotal + unlinkedGoalsTotal,
+    liquidAssetsTotal
+  };
+}
 
 export interface SavingsHealthCardProps {
   plannedIncome: number;
   plannedSavings: number;
   plannedFixedCharges: number;
   totalSavingsGoals?: number;
+  emergencyFundAmount?: number;
+  hasLiquidAssets?: boolean;
 }
 
 /**
@@ -15,14 +49,18 @@ export function SavingsHealthCard({
   plannedIncome,
   plannedSavings,
   plannedFixedCharges,
-  totalSavingsGoals = 0
+  totalSavingsGoals = 0,
+  emergencyFundAmount,
+  hasLiquidAssets = false
 }: SavingsHealthCardProps) {
   const savingsRate =
     plannedIncome > 0 ? Math.round((plannedSavings / plannedIncome) * 1000) / 10 : 0;
 
+  const effectiveEmergencyFund = emergencyFundAmount ?? totalSavingsGoals;
+
   const emergencyMonths =
-    plannedFixedCharges > 0 && totalSavingsGoals > 0
-      ? Math.round((totalSavingsGoals / plannedFixedCharges) * 10) / 10
+    plannedFixedCharges > 0 && effectiveEmergencyFund > 0
+      ? Math.round((effectiveEmergencyFund / plannedFixedCharges) * 10) / 10
       : null;
 
   const rateBadge =
@@ -61,7 +99,11 @@ export function SavingsHealthCard({
             {emergencyMonths !== null ? `${emergencyMonths} mois` : '—'}
           </p>
           <span className="mt-1 inline-block text-[10px] text-slate-500 dark:text-slate-400">
-            {emergencyMonths !== null ? 'de charges fixes' : 'Ajoutez un objectif'}
+            {emergencyMonths !== null
+              ? hasLiquidAssets
+                ? 'de charges fixes (incl. liquidités)'
+                : 'de charges fixes'
+              : 'Ajoutez une épargne ou liquidité'}
           </span>
         </div>
       </div>

@@ -65,6 +65,8 @@ export interface MonthlyInsightsProps
   envelopes?: EnvelopeItem[];
   trends?: BudgetTrendItem[];
   totalSavingsGoals?: number;
+  emergencyFundAmount?: number;
+  hasLiquidAssets?: boolean;
   currentUserId?: string;
   isPeriodClosed?: boolean;
   periodClosedAt?: string;
@@ -91,6 +93,8 @@ export function MonthlyInsights({
   envelopes = [],
   trends = [],
   totalSavingsGoals = 0,
+  emergencyFundAmount,
+  hasLiquidAssets = false,
   currentUserId,
   isPeriodClosed = false,
   periodClosedAt,
@@ -428,6 +432,8 @@ export function MonthlyInsights({
               plannedSavings={analytics.cashFlow.plannedSavings}
               plannedFixedCharges={analytics.cashFlow.plannedFixedCharges}
               totalSavingsGoals={totalSavingsGoals}
+              emergencyFundAmount={emergencyFundAmount}
+              hasLiquidAssets={hasLiquidAssets}
             />
 
             <EnvelopeBreakdownCard envelopes={envelopes} />
