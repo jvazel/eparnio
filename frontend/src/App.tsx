@@ -498,6 +498,9 @@ export function App() {
           : [...current.goals, goal]
       };
     });
+    if (goal.assetAccountId) {
+      void queryClient.invalidateQueries({ queryKey: ['net-worth'] });
+    }
   };
 
   const syncEnvelopeAndPeriodCache = (

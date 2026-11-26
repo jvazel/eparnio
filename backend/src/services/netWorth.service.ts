@@ -411,3 +411,46 @@ export async function recordAssetOperation(
   await account.save();
   return account;
 }
+
+/**
+ * Synchronise automatiquement le solde d'un compte patrimonial lié (`goal.assetAccountId`)
+ * lorsqu'un versement ou un retrait est effectué sur un objectif d'épargne.
+ * Aucun double comptage : `getBudgetNetWorth` ne somme que les `AssetAccount`.
+ */
+export async function syncLinkedAssetAccountForGoalDelta(
+  goal: { _id: unknown; budgetId: unknown; name: string; assetAccountId?: unknown },
+  deltaAmount: number,
+  label: string
+): Promise<void> {
+  const safeDelta = roundCurrency(deltaAmount);
+  if (!goal.assetAccountId || Math.abs(safeDelta) < 0.005) {
+    return;
+  }
+
+  const account = await AssetAccountModel.findOne({
+    _id: goal.assetAccountId,
+    budgetId: goal.budgetId,
+  });
+  if (!account) {
+    return;
+  }
+
+  const now = new Date();
+  const prevBalance = roundCurrency(account.currentBalance || 0);
+  const nextBalance = roundCurrency(Math.max(0, prevBalance + safeDelta));
+
+  account.currentBalance = nextBalance;
+  account.history.push({ date: now, balance: nextBalance });
+  account.operations.push({
+    date: now,
+    type: safeDelta > 0 ? 'add' : 'withdraw',
+    amount: roundCurrency(Math.abs(safeDelta)),
+    label: label.trim() || `Épargne : ${goal.name}`,
+    balanceAfter: nextBalance,
+    counterpartyType: 'savings_goal',
+    counterpartyId: String(goal._id),
+    counterpartyName: goal.name,
+  });
+
+  await account.save();
+}

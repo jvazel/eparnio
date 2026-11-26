@@ -12,6 +12,7 @@ import {
 } from '../models/SavingsGoal.model';
 import { TransactionModel } from '../models/Transaction.model';
 import { assertPeriodAccess } from '../services/budgetAccess.service';
+import { syncLinkedAssetAccountForGoalDelta } from '../services/netWorth.service';
 import {
   recalculatePeriodSummary,
   recalculateSavingsGoalCurrentAmount
@@ -193,6 +194,14 @@ export async function createEnvelope(
       ? await recalculateSavingsGoalCurrentAmount(envelope.linkedGoalId)
       : null;
 
+    if (updatedGoal && envelope.pillar === 'savings' && envelope.allocatedAmount > 0) {
+      await syncLinkedAssetAccountForGoalDelta(
+        updatedGoal,
+        envelope.allocatedAmount,
+        `Versement épargne : ${envelope.name}`
+      );
+    }
+
     await propagateRecurringEnvelopeToFuturePeriods(envelope, period);
 
     res.status(201).json({
@@ -227,6 +236,7 @@ export async function updateEnvelope(
     }
 
     const previousGoalId = envelope.linkedGoalId?.toString();
+    const previousAllocatedAmount = envelope.allocatedAmount;
 
     if (payload.linkedGoalId) {
       const targetGoal = await SavingsGoalModel.findOne({
@@ -279,11 +289,33 @@ export async function updateEnvelope(
     const updatedPeriod = await recalculatePeriodSummary(period._id);
 
     let updatedGoal: ISavingsGoal | null = null;
-    if (previousGoalId && previousGoalId !== envelope.linkedGoalId?.toString()) {
-      updatedGoal = await recalculateSavingsGoalCurrentAmount(previousGoalId);
+    const nextGoalId = envelope.linkedGoalId?.toString();
+    if (previousGoalId && previousGoalId !== nextGoalId) {
+      const prevGoal = await recalculateSavingsGoalCurrentAmount(previousGoalId);
+      updatedGoal = prevGoal;
+      if (prevGoal && envelope.pillar === 'savings' && previousAllocatedAmount > 0) {
+        await syncLinkedAssetAccountForGoalDelta(
+          prevGoal,
+          -previousAllocatedAmount,
+          `Retrait liaison épargne : ${envelope.name}`
+        );
+      }
     }
     if (envelope.linkedGoalId) {
       updatedGoal = await recalculateSavingsGoalCurrentAmount(envelope.linkedGoalId);
+      if (updatedGoal && envelope.pillar === 'savings') {
+        const delta =
+          previousGoalId === nextGoalId
+            ? roundCurrency(envelope.allocatedAmount - previousAllocatedAmount)
+            : envelope.allocatedAmount;
+        if (Math.abs(delta) >= 0.005) {
+          await syncLinkedAssetAccountForGoalDelta(
+            updatedGoal,
+            delta,
+            `Ajustement épargne : ${envelope.name}`
+          );
+        }
+      }
     }
 
     await propagateRecurringEnvelopeToFuturePeriods(envelope, period);
@@ -364,6 +396,14 @@ export async function deleteEnvelope(
     const updatedGoal = linkedGoalId
       ? await recalculateSavingsGoalCurrentAmount(linkedGoalId)
       : null;
+
+    if (updatedGoal && envelope.pillar === 'savings' && envelope.allocatedAmount > 0) {
+      await syncLinkedAssetAccountForGoalDelta(
+        updatedGoal,
+        -envelope.allocatedAmount,
+        `Suppression versement épargne : ${envelope.name}`
+      );
+    }
 
     await propagateRecurringEnvelopeToFuturePeriods(envelope, period);
 

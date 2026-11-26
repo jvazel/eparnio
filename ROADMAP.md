@@ -1154,3 +1154,17 @@
   * **Nouveaux tests UI (`frontend/src/__tests__/receiptScanner.test.tsx`) :**
     * Mock du service `receiptOcr` : sélection d'un fichier image dans `QuickAddExpenseSheet` et `AddExpenseSheet`, affichage de la progression + bouton `Annuler`, pré-remplissage automatique du montant/libellé/date/enveloppe (avec `PayeeRules`), sélection d'un montant alternatif via chip, gestion d'erreur OCR, en **modes clair et sombre**.
   * **Non-régression & Documentation :** Vérifier le poids du bundle (`npm run build --prefix frontend` sans warning `> 500 kB`), exécuter `npm run typecheck && npm test && npm run build`, et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 62 : Synchronisation Automatique Épargne Liée ↔ Compte Patrimonial *(Zéro Double Comptage)*
+
+- [x] **Backend — Synchronisation par delta (`netWorth.service.ts`, `envelope.controller.ts`, `goal.controller.ts`) :**
+  * Créer `syncLinkedAssetAccountForGoalDelta(goal, deltaAmount, label)` dans `backend/src/services/netWorth.service.ts` : met à jour automatiquement `currentBalance`, `history[]` et `operations[]` (`counterpartyType: 'savings_goal'`) du compte patrimonial lié (`goal.assetAccountId`) lorsqu'un objectif d'épargne est crédité ou débité.
+  * Brancher la synchronisation sur tous les flux d'épargne : création, ajustement, changement de liaison et suppression d'un versement (`createEnvelope`, `updateEnvelope`, `deleteEnvelope` avec `pillar: 'savings'`) ainsi que création, modification et suppression d'un retrait (`createGoalWithdrawal`, `updateGoalWithdrawal`, `deleteGoalWithdrawal`).
+  * Garantie **zéro double comptage** : `getBudgetNetWorth` ne somme que les `AssetAccount` (et `computeEmergencyFundAmount` exclut les objectifs liés à un compte `cash`), donc la fortune totale augmente exactement d'une seule fois le montant versé.
+- [x] **Frontend — Rafraîchissement instantané du Patrimoine (`App.tsx`) :**
+  * Invalider automatiquement le cache TanStack Query `['net-worth']` dans `syncGoalCache` dès qu'un objectif lié à un compte patrimonial (`goal.assetAccountId`) est mis à jour.
+- [x] **Tests & Documentation (`savingsAssetSync.test.ts`, `ROADMAP.md`, `ARCHITECTURE.md`, `USER_GUIDE.md`) :**
+  * Test d'intégration complet vérifiant versement (`1 000 → 1 200 €`, `netWorth === 1 200 €`), ajustement (`1 350 €`), retrait (`1 250 €`) et suppression (`900 €`), validé par `npm run typecheck && npm run build`.

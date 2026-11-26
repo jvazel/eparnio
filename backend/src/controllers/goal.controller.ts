@@ -6,6 +6,7 @@ import { EnvelopeModel } from '../models/Envelope.model';
 import { SavingsGoalModel, toSavingsGoalResponse } from '../models/SavingsGoal.model';
 import { TransactionModel } from '../models/Transaction.model';
 import { assertBudgetAccess } from '../services/budgetAccess.service';
+import { syncLinkedAssetAccountForGoalDelta } from '../services/netWorth.service';
 import {
   recalculatePeriodSummary,
   recalculateSavingsGoalCurrentAmount
@@ -318,6 +319,11 @@ export async function addGoalWithdrawal(
 
     await goal.save();
     const recalculated = await recalculateSavingsGoalCurrentAmount(goal._id);
+    await syncLinkedAssetAccountForGoalDelta(
+      recalculated ?? goal,
+      -roundCurrency(payload.amount),
+      `Retrait épargne : ${payload.label}`
+    );
 
     res.status(201).json({
       status: 'ok',
@@ -352,6 +358,7 @@ export async function updateGoalWithdrawal(
       throw new AppError('Retrait d’épargne introuvable', 404);
     }
 
+    const previousAmount = withdrawal.amount;
     if (payload.amount !== undefined) withdrawal.amount = roundCurrency(payload.amount);
     if (payload.label !== undefined) withdrawal.label = payload.label;
     if (payload.date !== undefined) withdrawal.date = payload.date;
@@ -366,6 +373,14 @@ export async function updateGoalWithdrawal(
 
     await goal.save();
     const recalculated = await recalculateSavingsGoalCurrentAmount(goal._id);
+    const withdrawalDelta = roundCurrency(previousAmount - withdrawal.amount);
+    if (Math.abs(withdrawalDelta) >= 0.005) {
+      await syncLinkedAssetAccountForGoalDelta(
+        recalculated ?? goal,
+        withdrawalDelta,
+        `Ajustement retrait épargne : ${withdrawal.label}`
+      );
+    }
 
     res.status(200).json({
       status: 'ok',
@@ -394,14 +409,19 @@ export async function deleteGoalWithdrawal(
       throw new AppError('Objectif d’épargne introuvable', 404);
     }
 
-    const exists = goal.withdrawals.some((item) => item._id.toString() === withdrawalId);
-    if (!exists) {
+    const removedWithdrawal = goal.withdrawals.find((item) => item._id.toString() === withdrawalId);
+    if (!removedWithdrawal) {
       throw new AppError('Retrait d’épargne introuvable', 404);
     }
 
     goal.withdrawals = goal.withdrawals.filter((item) => item._id.toString() !== withdrawalId);
     await goal.save();
     const recalculated = await recalculateSavingsGoalCurrentAmount(goal._id);
+    await syncLinkedAssetAccountForGoalDelta(
+      recalculated ?? goal,
+      roundCurrency(removedWithdrawal.amount),
+      `Annulation retrait épargne : ${removedWithdrawal.label}`
+    );
 
     res.status(200).json({
       status: 'ok',
