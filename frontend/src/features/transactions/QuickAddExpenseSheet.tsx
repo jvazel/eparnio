@@ -291,30 +291,38 @@ export function QuickAddExpenseSheet({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Ajouter une dépense rapide">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2 rounded-2xl border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900/50 dark:bg-blue-950/30">
+        <div className="space-y-2.5 overflow-hidden rounded-2xl border border-blue-100/90 bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-white p-3.5 shadow-sm dark:border-blue-900/50 dark:from-blue-950/40 dark:via-slate-900/60 dark:to-slate-900">
           <div className="flex items-center justify-between gap-2">
             <label
               htmlFor="quick-add-natural-input"
-              className="flex items-center gap-1.5 text-xs font-semibold text-blue-800 dark:text-blue-200"
+              className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-blue-800 dark:text-blue-200"
             >
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Saisie express (voix ou texte)</span>
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+              <span className="truncate">
+                {speech.isSupported ? 'Saisie express (voix ou texte)' : 'Saisie express'}
+              </span>
             </label>
-            {parsedPreview && (
+            {(naturalInput || parsedPreview) && !speech.isListening && (
               <button
                 type="button"
                 onClick={() => {
                   setNaturalInput('');
                   setParsedPreview(null);
                 }}
-                className="text-[11px] font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                className="shrink-0 text-[11px] font-semibold text-blue-700 hover:underline dark:text-blue-300"
               >
                 Effacer
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div
+            className={`flex w-full min-w-0 items-center gap-1.5 rounded-2xl border bg-white p-1.5 shadow-sm transition-all dark:bg-slate-900 ${
+              speech.isListening
+                ? 'border-red-300 ring-2 ring-red-500/20 dark:border-red-700'
+                : 'border-blue-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/15 dark:border-slate-700 dark:focus-within:border-blue-400'
+            }`}
+          >
             <input
               id="quick-add-natural-input"
               type="text"
@@ -326,17 +334,13 @@ export function QuickAddExpenseSheet({
                   applyNaturalExpense(naturalInput);
                 }
               }}
-              placeholder="Ex. 42,50 € Carrefour courses hier"
-              className="min-h-[44px] flex-1 rounded-xl border border-blue-200/80 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              placeholder={
+                speech.isListening
+                  ? 'Parlez maintenant…'
+                  : 'Ex. 42,50 € Carrefour courses hier'
+              }
+              className="min-h-[44px] w-full min-w-0 flex-1 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
             />
-            <button
-              type="button"
-              onClick={() => applyNaturalExpense(naturalInput)}
-              disabled={!naturalInput.trim()}
-              className="min-h-[44px] rounded-xl bg-blue-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-40"
-            >
-              Appliquer
-            </button>
             {speech.isSupported && (
               <button
                 type="button"
@@ -350,10 +354,10 @@ export function QuickAddExpenseSheet({
                 }}
                 aria-label={speech.isListening ? 'Arrêter la dictée vocale' : 'Dicter une dépense'}
                 aria-pressed={speech.isListening}
-                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all ${
                   speech.isListening
                     ? 'animate-pulse bg-red-600 text-white shadow-sm'
-                    : 'bg-white text-blue-600 ring-1 ring-blue-200 hover:bg-blue-50 dark:bg-slate-900 dark:text-blue-300 dark:ring-slate-700'
+                    : 'bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60'
                 }`}
               >
                 {speech.isListening ? (
@@ -365,14 +369,31 @@ export function QuickAddExpenseSheet({
             )}
           </div>
 
-          <div aria-live="polite" className="space-y-1">
+          {naturalInput.trim().length > 0 && !speech.isListening && (
+            <button
+              type="button"
+              onClick={() => applyNaturalExpense(naturalInput)}
+              className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl bg-[#1D7DFA] px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 active:scale-[0.99]"
+            >
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Appliquer la saisie</span>
+            </button>
+          )}
+
+          <div aria-live="polite" className="space-y-1.5">
             {speech.isListening && (
-              <p className="text-xs font-medium text-red-600 dark:text-red-400">
-                Écoute en cours… Parlez naturellement (ex. « 18 euros 50 boulangerie courses »)
-              </p>
+              <div className="flex items-center gap-2 rounded-xl bg-red-50/90 px-3 py-2 text-xs font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                </span>
+                <span className="min-w-0">
+                  Écoute en cours… Dites par ex. « 18,50 € boulangerie courses »
+                </span>
+              </div>
             )}
             {speech.error && (
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                 {speech.error}
               </p>
             )}
@@ -380,27 +401,27 @@ export function QuickAddExpenseSheet({
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] font-semibold">
                 <span className="text-blue-700 dark:text-blue-300">Détecté :</span>
                 {parsedPreview.amount !== undefined && (
-                  <span className="rounded-full bg-white px-2 py-0.5 text-slate-800 shadow-sm dark:bg-slate-800 dark:text-slate-100">
+                  <span className="rounded-full bg-white px-2.5 py-0.5 text-slate-800 shadow-sm dark:bg-slate-800 dark:text-slate-100">
                     {formatCurrency(parsedPreview.amount)}
                   </span>
                 )}
                 {parsedPreview.label && (
-                  <span className="rounded-full bg-white px-2 py-0.5 text-slate-800 shadow-sm dark:bg-slate-800 dark:text-slate-100">
+                  <span className="rounded-full bg-white px-2.5 py-0.5 text-slate-800 shadow-sm dark:bg-slate-800 dark:text-slate-100">
                     {parsedPreview.label}
                   </span>
                 )}
                 {parsedPreview.envelopeName && (
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-violet-800 dark:bg-violet-950/70 dark:text-violet-200">
+                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-violet-800 dark:bg-violet-950/70 dark:text-violet-200">
                     {parsedPreview.envelopeName}
                   </span>
                 )}
                 {parsedPreview.dateLabel && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200">
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200">
                     {parsedPreview.dateLabel}
                   </span>
                 )}
                 {parsedPreview.paidByName && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200">
                     Payé par {parsedPreview.paidByName}
                   </span>
                 )}

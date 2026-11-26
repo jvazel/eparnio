@@ -758,3 +758,46 @@
   * **Nouveaux tests unitaires (`parseNaturalExpense.test.ts`) :** couverture exhaustive des formats de montants (`42,50 €`, `42.50`, `42 euros 50`, `42€50`, `15 balles`), dates relatives (`hier`, `avant-hier`), matching d'enveloppes (direct + sans accent + fallback via `suggestions`), extraction de `#tags`, `payé par <Prénom>` en budget commun, nettoyage des mots de liaison et phrases incomplètes/vides.
   * **Nouveaux tests UI (`quickAddVoice.test.tsx`) :** mock de `SpeechRecognition` (écoute, transcription intermédiaire et finale, erreur `not-allowed`, navigateur non supporté masquant le micro), saisie texte libre pré-remplissant le formulaire `QuickAddExpenseSheet` (modes clair et sombre) et vérification qu'aucune soumission automatique n'a lieu sans validation utilisateur.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 51 : Restauration & Import de Sauvegarde JSON *(Souveraineté & Réversibilité Totale des Données)*
+
+- [ ] **Évolution rétrocompatible du format d'export JSON (`export.controller.ts`) :**
+  * Inclure également les comptes patrimoniaux (`AssetAccountModel` : comptes, `history[]`, `operations[]`) dans `exportBudgetJson` (champ `assets[]`, avec `schemaVersion: 2` tout en restant 100 % rétrocompatible avec les sauvegardes `schemaVersion: 1` où `assets` est absent).
+- [ ] **Backend — Validation Zod, Remapping d'Identifiants & Service de Restauration (`jsonImport.service.ts`, `export.controller.ts`, `routes/`) :**
+  * Créer un schéma Zod strict (`budgetBackupImportSchema`) validant :
+    * `schemaVersion` (`1` ou `2`, rejet clair HTTP `400` si version non supportée),
+    * la structure complète de `budget`, `periods[]`, `envelopes[]`, `transactions[]`, `goals[]` (avec `withdrawals[]`) et `assets[]` optionnel (avec `history[]` et `operations[]`),
+    * les garde-fous de taille et d'intégrité (limite de payload JSON dédiée ex. `10 Mo`, nombre maximum de documents par collection, validation des montants finis, dates ISO valides, énumérations `pillar`, `type`, `category`, `recurrenceFrequency`, `rolloverMode`, protection contre les clés MongoDB interdites `$` / `.`).
+  * Créer le service `jsonImport.service.ts` supportant **2 modes de restauration** :
+    1. **`create_new` *(Recommandé / Par défaut)* :** crée un nouvel espace budgétaire (`BudgetModel`) appartenant à l'utilisateur connecté (`ownerId = req.user.id`, nom personnalisable ou `<Nom d'origine> (Restauré)`), sans jamais toucher aux budgets existants.
+    2. **`replace_existing` *(Avancé, réservé au `owner` du budget cible)* :** remplace intégralement le contenu d'un budget existant (suppression atomique des `TransactionModel`, `EnvelopeModel`, `SavingsGoalModel`, `AssetAccountModel` et `BudgetPeriodModel` cibles puis réinsertion des données restaurées, avec confirmation explicite requise).
+  * **Remapping déterministe de tous les `ObjectId` (zéro collision entre comptes ou environnements) :**
+    * Générer des tables de correspondance (`Map<oldId, newObjectId>`) pour `budgetId`, `periodId`, `assetAccountId`, `goalId`, `envelopeId` (y compris les liens croisés : `Envelope.previousEnvelopeId` pour la chaîne de rollover, `Envelope.linkedGoalId`, `SavingsGoal.assetAccountId`, `Transaction.envelopeId`, `Transaction.budgetPeriodId`, `Transaction.splitGroupId`, et `AssetAccount.operations[].counterpartyId`).
+    * **Résolution sécurisée des membres (`ownerId`, `memberId`, `authorId`, `paidByUserId`) :** rattacher par défaut à l'utilisateur effectuant la restauration (ou faire correspondre aux membres existants du budget cible en mode `replace_existing` si leur identifiant/e-mail coïncide), sans jamais exposer ni injecter d'utilisateurs tiers arbitraires.
+  * **Recalcul d'intégrité post-import :**
+    * Exécuter `recalculatePeriodSummary` sur chaque période restaurée et `recalculateSavingsGoalCurrentAmount` sur chaque objectif d'épargne afin de garantir une cohérence mathématique parfaite (`remainingToAllocate`, `remainingToLive`, `spentOrPaidAmount`, `currentAmount`).
+  * **Gestion atomique / Rollback en cas d'erreur :**
+    * Utiliser une transaction MongoDB si le déploiement est en Replica Set, ou un mécanisme de nettoyage compensatoire fiable (suppression du budget nouvellement créé en cas d'échec intermédiaire en mode `create_new`) afin de ne jamais laisser un budget partiellement importé.
+  * **Endpoints API protégés par JWT & Rate-Limiting :**
+    * `POST /api/budgets/import/json/preview` : valide le fichier côté serveur sans rien écrire en base et retourne un résumé détaillé (`budgetName`, `schemaVersion`, `exportedAt`, compteurs `periodsCount`, `envelopesCount`, `transactionsCount`, `goalsCount`, `assetsCount`, plage de dates couverte et éventuels avertissements de compatibilité).
+    * `POST /api/budgets/import/json` (mode `create_new`, ou `POST /api/budgets/:budgetId/import/json` en mode `replace_existing` protégé par `assertBudgetAccess` avec rôle `owner`) avec middleware anti-abus dédié (`importRateLimiter`).
+- [ ] **Frontend — Tiroir de Restauration JSON (`JsonImportSheet.tsx`, `ExportActionsCard.tsx`, `BudgetSettingsSheet.tsx`, `export.service.ts`) :**
+  * Ajouter une action **`Importer / Restaurer une sauvegarde (.json)`** dans `ExportActionsCard.tsx` et dans `BudgetSettingsSheet.tsx` (et/ou `BudgetSwitcherOverlay` pour restaurer directement en nouvel espace).
+  * Construire **`JsonImportSheet.tsx`** (parcours guidé Mobile-First en 3 étapes, compatible **modes clair et sombre**) :
+    1. **Sélection du fichier `.json` :** zone de sélection tactile (`<input type="file" accept="application/json,.json" />`), lecture et pré-validation locale (JSON valide, taille max, présence de `schemaVersion`) avec message d'erreur clair si le fichier est corrompu ou au mauvais format.
+    2. **Aperçu & Choix du mode :** appel à `/preview` affichant la carte récapitulative du backup (nom, date d'export, nombre de mois, d'enveloppes, de transactions, d'objectifs et de comptes patrimoniaux), champ de renommage optionnel, et sélecteur tactile entre :
+       * **Créer un nouvel espace budgétaire** *(badge Recommandé — sans risque)*,
+       * **Remplacer l'espace actuel** *(avertissement rouge explicite + case/saisie de confirmation obligatoire)*.
+    3. **Confirmation & Redirection :** indicateur de progression pendant la restauration, écran de succès récapitulant les éléments restaurés, invalidation des caches TanStack Query (`['budgets']`, `['period']`, `['envelopes']`, `['goals']`, `['net-worth']`, `['analytics']`) et bascule automatique sur le budget restauré.
+- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/jsonImport.test.ts`) :**
+    * Test **aller-retour complet (*round-trip*)** : `exportBudgetJson` → `POST /api/budgets/import/json` (`create_new`) puis vérification de l'intégrité de toutes les collections (périodes, enveloppes, chaîne `previousEnvelopeId` de rollover, `linkedGoalId`, transactions simples et fractionnées `splitGroupId`, remboursements, tags, objectifs + retraits, comptes patrimoniaux `assets` + `operations`, recalculs `remainingToLive` et `remainingToAllocate`).
+    * Tests de rétrocompatibilité `schemaVersion: 1` (sans `assets`) et rejet `400` sur version inconnue, JSON invalide, montants/dates invalides ou injection `$`.
+    * Tests du mode `replace_existing` (contrôle d'accès `owner` uniquement → `403` pour `editor`/`viewer`, remplacement propre sans doublons).
+    * Tests de `/preview` (zéro écriture en base) et du contrôle JWT (`401`).
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/jsonImport.test.tsx`) :**
+    * Sélection d'un fichier `.json` valide et invalide, affichage de l'aperçu, bascule `create_new` vs `replace_existing` (blocage tant que la confirmation n'est pas validée), déclenchement de la restauration, invalidation des caches et vérification des **modes clair et sombre**.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
