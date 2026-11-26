@@ -1056,3 +1056,28 @@
     * Vérifier que `trust proxy` résout correctement `X-Forwarded-For` pour isoler les buckets de rate-limiting entre clients distincts.
     * Vérifier l'épinglage `HS256` et le rejet `429` sur dépassement du rate-limiter global.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm test && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `README.md`.
+
+
+---
+
+## Étape 59 : Suivi & Mise à Jour du Solde du Compte Courant *(Manuel Pur & Confirmation Explicite)*
+
+- [x] **Backend — Compte Courant Principal sur `AssetAccountModel` (`AssetAccount.model.ts`, `netWorth.service.ts`, `netWorth.controller.ts`, `budget.routes.ts`) :**
+  * Ajouter le champ booléen optionnel `isCheckingAccount?: boolean` (défaut `false`) sur `AssetAccountModel` (garantit l'unicité avec le Patrimoine sans double comptage).
+  * Créer un endpoint dédié (protégé par JWT + `assertBudgetAccess`, lecture pour tous, écriture pour `owner`/`editor`) :
+    * `PUT /api/budgets/:budgetId/checking-balance` (corps Zod `{ balance: number, label?: string }`) :
+      * Si un compte `isCheckingAccount: true` existe sur le budget, enregistre une opération `type: 'set'` (avec `balanceAfter`, mise à jour de `currentBalance` et ajout d'un point dans `history[]`).
+      * Sinon, crée automatiquement un compte `AssetAccountModel` (`name: 'Compte courant'`, `category: 'cash'`, `icon: '🏦'`, `color: '#2563EB'`, `isCheckingAccount: true`, `currentBalance: balance`) avec son premier point d'historique et son opération initiale.
+  * Exposer `checkingAccount` (id, nom, `currentBalance`, `updatedAt`) dans la réponse de `GET /api/budgets/:budgetId/net-worth`.
+- [x] **Frontend — Carte « Compte courant » dans la Vue Synthèse (`CheckingAccountCard.tsx`, `UpdateCheckingBalanceSheet.tsx`, `MonthlyInsights.tsx`, `netWorth.service.ts`) :**
+  * Ajouter `updateCheckingAccountBalance(budgetId, { balance, label? })` dans `frontend/src/services/netWorth.service.ts`.
+  * Créer **`CheckingAccountCard.tsx`** affichée dans la vue **Synthèse** de l'onglet **Budget** (compatible modes `Essentiel` & `Avancé`, **modes clair et sombre**) :
+    * Affiche le **solde actuel du compte courant** (ou un état initial *« Non renseigné »*), la date de dernière mise à jour et un bouton **`Mettre à jour`**.
+  * Créer **`UpdateCheckingBalanceSheet.tsx`** (tiroir Mobile-First en **2 temps** avec confirmation obligatoire) :
+    1. **Saisie :** montant via `NumericKeypad` (mode manuel pur, aucun recalcul automatique sur les transactions), avec rappel du solde actuel.
+    2. **Étape de confirmation obligatoire avant enregistrement :** affichage clair d'un encart récapitulatif **`Ancien solde → Nouveau solde`** (et écart `±X €`), avec boutons **`Modifier`** et **`Confirmer la mise à jour`**.
+  * Après confirmation : invalidation des caches TanStack Query (`['net-worth']`, `['analytics']`, `['calendar']`) et feedback de succès.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/checkingBalance.test.ts`) :** création automatique du compte courant au premier `PUT /checking-balance`, mise à jour suivante enregistrant une opération `set` + point `history[]`, unicité dans `GET /net-worth`, contrôle d'accès JWT (`401`) et `viewer` (`403`).
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/checkingBalance.test.tsx`) :** affichage de `CheckingAccountCard` dans la vue Synthèse, saisie d'un nouveau solde, vérification de l'apparition obligatoire du **message de confirmation** (`Ancien → Nouveau`) avant tout appel API, puis confirmation et mise à jour, en **modes clair et sombre**.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm test && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.

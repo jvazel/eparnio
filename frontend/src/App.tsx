@@ -9,6 +9,7 @@ import { BottomSheet } from './components/ui/BottomSheet';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
+import { CheckingAccountCard } from './features/budget/CheckingAccountCard';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { StreakBadgeCard } from './features/analytics/StreakBadgeCard';
@@ -1348,6 +1349,14 @@ export function App() {
           <TagAnalyticsCard
             tags={tagsSummaryQuery.data ?? []}
             onSelectTag={setSelectedTag}
+          />
+        )}
+        {activeBudget && activePeriod && (
+          <CheckingAccountCard
+            budgetId={activeBudget.id}
+            periodId={activePeriod.id}
+            budgetName={activeBudget.name}
+            currentBalance={activePeriod.summary.remainingToLive}
           />
         )}
         </>

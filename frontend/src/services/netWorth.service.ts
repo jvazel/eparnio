@@ -106,3 +106,26 @@ export async function recordAssetOperation(
 ): Promise<void> {
   await apiClient.post(`/budgets/${budgetId}/assets/${assetId}/operations`, payload);
 }
+
+export async function updateCheckingAccountBalance(
+  budgetId: string,
+  payload: { balance: number; periodId?: string; label?: string }
+): Promise<{
+  id: string;
+  name: string;
+  currentBalance: number;
+  isCheckingAccount: boolean;
+  updatedAt: string;
+}> {
+  const { data } = await apiClient.put<{
+    status: string;
+    checkingAccount: {
+      id: string;
+      name: string;
+      currentBalance: number;
+      isCheckingAccount: boolean;
+      updatedAt: string;
+    };
+  }>(`/budgets/${budgetId}/checking-balance`, payload);
+  return data.checkingAccount;
+}

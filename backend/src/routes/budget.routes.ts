@@ -9,6 +9,8 @@ import {
   recordAssetOperationSchema,
   updateAssetHandler,
   updateAssetSchema,
+  updateCheckingBalanceHandler,
+  updateCheckingBalanceSchema,
 } from '../controllers/netWorth.controller';
 import {
   getBudgetStreakHandler,
@@ -112,6 +114,12 @@ budgetRouter.delete('/:id', validate({ params: budgetIdParamsSchema }), deleteBu
 budgetRouter.get('/:budgetId/trends', requireAuth, getBudgetTrends);
 budgetRouter.get('/:budgetId/wrapped', requireAuth, getBudgetWrappedHandler);
 budgetRouter.get('/:budgetId/net-worth', requireAuth, getNetWorthHandler);
+budgetRouter.put(
+  '/:budgetId/checking-balance',
+  requireAuth,
+  validate({ body: updateCheckingBalanceSchema }),
+  updateCheckingBalanceHandler
+);
 budgetRouter.post(
   '/:budgetId/assets',
   requireAuth,

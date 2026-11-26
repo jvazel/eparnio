@@ -37,6 +37,7 @@ export interface AssetAccountDTO {
   icon: string;
   color: string;
   currentBalance: number;
+  isCheckingAccount?: boolean;
   linkedGoals: LinkedGoalSummary[];
   operations: AssetOperationDTO[];
   updatedAt: string;
@@ -127,6 +128,7 @@ export async function getBudgetNetWorth(
       icon: acc.icon || '🏦',
       color: acc.color || '#3B82F6',
       currentBalance: bal,
+      isCheckingAccount: Boolean(acc.isCheckingAccount),
       linkedGoals: goalsByAsset.get(String(acc._id)) ?? [],
       operations: [...(acc.operations ?? [])]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -175,6 +177,7 @@ export async function createAssetAccount(
     icon?: string;
     color?: string;
     currentBalance: number;
+  isCheckingAccount?: boolean;
   }
 ) {
   await assertBudgetMember(budgetId, userId);

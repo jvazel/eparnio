@@ -34,6 +34,7 @@ export interface IAssetAccount extends Document {
   icon: string;
   color: string;
   currentBalance: number;
+  isCheckingAccount?: boolean;
   history: AssetHistoryPoint[];
   operations: AssetOperation[];
   createdAt: Date;
@@ -74,6 +75,10 @@ const assetAccountSchema = new Schema<IAssetAccount>(
       type: Number,
       required: true,
       default: 0,
+    },
+    isCheckingAccount: {
+      type: Boolean,
+      default: false,
     },
     history: [
       {

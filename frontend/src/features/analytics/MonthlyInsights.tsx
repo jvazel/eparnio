@@ -258,16 +258,6 @@ export function MonthlyInsights({
           />
 
           <AllocationDonutCard allocation={analytics.allocation} />
-
-          {onChangeBudgetViewMode && (
-            <button
-              type="button"
-              onClick={() => onChangeBudgetViewMode('advanced')}
-              className="w-full rounded-2xl border border-slate-200 bg-white/80 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Afficher les analyses avancées →
-            </button>
-          )}
         </div>
       ) : (
         <>
