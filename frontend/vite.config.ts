@@ -15,7 +15,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         manifest: false,
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}']
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+          importScripts: ['/push-sw.js']
         }
       })
     ],
