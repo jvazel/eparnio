@@ -14,5 +14,29 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
+  ],
+  "share_target": {
+    "action": "/quick-add",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Dépense rapide",
+      "short_name": "Dépense",
+      "description": "Ajouter rapidement une dépense dans une enveloppe",
+      "url": "/quick-add",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
   ]
 }

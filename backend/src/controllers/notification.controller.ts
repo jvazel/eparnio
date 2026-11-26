@@ -26,6 +26,7 @@ export const notificationPreferencesSchema = z.object({
     .optional(),
   upcomingDueAlertEnabled: z.boolean().optional(),
   envelopeThresholdAlertEnabled: z.boolean().optional(),
+  sharedActivityAlertEnabled: z.boolean().optional(),
 });
 
 export async function getVapidPublicKey(
@@ -115,6 +116,7 @@ export async function updateNotificationPreferences(
       dailyReminderHour: '20:00',
       upcomingDueAlertEnabled: true,
       envelopeThresholdAlertEnabled: true,
+      sharedActivityAlertEnabled: true,
     };
 
     user.notificationPreferences = {
@@ -123,6 +125,8 @@ export async function updateNotificationPreferences(
       upcomingDueAlertEnabled: updates.upcomingDueAlertEnabled ?? current.upcomingDueAlertEnabled,
       envelopeThresholdAlertEnabled:
         updates.envelopeThresholdAlertEnabled ?? current.envelopeThresholdAlertEnabled,
+      sharedActivityAlertEnabled:
+        updates.sharedActivityAlertEnabled ?? current.sharedActivityAlertEnabled ?? true,
     };
 
     await user.save();

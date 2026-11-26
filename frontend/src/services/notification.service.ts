@@ -5,6 +5,7 @@ export interface NotificationPreferences {
   dailyReminderHour: string;
   upcomingDueAlertEnabled: boolean;
   envelopeThresholdAlertEnabled: boolean;
+  sharedActivityAlertEnabled?: boolean;
 }
 
 export function isPushSupported(): boolean {

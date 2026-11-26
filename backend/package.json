@@ -1,6 +1,6 @@
 {
   "name": "eparnio-backend",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "description": "API REST Node.js + Express + TypeScript + Mongoose pour Eparnio",
   "main": "dist/server.js",

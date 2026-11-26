@@ -764,9 +764,9 @@
 
 ## Étape 51 : Restauration & Import de Sauvegarde JSON *(Souveraineté & Réversibilité Totale des Données)*
 
-- [ ] **Évolution rétrocompatible du format d'export JSON (`export.controller.ts`) :**
+- [x] **Évolution rétrocompatible du format d'export JSON (`export.controller.ts`) :**
   * Inclure également les comptes patrimoniaux (`AssetAccountModel` : comptes, `history[]`, `operations[]`) dans `exportBudgetJson` (champ `assets[]`, avec `schemaVersion: 2` tout en restant 100 % rétrocompatible avec les sauvegardes `schemaVersion: 1` où `assets` est absent).
-- [ ] **Backend — Validation Zod, Remapping d'Identifiants & Service de Restauration (`jsonImport.service.ts`, `export.controller.ts`, `routes/`) :**
+- [x] **Backend — Validation Zod, Remapping d'Identifiants & Service de Restauration (`jsonImport.service.ts`, `export.controller.ts`, `routes/`) :**
   * Créer un schéma Zod strict (`budgetBackupImportSchema`) validant :
     * `schemaVersion` (`1` ou `2`, rejet clair HTTP `400` si version non supportée),
     * la structure complète de `budget`, `periods[]`, `envelopes[]`, `transactions[]`, `goals[]` (avec `withdrawals[]`) et `assets[]` optionnel (avec `history[]` et `operations[]`),
@@ -784,7 +784,7 @@
   * **Endpoints API protégés par JWT & Rate-Limiting :**
     * `POST /api/budgets/import/json/preview` : valide le fichier côté serveur sans rien écrire en base et retourne un résumé détaillé (`budgetName`, `schemaVersion`, `exportedAt`, compteurs `periodsCount`, `envelopesCount`, `transactionsCount`, `goalsCount`, `assetsCount`, plage de dates couverte et éventuels avertissements de compatibilité).
     * `POST /api/budgets/import/json` (mode `create_new`, ou `POST /api/budgets/:budgetId/import/json` en mode `replace_existing` protégé par `assertBudgetAccess` avec rôle `owner`) avec middleware anti-abus dédié (`importRateLimiter`).
-- [ ] **Frontend — Tiroir de Restauration JSON (`JsonImportSheet.tsx`, `ExportActionsCard.tsx`, `BudgetSettingsSheet.tsx`, `export.service.ts`) :**
+- [x] **Frontend — Tiroir de Restauration JSON (`JsonImportSheet.tsx`, `ExportActionsCard.tsx`, `BudgetSettingsSheet.tsx`, `export.service.ts`) :**
   * Ajouter une action **`Importer / Restaurer une sauvegarde (.json)`** dans `ExportActionsCard.tsx` et dans `BudgetSettingsSheet.tsx` (et/ou `BudgetSwitcherOverlay` pour restaurer directement en nouvel espace).
   * Construire **`JsonImportSheet.tsx`** (parcours guidé Mobile-First en 3 étapes, compatible **modes clair et sombre**) :
     1. **Sélection du fichier `.json` :** zone de sélection tactile (`<input type="file" accept="application/json,.json" />`), lecture et pré-validation locale (JSON valide, taille max, présence de `schemaVersion`) avec message d'erreur clair si le fichier est corrompu ou au mauvais format.
@@ -792,7 +792,7 @@
        * **Créer un nouvel espace budgétaire** *(badge Recommandé — sans risque)*,
        * **Remplacer l'espace actuel** *(avertissement rouge explicite + case/saisie de confirmation obligatoire)*.
     3. **Confirmation & Redirection :** indicateur de progression pendant la restauration, écran de succès récapitulant les éléments restaurés, invalidation des caches TanStack Query (`['budgets']`, `['period']`, `['envelopes']`, `['goals']`, `['net-worth']`, `['analytics']`) et bascule automatique sur le budget restauré.
-- [ ] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
   * **Nouveaux tests Backend (`backend/src/__tests__/jsonImport.test.ts`) :**
     * Test **aller-retour complet (*round-trip*)** : `exportBudgetJson` → `POST /api/budgets/import/json` (`create_new`) puis vérification de l'intégrité de toutes les collections (périodes, enveloppes, chaîne `previousEnvelopeId` de rollover, `linkedGoalId`, transactions simples et fractionnées `splitGroupId`, remboursements, tags, objectifs + retraits, comptes patrimoniaux `assets` + `operations`, recalculs `remainingToLive` et `remainingToAllocate`).
     * Tests de rétrocompatibilité `schemaVersion: 1` (sans `assets`) et rejet `400` sur version inconnue, JSON invalide, montants/dates invalides ou injection `$`.
@@ -801,3 +801,258 @@
   * **Nouveaux tests Frontend (`frontend/src/__tests__/jsonImport.test.tsx`) :**
     * Sélection d'un fichier `.json` valide et invalide, affichage de l'aperçu, bascule `create_new` vs `replace_existing` (blocage tant que la confirmation n'est pas validée), déclenchement de la restauration, invalidation des caches et vérification des **modes clair et sombre**.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 52 : Scénarios & Modèles de Budget (« Mois Normal », « Mois Serré », « Vacances ») *(Adaptabilité & Revenus Variables)*
+
+- [x] **Modèle de Données (`backend/src/models/BudgetTemplate.model.ts`) :**
+  * Créer la collection dédiée `BudgetTemplateModel` rattachée à `budgetId` (index `{ budgetId: 1, name: 1 }`) contenant :
+    * `budgetId` (`ObjectId`, ref `Budget`, requis),
+    * `name` (`string`, trim, max 60 car., requis, ex. *« Mois Normal »*, *« Mois Serré »*, *« Vacances »*),
+    * `icon` (`string`, emoji par défaut `'🎭'`),
+    * `color` (`string`, couleur d'accentuation parmi la palette Eparnio),
+    * `description` (`string`, optionnel, max 160 car.),
+    * `items[]` : tableau structuré des dotations fixes incluses dans le scénario :
+      * `pillar`: `'variable_envelope' | 'savings'` (exclusion stricte de `income` et `fixed_charge`),
+      * `name`: `string` (nom de référence de l'enveloppe, utilisé avec normalisation sans casse/accents pour le rapprochement multi-mois),
+      * `icon`: `string`,
+      * `color`: `string`,
+      * `allocatedAmount`: `number` (`>= 0`, montant fixe en euros),
+      * `linkedGoalId?`: `ObjectId` (pour les items `savings` rattachés à un `SavingsGoal` existant),
+      * `rolloverEnabled?`: `boolean` et `rolloverMode?`: `'positive_only' | 'both'` (pour les items `variable_envelope`),
+      * `order`: `number`.
+    * `createdBy` (`ObjectId`, ref `User`), `createdAt`, `updatedAt`.
+  * Exposer le helper `toBudgetTemplateResponse` retournant les champs normalisés et le total prévisionnel calculé (`totalVariableAmount`, `totalSavingsAmount`, `totalAllocatedAmount`).
+- [x] **Backend — Service Métier, Dry-Run & Application Atomique (`backend/src/services/budgetTemplate.service.ts`) :**
+  * **Création depuis un mois existant (*Snapshot en 1 tap*) :** fonction `buildTemplateItemsFromPeriod(budgetId, periodId)` capturant automatiquement toutes les enveloppes `variable_envelope` et `savings` de la période cible (noms, icônes, couleurs, `allocatedAmount`, `linkedGoalId`, options de rollover, `order`).
+  * **Algorithme de rapprochement & d'application (`previewOrApplyTemplate(budgetId, periodId, templateId, { dryRun })`) :**
+    * **Rapprochement déterministe :** faire correspondre chaque item du scénario aux enveloppes de la période cible par `linkedGoalId` (en priorité pour `savings`), puis par `(pillar, nom normalisé NFD sans accents/casse)`.
+    * **Enveloppes présentes dans le scénario et dans le mois :** mettre à jour uniquement `allocatedAmount` (et optionnellement `icon`/`color`/`rolloverEnabled`/`rolloverMode` si demandé) sans **jamais** modifier `spentOrPaidAmount` ni `rolloverAmount`. Si `newAllocatedAmount < spentOrPaidAmount`, signaler un avertissement explicite (`exceedsSpent: true`) dans le diff.
+    * **Enveloppes présentes dans le scénario mais absentes du mois :** créer automatiquement l'enveloppe (`variable_envelope` ou `savings`, avec vérification que `linkedGoalId` existe encore dans le budget) sur la période cible.
+    * **Enveloppes présentes dans le mois (`variable_envelope` ou `savings`) mais absentes du scénario :** **ne jamais les supprimer** (préservation totale des transactions, de l'historique et du `rolloverAmount`) ; passer leur `allocatedAmount` à **`0 €`** (avec flag `resetToZero: true` dans le diff et avertissement si `spentOrPaidAmount > 0`).
+    * **Invariants protégés :** ne jamais toucher aux piliers `income` et `fixed_charge`, ni aux transactions existantes, ni aux `rolloverAmount` de la période active.
+    * **Mode `dryRun: true` (Aperçu Avant / Après) :** exécuter toute la simulation en mémoire sans aucune écriture en base et retourner :
+      * `changes[]` (statut `'updated' | 'created' | 'reset_to_zero' | 'unchanged'`, `previousAmount`, `newAmount`, `deltaAmount`, `spentOrPaidAmount`, `exceedsSpent`),
+      * `summaryBefore` et `summaryAfter` (`plannedEnvelopes`, `plannedSavings`, `remainingToAllocate`, `remainingToLive`),
+      * `warnings[]` (enveloppes dont le nouveau plafond passe sous le déjà dépensé ou objectifs supprimés).
+    * **Mode `dryRun: false` (Application réelle) :** appliquer les mises à jour/créations, recalculer `recalculatePeriodSummary(periodId)` (équilibre Base Zéro & Reste à vivre) et déclencher la propagation dynamique de `rolloverAmount` vers les périodes suivantes chaînées ($M+1, M+2\dots$) si elles existent déjà.
+- [x] **Backend — Contrôleur, Validation Zod & Routes API (`budgetTemplate.controller.ts`, `budget.routes.ts`, `period.routes.ts`) :**
+  * Valider tous les payloads avec Zod (`createBudgetTemplateSchema`, `updateBudgetTemplateSchema`, `applyBudgetTemplateSchema`) : montants finis `>= 0`, pilier limité à `variable_envelope | savings`, limite raisonnable d'items par scénario (ex. max 100).
+  * Exposer les endpoints protégés par JWT et `assertBudgetAccess` (lecture pour `owner`/`editor`/`viewer`, écriture/application pour `owner`/`editor`) :
+    * `GET /api/budgets/:budgetId/templates` : lister les scénarios du budget.
+    * `POST /api/budgets/:budgetId/templates` : créer un scénario (manuellement via `items[]` ou en 1 tap depuis `sourcePeriodId`).
+    * `PATCH /api/budgets/:budgetId/templates/:templateId` : renommer, modifier l'icône/couleur/description ou ajuster les dotations `items[]`.
+    * `DELETE /api/budgets/:budgetId/templates/:templateId` : supprimer un scénario (sans impacter les périodes passées).
+    * `POST /api/periods/:periodId/apply-template` : corps `{ templateId, dryRun?: boolean }` (prévisualisation Avant/Après ou application immédiate).
+  * Intégrer également l'export/import des `templates[]` dans `exportBudgetJson` / `jsonImport.service.ts` (compatibilité totale avec la souveraineté des données de l'Étape 51).
+- [x] **Frontend — Service API & Tiroirs Mobile-First (`budgetTemplate.service.ts`, `BudgetTemplatesSheet.tsx`, `BudgetTemplateFormSheet.tsx`, `ApplyTemplatePreviewSheet.tsx`) :**
+  * **`BudgetTemplatesSheet.tsx` (Liste & Gestion) :**
+    * Afficher les cartes des scénarios enregistrés (emoji, nom, total Enveloppes + Épargne, nombre de postes) avec actions rapides **Appliquer**, **Modifier** et **Supprimer**, ainsi qu'un état vide pédagogique (*« Créez des scénarios Mois Normal, Mois Serré ou Vacances pour adapter votre budget en 1 tap »*).
+    * Bouton principal **`📸 Enregistrer ce mois comme scénario`** (pré-remplit instantanément le formulaire avec les enveloppes variables et l'épargne du mois actif) et bouton secondaire **`+ Créer de zéro`**.
+  * **`BudgetTemplateFormSheet.tsx` (Création / Édition) :**
+    * Saisie du nom, emoji, couleur, description optionnelle, et liste éditable des postes (`Enveloppes variables` et `Épargne mensuelle`) avec saisie tactile des montants fixes (€) via `NumericKeypad` et total live en pied de formulaire.
+  * **`ApplyTemplatePreviewSheet.tsx` (Aperçu Avant / Après obligatoire) :**
+    * Appel automatique à `POST /api/periods/:periodId/apply-template` avec `dryRun: true`.
+    * Carte synthèse **Avant → Après** sur le **Reste à répartir (Base Zéro)** et le **Reste à vivre**.
+    * Liste claire du diff par poste : hausses/baisses (`400 € → 300 €`), créations (`+ Nouvelle enveloppe`), mises à zéro (`→ 0 € · conservée`) et badges d'alerte orange si une enveloppe a déjà dépensé plus que le nouveau plafond.
+    * Bouton bleu pleine largeur **`Appliquer ce scénario`** avec invalidation des caches TanStack Query (`['period']`, `['envelopes']`, `['analytics']`, `['goals']`, `['calendar']`).
+  * **Points d'entrée intégrés dans l'application :**
+    * Pilule **`🎭 Scénarios`** dans l'onglet **Enveloppes** (en tête de la section *Les enveloppes*),
+    * Sélecteur optionnel **« Appliquer un scénario au mois suivant »** à l'**Étape 3 de `MonthClosingWizard.tsx`** (Rituel de clôture de fin de mois),
+    * Entrée **« Scénarios de budget »** dans `BudgetSettingsSheet.tsx`.
+  * Supporter intégralement les **modes clair et sombre** et les cibles tactiles Mobile-First (`≥ 44px`).
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/budgetTemplate.test.ts`) :**
+    * CRUD complet `/api/budgets/:budgetId/templates` (création manuelle, création par snapshot `sourcePeriodId`, édition, suppression, contrôle d'accès JWT & rôles `viewer` → `403`).
+    * Tests unitaires et API de `apply-template` : mode `dryRun: true` (zéro écriture en base), mise à jour `variable_envelope` + `savings`, création des enveloppes manquantes, mise à `0 €` des enveloppes absentes du scénario **sans suppression ni perte de transactions**, alerte `exceedsSpent`, non-altération de `income`/`fixed_charge`/`rolloverAmount`, recalcul `remainingToAllocate` & `remainingToLive`, et propagation rollover $M \rightarrow M+1$.
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/budgetTemplates.test.tsx`) :**
+    * Rendu de `BudgetTemplatesSheet` (état vide + liste), création en 1 tap depuis le mois actuel, affichage du diff Avant/Après dans `ApplyTemplatePreviewSheet` (y compris badge `→ 0 €` et alerte `exceedsSpent`), confirmation d'application, intégration dans `MonthClosingWizard`, et vérification des **modes clair et sombre**.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 53 : Synchronisation Temps Réel (SSE) & Notifications d'Activité en Budget Commun *(100 % Gratuit & Zéro Service Tiers)*
+
+- [x] **Backend — Gestionnaire Temps Réel SSE (`backend/src/services/realtime.service.ts`) :**
+  * Créer un service en mémoire léger (zéro dépendance payante) gérant les abonnés par espace budgétaire (`Map<budgetId, Set<RealtimeClient>>`) avec limite de sécurité par utilisateur (ex. max 5 connexions simultanées) et nettoyage automatique sur `req.on('close')`.
+  * **Compatibilité Reverse Proxy / Render / Cloudflare :**
+    * Configurer les en-têtes SSE stricts : `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-cache, no-transform`, `Connection: keep-alive`, `X-Accel-Buffering: no`, appel immédiat à `res.flushHeaders()` et exclusion explicite de toute compression HTTP sur le flux.
+    * Envoyer un **heartbeat** (`: ping\n\n`) toutes les **25 secondes** pour éviter les coupures d'inactivité des proxies (Render / Nginx / Cloudflare).
+  * Exposer `emitBudgetEvent(budgetId, payload)` diffusant un événement structuré (`type`, `budgetId`, `periodId?`, `actorUserId`, `actorName`, `summary`, `invalidateKeys[]`, `timestamp`) et `disconnectUserFromBudget(budgetId, userId)` appelé immédiatement lors du retrait d'un membre (`DELETE /api/budgets/:id/members/:userId`).
+- [x] **Backend — Route SSE Sécurisée & Émission sur les Mutations (`realtime.controller.ts`, `budget.routes.ts`, contrôleurs métier) :**
+  * Exposer `GET /api/budgets/:budgetId/events` protégé par JWT (`Authorization: Bearer`, jamais de token dans l'URL) et `assertBudgetAccess`, actif sur **tous les budgets** (`personal` pour la synchro multi-appareils et `shared` pour le foyer).
+  * Émettre `emitBudgetEvent` (de manière non bloquante) après les mutations clés : création/modification/suppression/fractionnement/import de transactions, création/modification/pointage d'enveloppes ou charges fixes, versements/retraits sur objectifs d'épargne, application d'un scénario, clôture de mois et gestion des membres.
+- [x] **Backend — Notifications Push d'Activité Partagée (`User.model.ts`, `pushNotification.service.ts`) :**
+  * Ajouter `sharedActivityAlertEnabled: boolean` (défaut **`true`**) dans `User.notificationPreferences` (exposé dans `GET/PATCH /api/notifications/preferences`).
+  * Lors d'une mutation clé sur un budget **`shared`**, envoyer en asynchrone (*fire-and-forget*, sans jamais ralentir la réponse API) une notification Web Push (via `web-push` / VAPID déjà en place à l'Étape 38) aux autres membres du budget (`member.userId !== actorUserId`) ayant `sharedActivityAlertEnabled: true`, avec message regroupé pour les opérations par lot (import CSV, ticket fractionné) et URL cible ouvrant l'onglet concerné.
+- [x] **Frontend — Client SSE Résilient & Synchro TanStack Query (`useBudgetRealtimeSync.ts`, `RealtimeToast.tsx`, `ProfileSheet.tsx`, `App.tsx`) :**
+  * Implémenter `useBudgetRealtimeSync(budgetId, enabled)` utilisant `fetch()` + `ReadableStream` (pour transmettre le header `Authorization: Bearer` en toute sécurité) avec :
+    * **Reconnexion automatique** avec backoff exponentiel (`1s → 2s → 4s → max 30s`) en cas de coupure réseau ou redémarrage Render,
+    * **Gestion `visibilitychange` & `online` :** fermeture propre via `AbortController` lors de la mise en arrière-plan mobile et reconnexion + rafraîchissement immédiat des requêtes actives au retour au premier plan.
+  * À la réception d'un événement : invalider automatiquement les clés TanStack Query listées (`['period']`, `['envelopes']`, `['analytics']`, `['goals']`, `['calendar']`, `['net-worth']`) et, si `actorUserId !== currentUser.id`, afficher un **toast discret non intrusif** (`RealtimeToast.tsx`, ex. *« Alex a ajouté 38,00 € dans 🛒 Courses »*, compatible **modes clair et sombre**).
+  * Ajouter le 4e interrupteur **`Activité du budget commun`** (activé par défaut) dans la section *Notifications & Rappels* de `ProfileSheet.tsx`.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/realtime.test.ts`) :** tests unitaires sur `realtime.service.ts` (diffusion, filtrage par `budgetId`, limite de connexions, déconnexion forcée d'un membre retiré, heartbeat), tests API sur `GET /api/budgets/:budgetId/events` (en-têtes SSE anti-buffering, JWT `401`, accès `403`), et tests de déclenchement des notifications Push d'activité partagée (`sharedActivityAlertEnabled` true/false, exclusion de l'auteur).
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/realtimeSync.test.tsx`) :** mock de flux SSE (`ReadableStream`), invalidation automatique TanStack Query, affichage du `RealtimeToast` uniquement pour un autre membre, reconnexion sur `visibilitychange`, interrupteur `ProfileSheet` en modes clair et sombre.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 54 : Règles d'Auto-Catégorisation (`Payee Rules`) pour l'Import CSV & la Saisie *(Zéro Friction & Tri Automatique)*
+
+- [x] **Modèle de Données (`backend/src/models/PayeeRule.model.ts`) :**
+  * Créer la collection `PayeeRuleModel` rattachée à `budgetId` (index `{ budgetId: 1, order: 1 }`) contenant :
+    * `budgetId` (`ObjectId`, ref `Budget`, requis),
+    * `pattern` (`string`, trim, 1 à 80 car., requis — texte simple sans regex libre pour éviter tout risque ReDoS),
+    * `matchType`: `'contains' | 'starts_with' | 'exact'` (défaut `'contains'`, comparaison insensible à la casse et aux accents NFD),
+    * `transactionType`: `'all' | 'expense' | 'income'` (défaut `'all'`),
+    * `targetEnvelopeName?` (`string`, nom de référence de l'enveloppe variable pour survivre automatiquement à la reconduction mensuelle),
+    * `renameLabel?` (`string`, libellé propre de remplacement, max 80 car.),
+    * `addTags`: `string[]` (normalisés en minuscules, max 5 tags),
+    * `autoExcludeFromImport`: `boolean` (défaut `false` — permet d'ignorer automatiquement les virements internes ou mouvements techniques lors de l'import CSV),
+    * `isActive`: `boolean` (défaut `true`),
+    * `order`: `number` (détermine la priorité : la première règle active correspondante s'applique),
+    * `createdBy` (`ObjectId`, ref `User`), `createdAt`, `updatedAt`.
+- [x] **Backend — Contrôleur, Validation Zod & Routes API (`payeeRule.controller.ts`, `budget.routes.ts`) :**
+  * Valider les payloads avec Zod (pattern non vide, au moins une action définie parmi `targetEnvelopeName`, `renameLabel`, `addTags` ou `autoExcludeFromImport`, limite max 100 règles par budget).
+  * Exposer les endpoints protégés par JWT et `assertBudgetAccess` (lecture pour tous les membres, écriture pour `owner`/`editor`) :
+    * `GET /api/budgets/:budgetId/payee-rules` : lister les règles triées par `order`,
+    * `POST /api/budgets/:budgetId/payee-rules` : créer une règle,
+    * `PATCH /api/budgets/:budgetId/payee-rules/:ruleId` : modifier / activer / désactiver une règle,
+    * `DELETE /api/budgets/:budgetId/payee-rules/:ruleId` : supprimer une règle,
+    * `PATCH /api/budgets/:budgetId/payee-rules/reorder` : réordonner la priorité des règles.
+  * Intégrer `payeeRules[]` dans l'export/import JSON (Étape 51) pour garantir la portabilité complète.
+- [x] **Frontend — Moteur Pur d'Évaluation (`frontend/src/utils/applyPayeeRules.ts`) :**
+  * Implémenter la fonction pure `applyPayeeRules(rawLabel, transactionType, rules, activeEnvelopes)` (100 % côté client, zéro latence, insensible à la casse et aux accents NFD) retournant la première règle active correspondante et le résultat résolu : `{ matchedRule, resolvedEnvelopeId?, renameLabel?, addTags[], autoExcludeFromImport }`.
+  * Fournir un helper `extractSuggestedPattern(rawLabel)` nettoyant les préfixes bancaires courants (`CB `, `PRLV SEPA `, `PAIEMENT PSC `, dates `DD/MM`) pour pré-remplir intelligemment le motif lors de la création d'une règle à la volée.
+- [x] **Frontend — Gestion & 3 Points d'Entrée Mobile-First (`PayeeRulesSheet.tsx`, `PayeeRuleFormSheet.tsx`, `CsvImportSheet.tsx`, `QuickAddExpenseSheet.tsx`, `AddExpenseSheet.tsx`) :**
+  * **Point d'entrée 1 — Hub complet dans `BudgetSettingsSheet.tsx` → `PayeeRulesSheet.tsx` :**
+    * Liste des règles actives/inactives avec résumé visuel (`SI contient "carrefour" → 🛒 Courses · "Carrefour" · #alimentation` ou `🚫 Exclure à l'import`), switch actif/inactif, réordonnancement haut/bas, édition/suppression et champ **« Tester un libellé »** affichant en direct quelle règle se déclenche.
+  * **Point d'entrée 2 — À la volée dans la Boîte de Tri CSV (`CsvImportSheet.tsx`) :**
+    * Application automatique des règles dès le chargement du CSV/OFX : pré-sélection d'enveloppe, renommage (avec libellé brut affiché en discret dessous), ajout de tags, ou exclusion automatique (`🚫 Exclue par règle`, toujours réactivable en 1 tap), avec badge **`⚡ Règle`**.
+    * Bouton discret **`⚡ Créer une règle`** sur chaque ligne classée/exclue manuellement (pré-rempli via `extractSuggestedPattern`) + raccourci **`⚡ Mes règles (N)`** en haut de la boîte de tri.
+  * **Point d'entrée 3 — Puce cliquable 1-tap en Saisie Rapide (`QuickAddExpenseSheet.tsx` & `AddExpenseSheet.tsx`) :**
+    * Lorsque le libellé saisi ou dicté correspond à une règle active, afficher une **puce cliquable en 1 tap** (ex. **`⚡ Appliquer règle : 🛒 Courses · #alimentation`**) qui applique les champs d'un coup sans jamais écraser silencieusement le travail de l'utilisateur, ainsi qu'un bouton discret **`⚡ Créer une règle`** pour enregistrer une nouvelle règle depuis la saisie.
+  * Supporter intégralement les **modes clair et sombre** et les cibles tactiles Mobile-First (`≥ 44px`).
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/payeeRule.test.ts`) :** CRUD complet `/api/budgets/:budgetId/payee-rules`, réordonnancement, validation Zod (rejet si aucune action définie), contrôle d'accès JWT & rôles (`viewer` → `403`).
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/payeeRules.test.tsx`) :** tests unitaires sur `applyPayeeRules` (`contains`/`starts_with`/`exact`, accents NFD, ordre de priorité, `autoExcludeFromImport`, `extractSuggestedPattern`), tests UI sur `PayeeRulesSheet` (testeur de libellé, création/édition), `CsvImportSheet` (auto-catégorisation + auto-exclusion + création à la volée) et puce 1-tap dans `QuickAddExpenseSheet` en **modes clair et sombre**.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 55 : Deep-Link Quick-Add, Web Share Target & Raccourcis PWA *(Intégration Apple Pay / Google Wallet / SMS)*
+
+- [x] **Manifeste PWA & Configuration (`frontend/vite.config.ts`) :**
+  * Déclarer `share_target` dans le manifeste `vite-plugin-pwa` :
+    * `action: '/quick-add'`, `method: 'GET'`, `params: { title: 'title', text: 'text', url: 'url' }` (permet sur Android/Desktop de partager directement un SMS bancaire ou un reçu texte vers l'icône Eparnio).
+  * Déclarer `shortcuts` dans le manifeste PWA :
+    * Raccourci **« + Dépense rapide »** pointant vers `/quick-add` (appui long sur l'icône Eparnio sur Android et clic droit sur Desktop ; ignoré sans erreur sur iOS).
+  * Vérifier que le fallback SPA (Vercel `vercel.json` / Vite dev) redirige proprement `/quick-add` vers `index.html`.
+- [x] **Moteur Pur de Parsing & Persistance Éphémère (`frontend/src/utils/quickAddDeepLink.ts`) :**
+  * Implémenter `parseQuickAddUrlParams(pathname, search)` supportant **2 modes complémentaires** :
+    1. **Mode structuré (Apple Pay / Raccourcis iOS / URL) :** paramètres `amount` (normalisation virgule/point, nettoyage symboles `€`/`EUR`/espaces, montant fini `> 0`), `label` (max 160 car.), `envelope` (nom d'enveloppe à résoudre insensiblement à la casse/accents), `date` (`YYYY-MM-DD` validé), `tags` (séparés par `,`, max 5 tags normalisés), `notes` (max 300 car.).
+    2. **Mode texte libre / Web Share Target :** paramètres `text` et/ou `title` (ex. *« Paiement carte 18,40 EUR chez CARREFOUR »*) passés dans le moteur local `parseNaturalExpense.ts` (Étape 50) afin d'extraire montant, marchand, date relative, enveloppe et `#tags`.
+  * **Croisement avec les Règles d'Auto-Catégorisation (`applyPayeeRules.ts`, Étape 54) :** si le libellé extrait matche une règle active du budget, proposer automatiquement la résolution (enveloppe, libellé nettoyé, tags).
+  * **Persistance temporaire en `sessionStorage` (`EPARNIO_PENDING_QUICK_ADD_KEY`) :** si l'utilisateur arrive sur `/quick-add?...` alors que sa session JWT est expirée ou verrouillée, conserver le payload en `sessionStorage` et le consommer automatiquement dès la reconnexion (y compris via Face ID / Empreinte).
+  * **Sécurité & Hygiène d'URL :**
+    * **Jamais de soumission automatique silencieuse :** le deep-link pré-remplit uniquement `QuickAddExpenseSheet` pour une validation explicite en 1 tap par l'utilisateur.
+    * Nettoyer immédiatement l'URL via `window.history.replaceState({}, '', '/')` dès que les paramètres sont capturés afin d'éviter toute réouverture intempestive au rechargement.
+- [x] **Intégration `App.tsx` & `QuickAddExpenseSheet.tsx` :**
+  * Détecter `/quick-add` au montage d'`App.tsx` (ou à la reconnexion depuis `sessionStorage`), basculer sur l'onglet **`Enveloppes`** si nécessaire et ouvrir automatiquement `QuickAddExpenseSheet` avec `initialPrefill`.
+  * Étendre `QuickAddExpenseSheet.tsx` pour accepter `initialPrefill?: QuickAddPrefill` (pré-remplissage du montant, libellé, enveloppe résolue, date, tags, notes + affichage d'un discret bandeau *« Pré-rempli depuis votre raccourci »* en **modes clair et sombre**).
+- [x] **Guide Intégré « Automatiser avec Apple Pay / Raccourcis » (`ApplePayShortcutGuideSheet.tsx` & `BudgetSettingsSheet.tsx`) :**
+  * Ajouter une entrée **`📱 Automatiser avec Apple Pay / Raccourcis`** dans *Paramètres de l’espace → Général → Outils intelligents* (`BudgetSettingsSheet.tsx`).
+  * Construire **`ApplePayShortcutGuideSheet.tsx`** (compatible **modes clair et sombre**) présentant :
+    * L'URL modèle personnalisée sur le domaine courant (`${window.location.origin}/quick-add?amount=&label=`) avec bouton **« Copier le lien Quick-Add »** (feedback `Copié ✓`),
+    * Un bouton **« Tester maintenant »** ouvrant un exemple pré-rempli (`12,50 € · Boulangerie`) pour vérifier le rendu en 1 tap,
+    * Un guide pas à pas en 4 étapes claires pour configurer l'automatisation **Raccourcis iOS → Transaction Apple Pay → Ouvrir l'URL** (et une note sur le partage direct + appui long icône sur Android).
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/quickAddDeepLink.test.tsx`) :**
+    * Tests unitaires sur `parseQuickAddUrlParams` (mode structuré `amount=12,50&label=Boulangerie&tags=pain`, mode `share_target` `text=Paiement 18,40 EUR CARREFOUR`, paramètres invalides/vides ignorés proprement, sauvegarde/consommation `sessionStorage`).
+    * Tests UI sur `QuickAddExpenseSheet` avec `initialPrefill` (vérification qu'aucune soumission automatique n'est déclenchée sans clic sur *Ajouter*) et sur `ApplePayShortcutGuideSheet` (copie du lien, bouton *Tester maintenant*, modes clair et sombre).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 56 : Suppression de Compte RGPD & Cascade Sécurisée (`DELETE /api/auth/me`) *(Conformité RGPD & Stores)*
+
+- [x] **Backend — Service de Suppression de Compte (`backend/src/services/accountDeletion.service.ts`) :**
+  * Créer `deleteUserAccountCascade(userId)` gérant proprement tous les cas métier :
+    1. **Budgets personnels (`personal`) ou budgets sans autre membre actif :** suppression en cascade intégrale de toutes les collections liées (`TransactionModel`, `EnvelopeModel`, `SavingsGoalModel`, `AssetAccountModel`, `BudgetPeriodModel`, `BudgetTemplateModel`, `PayeeRuleModel`, puis `BudgetModel`).
+    2. **Budgets partagés (`shared`) où l'utilisateur est `editor` ou `viewer` :** retrait de l'utilisateur de `budget.members[]` sans supprimer le budget ni altérer l'historique comptable du foyer.
+    3. **Budgets partagés (`shared`) où l'utilisateur est `owner` avec d'autres membres actifs :** **transfert automatique de propriété** au premier membre restant (en priorité un `editor`, sinon un `viewer`) qui devient `owner` (`budget.ownerId` + rôle `owner` dans `members[]`), puis retrait de l'utilisateur supprimé.
+    4. **Nettoyage personnel & temps réel :** suppression des abonnements Push (`PushSubscriptionModel.deleteMany({ userId })`), fermeture immédiate des connexions SSE actives (`disconnectUserFromBudget`), puis suppression définitive du document `UserModel` (e-mail, `passwordHash`, `recoveryKeyHash`, `webauthnCredentials`, préférences).
+  * Retourner un résumé chiffré (`deletedBudgetsCount`, `transferredBudgetsCount`, `leftSharedBudgetsCount`).
+- [x] **Backend — Endpoint Sécurisé (`auth.controller.ts`, `auth.routes.ts`) :**
+  * Exposer `DELETE /api/auth/me` protégé par `requireAuth` et `authRateLimiter`.
+  * Valider le corps avec Zod (`deleteAccountSchema`) exigeant :
+    * `currentPassword` (vérifié via `bcryptjs.compare`, HTTP `401` si incorrect),
+    * `confirmation: z.literal('SUPPRIMER')` (HTTP `400` sinon).
+- [x] **Frontend — Zone Danger dans `ProfileSheet.tsx` (`Sécurité`) & Service (`auth.service.ts`) :**
+  * Ajouter `deleteMyAccount({ currentPassword, confirmation })` dans `frontend/src/services/auth.service.ts`.
+  * Ajouter une carte **« Supprimer mon compte »** en bas de l'onglet **`Sécurité`** de `ProfileSheet.tsx` (en **modes clair et sombre**) avec :
+    * Déploiement sur clic (*« Supprimer définitivement mon compte »*),
+    * Avertissement clair (suppression irréversible des budgets personnels ; transfert automatique de propriété des budgets partagés aux autres membres),
+    * Saisie du **mot de passe actuel** + champ de confirmation exigeant le mot **`SUPPRIMER`**,
+    * Bouton rouge **`Confirmer la suppression définitive`** bloqué tant que les 2 champs ne sont pas valides.
+  * Après succès : exécuter `clearSession()`, `setActiveBudgetId(null)`, `queryClient.clear()`, nettoyer le stockage de session et fermer `ProfileSheet` (retour immédiat sur `AuthScreen`).
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/accountDeletion.test.ts`) :**
+    * Rejet `401` sans JWT ou avec mauvais `currentPassword`, rejet `400` sans `confirmation: 'SUPPRIMER'`.
+    * Suppression en cascade d'un budget personnel (vérification `0` document restant dans toutes les collections + `PushSubscriptionModel` + `UserModel`).
+    * Transfert automatique de propriété d'un budget `shared` vers un `editor` (qui devient `owner`, budget et données préservés) et retrait simple d'un membre `viewer`.
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/accountDeletion.test.tsx`) :**
+    * Ouverture de la zone danger dans `ProfileSheet → Sécurité`, blocage du bouton tant que `SUPPRIMER` + mot de passe ne sont pas saisis, appel API `DELETE /api/auth/me` et nettoyage complet de la session, en **modes clair et sombre**.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `README.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 57 : Optimisation Mobile & Code-Splitting PWA (`React.lazy`, `manualChunks` & Zéro Warning Build) *(Performance 4G & Cache)*
+
+- [x] **Chargement Différé des Vues & Modales Lourdes (`frontend/src/App.tsx`) :**
+  * Convertir en `React.lazy()` avec `<Suspense>` les vues secondaires et tiroirs non ouverts au démarrage :
+    * Vues analytiques / graphiques : `BudgetCalendarView`, `BudgetPatrimoineView`, `WrappedModal`, `TagDetailModal`.
+    * Assistants et tiroirs secondaires : `OnboardingWizard`, `MonthClosingWizard`, `CsvImportSheet`, `BalanceReconcileSheet`, `WhatIfSimulatorSheet`, `GlobalSearchModal`, `ContributionCalculatorSheet`, `InvitePartnerSheet`, `BudgetSettingsSheet`, `ProfileSheet`.
+  * Conditionner le montage des modales lazy à leur état d'ouverture (`isOpen && <Suspense fallback={null}>...</Suspense>`) afin que leurs chunks ne soient **jamais téléchargés** tant que l'utilisateur n'ouvre pas la fonctionnalité, tout en affichant un fallback léger discret (skeleton/spinner) pour les vues plein écran (`BudgetCalendarView`, `BudgetPatrimoineView`).
+- [x] **Découpage des Chunks Vendors & Cache Longue Durée (`frontend/vite.config.ts`) :**
+  * Configurer `build.rollupOptions.output.manualChunks` pour isoler les dépendances stables et éviter de tout re-télécharger à chaque déploiement :
+    * `vendor-react` (`react`, `react-dom`),
+    * `vendor-query` (`@tanstack/react-query`, `axios`, `zustand`),
+    * `vendor-charts` (`recharts`, `d3-*`, `lodash`) — **0 Ko téléchargé au démarrage**,
+    * `vendor-icons` (`lucide-react`).
+  * Vérifier que `vite-plugin-pwa` (`workbox.globPatterns`) continue de pré-cacher tous les chunks JS générés en arrière-plan afin de préserver un fonctionnement **100 % hors-ligne**.
+- [x] **Nettoyage des Warnings Vite (`frontend/src/App.tsx`) :**
+  * Supprimer les `import()` dynamiques redondants sur `netWorth.service.ts`, `analytics.service.ts` et `auth.service.ts` (déjà importés statiquement) pour obtenir un build Vite propre sans avertissements.
+- [x] **Mesure Avant / Après, Tests & Documentation :**
+  * Vérifier au `npm run build --prefix frontend` la réduction significative du chunk principal initial (objectif `< 500 Ko` brut, zéro warning `Some chunks are larger than 500 kB`).
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test --prefix frontend && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `README.md`.
+
+
+---
+
+## Étape 58 : Durcissement Sécurité Production (JWT, `trust proxy` Render, Rate-Limit Global & En-têtes CSP) *(Audit Sécurité)*
+
+- [x] **Backend — Révocation stricte des comptes supprimés & Algorithme JWT épinglé (`backend/src/middlewares/auth.middleware.ts`) :**
+  * Dans `resolveAuthenticatedUser`, rejeter immédiatement avec HTTP `401` si `UserModel.findById(authUser.id)` retourne `null` (empêche un ancien JWT d'être accepté après suppression d'un compte via `DELETE /api/auth/me`).
+  * Épingler explicitement l'algorithme `{ algorithms: ['HS256'] }` dans `jwt.verify(...)` et `{ algorithm: 'HS256' }` dans `jwt.sign(...)` pour bloquer toute attaque de confusion d'algorithme.
+- [x] **Backend — `trust proxy` Render & Rate-Limiter API Global (`backend/src/app.ts`, `backend/src/middlewares/rateLimit.middleware.ts`) :**
+  * Configurer `app.set('trust proxy', 1)` dans `createApp()` afin que `req.ip` reflète l'IP réelle du client derrière le reverse proxy Render/Cloudflare (évite qu'un seul utilisateur ne bloque tous les autres sur les rate-limiters).
+  * Ajouter un `apiRateLimiter` global souple (ex. `300 requêtes / 15 min` par IP, configurable via `API_RATE_LIMIT_MAX`) monté sur `/api` pour protéger `/search`, `/export`, `/analytics`, `/periods` et `/transactions` contre le flood / DoS.
+- [x] **Backend — Audit & Sécurisation des requêtes `$regex` (`backend/src/services/search.service.ts`) :**
+  * Vérifier que tout terme utilisateur passé dans une requête MongoDB `$regex` est systématiquement échappé (`escapeRegex`) et borné en longueur pour prévenir tout risque ReDoS.
+- [x] **Frontend / Hébergement — En-têtes de Sécurité & CSP (`frontend/vercel.json`) :**
+  * Configurer des en-têtes HTTP de sécurité sur le déploiement frontend (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` minimaliste, et `Content-Security-Policy` compatible PWA / WebAuthn / Web Push / API Render).
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/securityHardening.test.ts`) :**
+    * Vérifier qu'un JWT valide devient immédiatement rejeté (`401`) dès que le compte est supprimé (`DELETE /api/auth/me`).
+    * Vérifier que `trust proxy` résout correctement `X-Forwarded-For` pour isoler les buckets de rate-limiting entre clients distincts.
+    * Vérifier l'épinglage `HS256` et le rejet `429` sur dépassement du rate-limiter global.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm test && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `README.md`.

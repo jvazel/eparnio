@@ -45,6 +45,32 @@ import {
   updateBudgetSchema,
   updateContributionSplit
 } from '../controllers/budget.controller';
+import {
+  createBudgetTemplate,
+  createBudgetTemplateBodySchema,
+  deleteBudgetTemplate,
+  listBudgetTemplates,
+  templateBudgetParamsSchema,
+  templateItemParamsSchema,
+  updateBudgetTemplate,
+  updateBudgetTemplateBodySchema
+} from '../controllers/budgetTemplate.controller';
+import {
+  createPayeeRule,
+  createPayeeRuleBodySchema,
+  deletePayeeRule,
+  listPayeeRules,
+  payeeRuleBudgetParamsSchema,
+  payeeRuleItemParamsSchema,
+  reorderPayeeRules,
+  reorderPayeeRulesBodySchema,
+  updatePayeeRule,
+  updatePayeeRuleBodySchema
+} from '../controllers/payeeRule.controller';
+import {
+  realtimeEventsParamsSchema,
+  streamBudgetEvents
+} from '../controllers/realtime.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { inviteJoinRateLimiter } from '../middlewares/rateLimit.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -141,6 +167,58 @@ budgetRouter.delete(
   '/:id/quick-templates/:templateId',
   validate({ params: quickTemplateParamsSchema }),
   deleteQuickTemplate
+);
+
+budgetRouter.get(
+  '/:budgetId/events',
+  validate({ params: realtimeEventsParamsSchema }),
+  streamBudgetEvents
+);
+budgetRouter.get(
+  '/:budgetId/templates',
+  validate({ params: templateBudgetParamsSchema }),
+  listBudgetTemplates
+);
+budgetRouter.post(
+  '/:budgetId/templates',
+  validate({ params: templateBudgetParamsSchema, body: createBudgetTemplateBodySchema }),
+  createBudgetTemplate
+);
+budgetRouter.patch(
+  '/:budgetId/templates/:templateId',
+  validate({ params: templateItemParamsSchema, body: updateBudgetTemplateBodySchema }),
+  updateBudgetTemplate
+);
+budgetRouter.delete(
+  '/:budgetId/templates/:templateId',
+  validate({ params: templateItemParamsSchema }),
+  deleteBudgetTemplate
+);
+
+budgetRouter.get(
+  '/:budgetId/payee-rules',
+  validate({ params: payeeRuleBudgetParamsSchema }),
+  listPayeeRules
+);
+budgetRouter.post(
+  '/:budgetId/payee-rules',
+  validate({ params: payeeRuleBudgetParamsSchema, body: createPayeeRuleBodySchema }),
+  createPayeeRule
+);
+budgetRouter.patch(
+  '/:budgetId/payee-rules/reorder',
+  validate({ params: payeeRuleBudgetParamsSchema, body: reorderPayeeRulesBodySchema }),
+  reorderPayeeRules
+);
+budgetRouter.patch(
+  '/:budgetId/payee-rules/:ruleId',
+  validate({ params: payeeRuleItemParamsSchema, body: updatePayeeRuleBodySchema }),
+  updatePayeeRule
+);
+budgetRouter.delete(
+  '/:budgetId/payee-rules/:ruleId',
+  validate({ params: payeeRuleItemParamsSchema }),
+  deletePayeeRule
 );
 
 export { budgetRouter };

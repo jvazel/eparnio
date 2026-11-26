@@ -129,3 +129,29 @@ export async function loginWithBiometrics(
   );
   return data;
 }
+
+/**
+ * Supprime définitivement le compte connecté et ses données (RGPD Art. 17).
+ */
+export async function deleteMyAccount(payload: {
+  currentPassword: string;
+  confirmation: 'SUPPRIMER';
+}): Promise<{
+  message: string;
+  summary: {
+    deletedBudgetsCount: number;
+    transferredBudgetsCount: number;
+    leftSharedBudgetsCount: number;
+  };
+}> {
+  const { data } = await apiClient.delete<{
+    status: string;
+    message: string;
+    summary: {
+      deletedBudgetsCount: number;
+      transferredBudgetsCount: number;
+      leftSharedBudgetsCount: number;
+    };
+  }>('/auth/me', { data: payload });
+  return { message: data.message, summary: data.summary };
+}

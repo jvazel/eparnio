@@ -202,7 +202,8 @@ describe('Étape 29 — Export CSV / JSON & Sécurité', () => {
     expect(jsonRes.status).toBe(200);
     expect(jsonRes.headers['content-type']).toContain('application/json');
     expect(jsonRes.headers['content-disposition']).toContain('eparnio-backup-');
-    expect(jsonRes.body.schemaVersion).toBe(1);
+    expect(jsonRes.body.schemaVersion).toBe(2);
+    expect(Array.isArray(jsonRes.body.assets)).toBe(true);
     expect(jsonRes.body.budget.id).toBe(budgetId);
     expect(jsonRes.body.periods).toHaveLength(2);
     expect(jsonRes.body.envelopes.length).toBeGreaterThanOrEqual(4);

@@ -30,6 +30,9 @@ Application **Mobile-First (PWA)** de gestion budgétaire personnelle et partag�
 - **Vue Calendrier & Trésorerie Prévisionnelle :** Bascule `Synthèse | Calendrier | Patrimoine` dans l'onglet `Budget` avec carte de chaleur des dépenses, filtres par pilier (revenus, fixes, variables, épargne, patrimoine) et par membre, courbe Recharts de trésorerie projetée et suivi des échéances périodiques à 3 mois.
 - **Patrimoine Net & Transferts :** Suivi `Actifs − Passifs` (liquidités, placements, immobilier, crypto, crédits), liaison multi-projets depuis l'onglet `Epargne`, historique plein écran, transferts entre comptes/épargne/budget et inclusion dans l'export PDF.
 - **Simulateur « Et si… ? », Notifications Push PWA & Eparnio Wrapped :** Simulation d'achats (ponctuel, mensuel, `Nx`), rappels Web Push VAPID, détecteur de hausses d'abonnements (`N` vs `N-1`), équilibrage Base Zéro en 1 tap et rétrospective annuelle en 5 slides.
+- **Souveraineté totale (Export / Import JSON v2 & Suppression RGPD) :** Sauvegarde complète `.json` (incluant le patrimoine), restauration guidée en 3 étapes (`create_new` ou `replace_existing` avec aperçu) et suppression définitive de compte `DELETE /api/auth/me` (transfert automatique des budgets partagés).
+- **Scénarios de Budget & Règles d'Auto-Catégorisation (`Payee Rules`) :** Création de modèles (*Mois Normal*, *Mois Serré*, *Vacances*) applicables avec aperçu Avant/Après, et règles `SI … ALORS …` (enveloppe, renommage, `#tags`, exclusion CSV) avec testeur en direct.
+- **Synchronisation Temps Réel (SSE), Apple Pay & Performance Mobile :** Mise à jour instantanée multi-appareils/foyer via SSE (`0 €`), deep-link `/quick-add` + Web Share Target (Raccourcis iOS / Apple Pay / Android) et code-splitting PWA (`React.lazy` + `manualChunks`, chunk principal réduit de **-75 %**).
 
 ## Prérequis
 
@@ -98,12 +101,14 @@ Toutes les commandes suivantes s'exécutent depuis la racine `Eparnio/` :
 | `npm run test:coverage` | Exécute les tests de non-régression avec rapport de couverture (`@vitest/coverage-v8`). |
 | `npm run build` | Compile les builds de production backend et frontend. |
 
-## Nouveautés récentes (Étapes 9 à 16)
+## Nouveautés récentes (Étapes 51 à 57)
 
-- **Page dédiée Enveloppe** (`EnvelopeDetailPage`) avec jauge circulaire, édition/suppression au tap et réglages (`⚙️`).
-- **Détails des enveloppes & Tendances multi-mois** dans l'onglet *Budget* (`EnvelopeBreakdownCard` & `TrendsCard`).
-- **PWA Mobile** : installation guidée (Android / iOS Safari), **connexion biométrique** (Face ID / Empreinte via WebAuthn), **rappels locaux** et **mode hors-ligne** avec file de synchronisation.
-- **Sinking Funds** : calcul automatique de la mensualité conseillée selon l'échéance des objectifs d'épargne.
+- **Restauration JSON v2** (`JsonImportSheet`) : import complet avec aperçu, remapping déterministe des `ObjectId` et rétrocompatibilité v1.
+- **Scénarios & Modèles de Budget** (`BudgetTemplatesSheet`) : snapshot en 1 tap du mois actif, sélecteur tactile d'enveloppes et aperçu Avant/Après obligatoire.
+- **Synchronisation Temps Réel (SSE) & Push Partagé** (`useBudgetRealtimeSync`, `RealtimeToast`) : 100 % gratuit, compatible Render/Cloudflare.
+- **Règles d'Auto-Catégorisation** (`PayeeRulesSheet`) : règles `SI … ALORS …` + exclusion automatique CSV + testeur en direct.
+- **Apple Pay / Raccourcis & Web Share Target** (`ApplePayShortcutGuideSheet`, `/quick-add`) : saisie express en 1 tap sans connexion bancaire.
+- **Suppression de Compte RGPD** (`DELETE /api/auth/me`) & **Code-Splitting PWA** (chunk initial `295 Ko` / `73 Ko` gzip, zéro warning Vite).
 
 ## Documentation
 

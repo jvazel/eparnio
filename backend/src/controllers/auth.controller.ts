@@ -3,10 +3,18 @@ import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { env } from '../config/env';
-import { signAccessToken } from '../middlewares/auth.middleware';
+import {
+  clearAuthCookies,
+  parseCookieHeader,
+  REFRESH_COOKIE_NAME,
+  setAuthCookies,
+  signAccessToken,
+  verifyRefreshToken
+} from '../middlewares/auth.middleware';
 import { AppError } from '../middlewares/error.middleware';
 import { BudgetModel, toBudgetResponse } from '../models/Budget.model';
 import { toUserResponse, UserModel } from '../models/User.model';
+import { deleteUserAccountCascade } from '../services/accountDeletion.service';
 import { sendPasswordResetCodeEmail } from '../services/email.service';
 
 const SALT_ROUNDS = env.BCRYPT_SALT_ROUNDS;
@@ -173,7 +181,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       throw new AppError('E-mail ou mot de passe incorrect', 401);
     }
 
-    const token = signAccessToken({
+    const { accessToken: token } = setAuthCookies(res, {
       id: user._id.toString(),
       email: user.email,
       tokenVersion: user.tokenVersion ?? 0
@@ -479,4 +487,104 @@ export async function updatePassword(
   } catch (err) {
     next(err);
   }
+}
+
+export const deleteAccountSchema = z.object({
+  currentPassword: z.string().min(1, 'Le mot de passe actuel est requis'),
+  confirmation: z.literal('SUPPRIMER', {
+    error: 'Veuillez saisir exactement « SUPPRIMER » pour confirmer'
+  })
+});
+
+/**
+ * Supprime définitivement le compte connecté et ses données (RGPD Art. 17).
+ * Vérifie le mot de passe actuel et la confirmation explicite « SUPPRIMER ».
+ */
+export async function deleteMe(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user?.id) {
+      throw new AppError('Authentification requise', 401);
+    }
+
+    const { currentPassword } = req.body as z.infer<typeof deleteAccountSchema>;
+    const user = await UserModel.findById(req.user.id);
+    if (!user) {
+      throw new AppError('Utilisateur introuvable', 404);
+    }
+
+    const matchesPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!matchesPassword) {
+      throw new AppError('Mot de passe actuel incorrect', 401);
+    }
+
+    const summary = await deleteUserAccountCascade(user._id.toString());
+    clearAuthCookies(res);
+
+    res.status(200).json({
+      status: 'ok',
+      message: 'Votre compte et vos données ont été supprimés définitivement.',
+      summary
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Rafraîchit silencieusement la session à partir du cookie `HttpOnly` `eparnio_refresh_token`
+ * en appliquant une rotation des cookies et en vérifiant `tokenVersion`.
+ */
+export async function refreshSession(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const cookies = parseCookieHeader(req.headers.cookie);
+    const refreshToken = cookies[REFRESH_COOKIE_NAME];
+    if (!refreshToken) {
+      throw new AppError('Refresh token manquant', 401);
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    const user = await UserModel.findById(decoded.id);
+    if (!user) {
+      clearAuthCookies(res);
+      throw new AppError('Compte introuvable ou supprimé', 401);
+    }
+
+    if ((user.tokenVersion ?? 0) !== (decoded.tokenVersion ?? 0)) {
+      clearAuthCookies(res);
+      throw new AppError('Session révoquée. Veuillez vous reconnecter.', 401);
+    }
+
+    const { accessToken } = setAuthCookies(res, {
+      id: user._id.toString(),
+      email: user.email,
+      tokenVersion: user.tokenVersion ?? 0
+    });
+
+    res.status(200).json({
+      status: 'ok',
+      token: accessToken,
+      user: toUserResponse(user)
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Déconnecte la session navigateur en effaçant les cookies `HttpOnly`.
+ */
+export function logout(_req: Request, res: Response): void {
+  clearAuthCookies(res);
+  res.status(200).json({
+    status: 'ok',
+    message: 'Déconnexion réussie'
+  });
 }

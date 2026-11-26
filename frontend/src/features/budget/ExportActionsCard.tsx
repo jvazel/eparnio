@@ -1,4 +1,4 @@
-import { Download, FileSpreadsheet, FileText, ShieldCheck } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, ShieldCheck, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { getApiErrorMessage } from '../../services/api';
@@ -12,6 +12,7 @@ export interface ExportActionsCardProps {
   onExportCsv?: () => Promise<string | void> | string | void;
   onExportPdf?: () => Promise<string | void> | string | void;
   onExportJson?: () => Promise<string | void> | string | void;
+  onImportJson?: () => void;
 }
 
 /**
@@ -24,13 +25,14 @@ export function ExportActionsCard({
   subtitle = 'Vos données vous appartiennent : exportez-les à tout moment en 1 clic, sans frais ni verrouillage.',
   onExportCsv,
   onExportPdf,
-  onExportJson
+  onExportJson,
+  onImportJson
 }: ExportActionsCardProps) {
   const [busyKind, setBusyKind] = useState<ExportKind | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!onExportCsv && !onExportPdf && !onExportJson) {
+  if (!onExportCsv && !onExportPdf && !onExportJson && !onImportJson) {
     return null;
   }
 
@@ -129,6 +131,23 @@ export function ExportActionsCard({
               <span>
                 {busyKind === 'json' ? 'Téléchargement JSON…' : 'Sauvegarde complète (.json)'}
               </span>
+            </span>
+          </button>
+        ) : null}
+
+        {onImportJson ? (
+          <button
+            type="button"
+            disabled={busyKind !== null}
+            onClick={onImportJson}
+            className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/90 px-3.5 py-2 text-left text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:hover:bg-slate-800"
+          >
+            <span className="flex items-center gap-2.5">
+              <Upload
+                className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400"
+                aria-hidden="true"
+              />
+              <span>Importer / Restaurer une sauvegarde (.json)</span>
             </span>
           </button>
         ) : null}

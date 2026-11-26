@@ -93,3 +93,17 @@ export const inviteJoinRateLimiter = createRateLimiter({
   maxRequests: env.INVITE_RATE_LIMIT_MAX,
   message: 'Trop de tentatives avec des codes d’invitation. Réessayez plus tard.'
 });
+
+export const importRateLimiter = createRateLimiter({
+  keyPrefix: 'json-import',
+  windowMs: env.RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+  maxRequests: 15,
+  message: 'Trop de tentatives d’importation de sauvegarde. Réessayez plus tard.'
+});
+
+export const apiRateLimiter = createRateLimiter({
+  keyPrefix: 'api-global',
+  windowMs: env.RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+  maxRequests: 300,
+  message: 'Trop de requêtes effectuées. Veuillez patienter quelques instants.'
+});

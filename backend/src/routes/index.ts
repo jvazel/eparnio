@@ -14,11 +14,20 @@ import {
   periodAnalyticsQuerySchema
 } from '../controllers/analytics.controller';
 import {
+  applyBudgetTemplateBodySchema,
+  applyBudgetTemplateHandler,
+  applyTemplateParamsSchema
+} from '../controllers/budgetTemplate.controller';
+import {
   exportBudgetCsv,
   exportBudgetJson,
   exportBudgetParamsSchema,
-  exportCsvQuerySchema
+  exportCsvQuerySchema,
+  importBudgetJsonCreateNew,
+  importBudgetJsonReplaceExisting,
+  previewBudgetJsonImport
 } from '../controllers/export.controller';
+import { importRateLimiter } from '../middlewares/rateLimit.middleware';
 import { authRouter } from './auth.routes';
 import { budgetRouter } from './budget.routes';
 import { envelopeRouter } from './envelope.routes';
@@ -51,6 +60,25 @@ apiRouter.post('/health/echo', validate({ body: echoBodySchema }), (req, res) =>
 });
 
 apiRouter.use('/auth', authRouter);
+apiRouter.post(
+  '/budgets/import/json/preview',
+  requireAuth,
+  importRateLimiter,
+  previewBudgetJsonImport
+);
+apiRouter.post(
+  '/budgets/import/json',
+  requireAuth,
+  importRateLimiter,
+  importBudgetJsonCreateNew
+);
+apiRouter.post(
+  '/budgets/:budgetId/import/json',
+  requireAuth,
+  importRateLimiter,
+  validate({ params: exportBudgetParamsSchema }),
+  importBudgetJsonReplaceExisting
+);
 apiRouter.use('/budgets', budgetRouter);
 apiRouter.get(
   '/budgets/:budgetId/export/csv',
@@ -92,6 +120,12 @@ apiRouter.post(
   requireAuth,
   validate({ params: periodAnalyticsParamsSchema }),
   applyAutoBalanceHandler
+);
+apiRouter.post(
+  '/periods/:periodId/apply-template',
+  requireAuth,
+  validate({ params: applyTemplateParamsSchema, body: applyBudgetTemplateBodySchema }),
+  applyBudgetTemplateHandler
 );
 
 export { apiRouter };

@@ -46,8 +46,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'eparnio-auth-storage',
       storage: createJSONStorage(() => localStorage),
+      // Le JWT reste uniquement en mémoire (le cookie HttpOnly assure la persistance sécurisée)
       partialize: (state) => ({
-        token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated
       })

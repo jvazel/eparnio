@@ -18,6 +18,7 @@ export interface NotificationPreferences {
   dailyReminderHour: string;
   upcomingDueAlertEnabled: boolean;
   envelopeThresholdAlertEnabled: boolean;
+  sharedActivityAlertEnabled?: boolean;
 }
 
 export interface IWebAuthnCredential {
@@ -169,7 +170,8 @@ const userSchema = new Schema<IUser>(
           dailyReminderEnabled: { type: Boolean, default: false },
           dailyReminderHour: { type: String, default: '20:00' },
           upcomingDueAlertEnabled: { type: Boolean, default: true },
-          envelopeThresholdAlertEnabled: { type: Boolean, default: true }
+          envelopeThresholdAlertEnabled: { type: Boolean, default: true },
+          sharedActivityAlertEnabled: { type: Boolean, default: true }
         },
         { _id: false }
       ),
@@ -177,7 +179,8 @@ const userSchema = new Schema<IUser>(
         dailyReminderEnabled: false,
         dailyReminderHour: '20:00',
         upcomingDueAlertEnabled: true,
-        envelopeThresholdAlertEnabled: true
+        envelopeThresholdAlertEnabled: true,
+        sharedActivityAlertEnabled: true
       })
     }
   },

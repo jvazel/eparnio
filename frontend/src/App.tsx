@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { TabId } from './components/layout/BottomNav';
 import { BudgetSwitcherOverlay } from './components/layout/BudgetSwitcher';
 import { OfflineBanner } from './components/pwa/OfflineBanner';
@@ -8,20 +8,14 @@ import { MobileShell } from './components/layout/MobileShell';
 import { BottomSheet } from './components/ui/BottomSheet';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
-import { BudgetCalendarView } from './features/budget/BudgetCalendarView';
-import { BudgetPatrimoineView } from './features/budget/BudgetPatrimoineView';
-import { WhatIfSimulatorSheet } from './features/budget/WhatIfSimulatorSheet';
-import { WrappedModal } from './features/budget/WrappedModal';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { StreakBadgeCard } from './features/analytics/StreakBadgeCard';
 import { WeeklyRecapSheet } from './features/analytics/WeeklyRecapSheet';
-import { getTagsSummary } from './services/analytics.service';
+import { getTagsSummary, fetchBudgetStreak } from './services/analytics.service';
+import { updateMe } from './services/auth.service';
 import { TagAnalyticsCard } from './features/analytics/TagAnalyticsCard';
-import { TagDetailModal } from './features/analytics/TagDetailModal';
-import { BalanceReconcileSheet } from './features/budget/BalanceReconcileSheet';
-import { CsvImportSheet } from './features/transactions/CsvImportSheet';
 import { QuickAddExpenseSheet } from './features/transactions/QuickAddExpenseSheet';
 import { createQuickTemplate, deleteQuickTemplate } from './services/budget.service';
 import {
@@ -31,16 +25,11 @@ import {
   splitTransaction
 } from './services/transaction.service';
 import { AuthScreen } from './features/auth/AuthScreen';
-import { OnboardingWizard } from './features/auth/OnboardingWizard';
-import { ProfileSheet } from './features/auth/ProfileSheet';
-import { BudgetSettingsSheet } from './features/budget/BudgetSettingsSheet';
 import { CreationFormModal } from './features/budget/CreationFormModal';
-import { GlobalSearchModal } from './features/budget/GlobalSearchModal';
 import type { GlobalSearchItem } from './services/search.service';
 import { EnvelopesList } from './features/budget/EnvelopesList';
 import { FixedChargesList } from './features/budget/FixedChargesList';
 import { IncomeList } from './features/budget/IncomeList';
-import { MonthClosingWizard } from './features/budget/MonthClosingWizard';
 import type { ZeroBasedQuickActions } from './features/budget/ZeroBasedBanner';
 import { AddExpenseSheet, type AddExpensePayload } from './features/transactions/AddExpenseSheet';
 import { EnvelopeDetailPage } from './features/transactions/EnvelopeDetailPage';
@@ -50,8 +39,59 @@ import {
   GoalWithdrawalSheet
 } from './features/savings/GoalDetailSheet';
 import { SavingsGoalsList } from './features/savings/SavingsGoalsList';
-import { ContributionCalculatorSheet } from './features/shared-budget/ContributionCalculatorSheet';
-import { InvitePartnerSheet } from './features/shared-budget/InvitePartnerSheet';
+
+const BudgetCalendarView = lazy(() =>
+  import('./features/budget/BudgetCalendarView').then((m) => ({ default: m.BudgetCalendarView }))
+);
+const BudgetPatrimoineView = lazy(() =>
+  import('./features/budget/BudgetPatrimoineView').then((m) => ({
+    default: m.BudgetPatrimoineView
+  }))
+);
+const WhatIfSimulatorSheet = lazy(() =>
+  import('./features/budget/WhatIfSimulatorSheet').then((m) => ({
+    default: m.WhatIfSimulatorSheet
+  }))
+);
+const WrappedModal = lazy(() =>
+  import('./features/budget/WrappedModal').then((m) => ({ default: m.WrappedModal }))
+);
+const TagDetailModal = lazy(() =>
+  import('./features/analytics/TagDetailModal').then((m) => ({ default: m.TagDetailModal }))
+);
+const BalanceReconcileSheet = lazy(() =>
+  import('./features/budget/BalanceReconcileSheet').then((m) => ({
+    default: m.BalanceReconcileSheet
+  }))
+);
+const CsvImportSheet = lazy(() =>
+  import('./features/transactions/CsvImportSheet').then((m) => ({ default: m.CsvImportSheet }))
+);
+const OnboardingWizard = lazy(() =>
+  import('./features/auth/OnboardingWizard').then((m) => ({ default: m.OnboardingWizard }))
+);
+const ProfileSheet = lazy(() =>
+  import('./features/auth/ProfileSheet').then((m) => ({ default: m.ProfileSheet }))
+);
+const BudgetSettingsSheet = lazy(() =>
+  import('./features/budget/BudgetSettingsSheet').then((m) => ({ default: m.BudgetSettingsSheet }))
+);
+const GlobalSearchModal = lazy(() =>
+  import('./features/budget/GlobalSearchModal').then((m) => ({ default: m.GlobalSearchModal }))
+);
+const MonthClosingWizard = lazy(() =>
+  import('./features/budget/MonthClosingWizard').then((m) => ({ default: m.MonthClosingWizard }))
+);
+const ContributionCalculatorSheet = lazy(() =>
+  import('./features/shared-budget/ContributionCalculatorSheet').then((m) => ({
+    default: m.ContributionCalculatorSheet
+  }))
+);
+const InvitePartnerSheet = lazy(() =>
+  import('./features/shared-budget/InvitePartnerSheet').then((m) => ({
+    default: m.InvitePartnerSheet
+  }))
+);
 import {
   buildClientPeriodAnalytics,
   fetchBudgetTrends,
@@ -419,7 +459,7 @@ export function App() {
   const streakQuery = useQuery({
     queryKey: ['budget-streak', activeBudget?.id],
     queryFn: async () => {
-      const { fetchBudgetStreak } = await import('./services/analytics.service');
+      // fetchBudgetStreak importé statiquement
       return fetchBudgetStreak(activeBudget!.id);
     },
     enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
@@ -771,7 +811,11 @@ export function App() {
   }
 
   if (!user.hasCompletedOnboarding) {
-    return <OnboardingWizard />;
+    return (
+      <Suspense fallback={null}>
+        <OnboardingWizard />
+      </Suspense>
+    );
   }
 
   const handlePreviousPeriod = () => {
@@ -1252,7 +1296,7 @@ export function App() {
         onExportPdf={
           activeBudget
             ? async () => {
-                const { fetchBudgetNetWorth } = await import('./services/netWorth.service');
+                // fetchBudgetNetWorth importé statiquement
                 const netWorthData = await fetchBudgetNetWorth(activeBudget.id).catch(() => undefined);
                 const txs = activePeriod
                   ? (await listTransactions(activePeriod.id).catch(() => ({ transactions: [] })))
@@ -1292,7 +1336,7 @@ export function App() {
             }
           });
           try {
-            const { updateMe } = await import('./services/auth.service');
+            // updateMe importé statiquement
             const updated = await updateMe({ budgetViewMode: mode });
             useAuthStore.setState({ user: updated });
           } catch {
@@ -1380,7 +1424,8 @@ export function App() {
     ) / 100;
 
   return (
-    <>
+    <Suspense fallback={null}>
+      <>
       {selectedEnvelope ? (
         <EnvelopeDetailPage
           envelope={selectedEnvelope}
@@ -1782,6 +1827,7 @@ export function App() {
           }}
         />
       )}
-    </>
+      </>
+    </Suspense>
   );
 }

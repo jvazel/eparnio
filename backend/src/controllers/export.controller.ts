@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { AppError } from '../middlewares/error.middleware';
+import { AssetAccountModel } from '../models/AssetAccount.model';
 import { toBudgetResponse } from '../models/Budget.model';
 import { BudgetPeriodModel, toBudgetPeriodResponse } from '../models/BudgetPeriod.model';
 import { EnvelopeModel, toEnvelopeResponse } from '../models/Envelope.model';
@@ -9,6 +10,7 @@ import { SavingsGoalModel, toSavingsGoalResponse } from '../models/SavingsGoal.m
 import { TransactionModel, toTransactionResponse } from '../models/Transaction.model';
 import { UserModel } from '../models/User.model';
 import { assertBudgetAccess } from '../services/budgetAccess.service';
+import { importJsonBackup, previewJsonBackup } from '../services/jsonImport.service';
 
 const objectIdSchema = z
   .string()
@@ -310,7 +312,7 @@ export async function exportBudgetCsv(
 
 /**
  * Exporte une sauvegarde JSON structurée et complète de l'espace budgétaire
- * (métadonnées, périodes, enveloppes, transactions, objectifs d'épargne et retraits).
+ * (métadonnées, périodes, enveloppes, transactions, objectifs d'épargne, retraits et comptes patrimoniaux).
  */
 export async function exportBudgetJson(
   req: Request,
@@ -321,7 +323,7 @@ export async function exportBudgetJson(
     const { budgetId } = req.params as z.infer<typeof exportBudgetParamsSchema>;
     const { budget } = await assertBudgetAccess(budgetId, req.user?.id);
 
-    const [periods, envelopes, transactions, goals, profiles] = await Promise.all([
+    const [periods, envelopes, transactions, goals, assets, profiles] = await Promise.all([
       BudgetPeriodModel.find({ budgetId: budget._id }).sort({ year: 1, month: 1 }),
       EnvelopeModel.find({ budgetId: budget._id }).sort({
         budgetPeriodId: 1,
@@ -330,6 +332,7 @@ export async function exportBudgetJson(
       }),
       TransactionModel.find({ budgetId: budget._id }).sort({ date: 1, createdAt: 1 }),
       SavingsGoalModel.find({ budgetId: budget._id }).sort({ order: 1, createdAt: 1 }),
+      AssetAccountModel.find({ budgetId: budget._id }).sort({ createdAt: 1 }),
       loadMemberProfilesMap(
         budget.ownerId,
         budget.members.map((m) => m.userId)
@@ -346,13 +349,117 @@ export async function exportBudgetJson(
 
     res.status(200).json({
       status: 'ok',
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt: new Date().toISOString(),
       budget: toBudgetResponse(budget, profiles),
       periods: periods.map(toBudgetPeriodResponse),
       envelopes: envelopes.map(toEnvelopeResponse),
       transactions: transactions.map(toTransactionResponse),
-      goals: goals.map(toSavingsGoalResponse)
+      goals: goals.map(toSavingsGoalResponse),
+      assets: assets.map((asset) => ({
+        id: asset._id.toString(),
+        budgetId: asset.budgetId.toString(),
+        name: asset.name,
+        category: asset.category,
+        icon: asset.icon,
+        color: asset.color,
+        currentBalance: asset.currentBalance,
+        history: (asset.history ?? []).map((point) => ({
+          date: new Date(point.date).toISOString(),
+          balance: point.balance
+        })),
+        operations: (asset.operations ?? []).map((op) => ({
+          ...(op._id ? { id: op._id.toString() } : {}),
+          date: new Date(op.date).toISOString(),
+          type: op.type,
+          amount: op.amount,
+          label: op.label,
+          balanceAfter: op.balanceAfter,
+          counterpartyType: op.counterpartyType,
+          ...(op.counterpartyId ? { counterpartyId: op.counterpartyId } : {}),
+          ...(op.counterpartyName ? { counterpartyName: op.counterpartyName } : {})
+        })),
+        createdAt: asset.createdAt.toISOString(),
+        updatedAt: asset.updatedAt.toISOString()
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Valide un fichier de sauvegarde JSON sans aucune écriture en base
+ * et retourne un aperçu détaillé de son contenu.
+ */
+export async function previewBudgetJsonImport(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const preview = previewJsonBackup(req.body);
+    res.status(200).json({
+      status: 'ok',
+      preview
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Restaure une sauvegarde JSON en créant un nouvel espace budgétaire (`create_new`).
+ */
+export async function importBudgetJsonCreateNew(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user?.id) {
+      throw new AppError('Authentification requise', 401);
+    }
+
+    const result = await importJsonBackup({
+      rawInput: req.body,
+      userId: req.user.id,
+      mode: 'create_new'
+    });
+
+    res.status(201).json({
+      status: 'ok',
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Restaure une sauvegarde JSON en remplaçant intégralement un espace budgétaire existant (`replace_existing`, owner uniquement).
+ */
+export async function importBudgetJsonReplaceExisting(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user?.id) {
+      throw new AppError('Authentification requise', 401);
+    }
+
+    const { budgetId } = req.params as z.infer<typeof exportBudgetParamsSchema>;
+    const result = await importJsonBackup({
+      rawInput: req.body,
+      userId: req.user.id,
+      mode: 'replace_existing',
+      targetBudgetId: budgetId
+    });
+
+    res.status(200).json({
+      status: 'ok',
+      ...result
     });
   } catch (err) {
     next(err);

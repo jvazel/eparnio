@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import {
+  deleteAccountSchema,
+  deleteMe,
   forgotPasswordSchema,
   getMe,
   login,
   loginSchema,
+  logout,
+  refreshSession,
   regenerateRecoveryKey,
   register,
   registerSchema,
@@ -28,8 +32,17 @@ const authRouter = Router();
 
 authRouter.post('/register', authRateLimiter, validate({ body: registerSchema }), register);
 authRouter.post('/login', authRateLimiter, validate({ body: loginSchema }), login);
+authRouter.post('/refresh', authRateLimiter, refreshSession);
+authRouter.post('/logout', logout);
 authRouter.get('/me', requireAuth, getMe);
 authRouter.patch('/me', requireAuth, validate({ body: updateProfileSchema }), updateMe);
+authRouter.delete(
+  '/me',
+  authRateLimiter,
+  requireAuth,
+  validate({ body: deleteAccountSchema }),
+  deleteMe
+);
 authRouter.post('/recovery-key', requireAuth, regenerateRecoveryKey);
 authRouter.post(
   '/password/forgot',
