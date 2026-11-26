@@ -424,6 +424,7 @@ export function MonthlyInsights({
               totalSavingsGoals={totalSavingsGoals}
               emergencyFundAmount={emergencyFundAmount}
               hasLiquidAssets={hasLiquidAssets}
+              ageOfMoney={analytics.ageOfMoney}
             />
 
             <EnvelopeBreakdownCard envelopes={envelopes} />

@@ -9,6 +9,8 @@ import {
   parseNaturalExpense,
   type ParsedNaturalExpense
 } from '../../utils/parseNaturalExpense';
+import type { ParsedReceipt } from '../../utils/parseReceiptText';
+import { ReceiptScanButton } from './ReceiptScanButton';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import {
   formatAmountToKeypadString,
@@ -131,6 +133,37 @@ export function QuickAddExpenseSheet({
       triggerHaptic('light');
     },
     [envelopes, suggestions, members, isSharedBudget]
+  );
+
+  const handleReceiptScanned = useCallback(
+    (receipt: ParsedReceipt) => {
+      if (receipt.amount !== null) {
+        setAmountInput(formatAmountToKeypadString(receipt.amount));
+      }
+      if (receipt.merchant) {
+        setLabel(receipt.merchant);
+        const normalizedMerchant = normalizeEnvelopeName(receipt.merchant);
+        const matchedSuggestion = suggestions.find((s) =>
+          normalizedMerchant.includes(normalizeEnvelopeName(s.label)) ||
+          normalizeEnvelopeName(s.label).includes(normalizedMerchant)
+        );
+        if (matchedSuggestion) {
+          const matchedEnv = envelopes.find(
+            (e) =>
+              normalizeEnvelopeName(e.name) === normalizeEnvelopeName(matchedSuggestion.envelopeName)
+          );
+          if (matchedEnv) {
+            setSelectedEnvelopeId(matchedEnv.id);
+          }
+        }
+      }
+      if (receipt.date) {
+        setDate(receipt.date);
+      }
+      setError(null);
+      triggerHaptic('light');
+    },
+    [envelopes, suggestions]
   );
 
   const speech = useSpeechRecognition({
@@ -291,6 +324,15 @@ export function QuickAddExpenseSheet({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Ajouter une dépense rapide">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <ReceiptScanButton
+          disabled={isSubmitting}
+          onResult={handleReceiptScanned}
+          onSelectCandidateAmount={(candidate) => {
+            setAmountInput(formatAmountToKeypadString(candidate));
+            triggerHaptic('light');
+          }}
+        />
+
         <div className="space-y-2.5 overflow-hidden rounded-2xl border border-blue-100/90 bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-white p-3.5 shadow-sm dark:border-blue-900/50 dark:from-blue-950/40 dark:via-slate-900/60 dark:to-slate-900">
           <div className="flex items-center justify-between gap-2">
             <label
@@ -654,23 +696,17 @@ export function QuickAddExpenseSheet({
         {!isSplitMode && <TagInput tags={tags} onChange={setTags} />}
 
         {isSharedBudget && members.length > 0 && (
-          <label className="block space-y-1">
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-              Payé par
-            </span>
-            <select
-              value={paidByUserId}
-              onChange={(e) => setPaidByUserId(e.target.value)}
-              aria-label="Payé par"
-              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            >
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <DropdownSelect
+            label="Payé par"
+            value={paidByUserId}
+            onChange={setPaidByUserId}
+            options={members.map((m) => ({
+              value: m.userId,
+              label: m.displayName || 'Membre',
+              icon: m.avatarEmoji || '👤',
+              sublabel: m.userId === currentUserId ? 'Moi' : undefined
+            }))}
+          />
         )}
 
         {error && (

@@ -18,6 +18,8 @@ import {
   DateCardField,
   MemberPayerSelector
 } from '../budget/SharedFormFields';
+import type { ParsedReceipt } from '../../utils/parseReceiptText';
+import { ReceiptScanButton } from './ReceiptScanButton';
 
 export interface AddExpensePayload {
   envelopeId: string;
@@ -249,6 +251,29 @@ export function AddExpenseSheet({
             {isRefund ? '↩️' : '💳'}
           </span>
         </div>
+
+        {!isEditing && !isRefund && (
+          <ReceiptScanButton
+            disabled={isSubmitting}
+            onResult={(receipt: ParsedReceipt) => {
+              if (receipt.amount !== null) {
+                setAmountInput(formatAmountToKeypadString(receipt.amount));
+              }
+              if (receipt.merchant) {
+                setLabel(receipt.merchant);
+              }
+              if (receipt.date) {
+                setDateValue(receipt.date);
+              }
+              setErrorMessage(null);
+              triggerHaptic('light');
+            }}
+            onSelectCandidateAmount={(candidate) => {
+              setAmountInput(formatAmountToKeypadString(candidate));
+              triggerHaptic('light');
+            }}
+          />
+        )}
 
         <fieldset className="rounded-2xl border border-slate-100 bg-white p-1.5 shadow-card dark:border-slate-800 dark:bg-slate-900">
           <legend className="sr-only">Type d’opération</legend>

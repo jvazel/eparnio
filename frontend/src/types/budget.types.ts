@@ -263,6 +263,17 @@ export interface MemberBreakdownItem {
   expensesSharePercentage: number;
 }
 
+export type AgeOfMoneyStatus = 'learning' | 'tight' | 'growing' | 'target_reached';
+
+export interface AgeOfMoneyAnalytics {
+  ageDays: number | null;
+  status: AgeOfMoneyStatus;
+  sampleSize: number;
+  minSamples: number;
+  inflowsCount: number;
+  deltaDays: number | null;
+}
+
 export interface PeriodAnalytics {
   periodId: string;
   budgetId: string;
@@ -272,4 +283,5 @@ export interface PeriodAnalytics {
   allocation: AllocationAnalytics;
   zeroBased: ZeroBasedAnalytics;
   memberBreakdown: MemberBreakdownItem[];
+  ageOfMoney?: AgeOfMoneyAnalytics;
 }

@@ -1081,3 +1081,76 @@
   * **Nouveaux tests Backend (`backend/src/__tests__/checkingBalance.test.ts`) :** création automatique du compte courant au premier `PUT /checking-balance`, mise à jour suivante enregistrant une opération `set` + point `history[]`, unicité dans `GET /net-worth`, contrôle d'accès JWT (`401`) et `viewer` (`403`).
   * **Nouveaux tests Frontend (`frontend/src/__tests__/checkingBalance.test.tsx`) :** affichage de `CheckingAccountCard` dans la vue Synthèse, saisie d'un nouveau solde, vérification de l'apparition obligatoire du **message de confirmation** (`Ancien → Nouveau`) avant tout appel API, puis confirmation et mise à jour, en **modes clair et sombre**.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm test && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 60 : Indicateur « Âge de l'Argent » (*Age of Money* — Méthode FIFO) *(Pilotage & Sortie du Paie-à-Paie)*
+
+- [x] **Backend — Service de calcul FIFO (`backend/src/services/ageOfMoney.service.ts`) & Exposition dans `/analytics` (`analytics.controller.ts`) :**
+  * Créer un service pur et testable **`ageOfMoney.service.ts`** calculant l'**Âge de l'Argent** (en jours) selon l'algorithme **FIFO (First In, First Out)** sur l'historique du budget (jusqu'aux 6 derniers mois de périodes) :
+    * **Entrées (*inflows*) :** revenus effectivement perçus (`EnvelopeModel` avec `pillar: 'income'` et `isPaid: true`), triés chronologiquement par date.
+    * **Sorties (*outflows*) :** dépenses réelles composées des charges fixes payées (`pillar: 'fixed_charge'` et `isPaid: true`) et des dépenses variables (`TransactionModel` avec montant positif, hors remboursements/transferts internes), triées chronologiquement par date.
+    * **Appariement FIFO :** chaque sortie consomme les euros disponibles dans la plus ancienne entrée non épuisée ; l'âge d'une sortie correspond au nombre de jours (borné à `>= 0`) entre la date de l'entrée consommée et la date de la sortie (moyenne pondérée si une sortie chevauche plusieurs entrées).
+    * **Résultat agrégé (`AgeOfMoneyResult`) :** moyenne des âges sur les **10 dernières sorties** (`ageDays: number | null`, arrondi à l'entier), nombre de sorties analysées (`sampleSize`), seuil minimum requis (`minSamples: 10`), statut pédagogique (`'learning' | 'tight' | 'growing' | 'target_reached'`), et tendance optionnelle (`deltaDays: number | null` vs la fenêtre précédente).
+    * Si `sampleSize < 10` ou aucune entrée perçue, retourner `ageDays: null` et `status: 'learning'`.
+  * Exposer `ageOfMoney` dans la réponse de `GET /api/periods/:periodId/analytics` (aucune requête réseau supplémentaire côté client).
+- [x] **Frontend — Affichage dans l'onglet « Budget » (`SavingsHealthCard.tsx`, `MonthlyInsights.tsx`, `api.types.ts`) :**
+  * Typer `ageOfMoney` dans `frontend/src/types/budget.types.ts`.
+  * Enrichir **`SavingsHealthCard.tsx`** (ou ajouter un bloc dédié harmonisé dans la vue Synthèse/Analyses de l'onglet `Budget`, compatible **modes clair et sombre** et **mode Essentiel / Avancé**) avec :
+    * **Valeur principale :** `X jours` (`tabular-nums`) et **barre de progression vers l'objectif des 30 jours** (*vivre sur l'argent du mois dernier*).
+    * **Badge de palier coloré :**
+      * `< 15 jours` (Ambre) : *Flux tendu*
+      * `15 – 29 jours` (Bleu) : *En progression*
+      * `≥ 30 jours` (Vert émeraude) : *Objectif atteint (≥ 30 j)*
+    * **État d'apprentissage (`learning`) :** message bienveillant *« Encore N dépense(s) pour calculer l'âge de ton argent »* (ou *« Pointez au moins un revenu perçu »*).
+    * **Infobulle / popover pédagogique `ⓘ` :** explication claire en 2 phrases de la méthode FIFO et du cap des 30 jours.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/ageOfMoney.test.ts`) :**
+    * Tests unitaires du moteur FIFO : cas nominal sur 1 revenu et plusieurs dépenses, chevauchement de 2 revenus consécutifs (moyenne pondérée), cap des 10 dernières sorties, état `'learning'` si `< 10` sorties ou sans revenu perçu, exclusion des revenus/charges non pointés (`isPaid: false`).
+    * Test API `GET /api/periods/:periodId/analytics` vérifiant la présence et la cohérence du champ `ageOfMoney`.
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/ageOfMoney.test.tsx`) :** rendu des 4 états (`learning`, `< 15 j`, `15–29 j`, `≥ 30 j`), barre de progression vers 30 jours, ouverture de l'infobulle `ⓘ`, en **modes clair et sombre**.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm test && npm run build`, vérifier zéro régression et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 61 : Scan de Ticket de Caisse par OCR 100 % Local & Privé *(Zéro Friction & Saisie Ultra-Rapide)*
+
+- [x] **Dépendance & Configuration Sécurité / Bundle (`frontend/package.json`, `frontend/vite.config.ts`, `frontend/vercel.json`) :**
+  * Installer `tesseract.js` dans `frontend/` et **garantir un chargement 100 % paresseux** (`await import('tesseract.js')` uniquement au clic sur le bouton de scan) afin d'ajouter **`0 Ko`** au bundle initial (respect strict de l'Étape 57 : chunk principal `< 500 Ko` et zéro warning build).
+  * Mettre à jour les en-têtes **Content-Security-Policy (CSP)** dans `frontend/vercel.json` (Étape 58) pour autoriser l'exécution WebAssembly & Web Worker de Tesseract (`worker-src 'self' blob:`, `'wasm-unsafe-eval'` dans `script-src`, et l'origine du CDN `tessdata_fast` si chargée en dynamique ou hébergement local des assets `.wasm`/`.traineddata.gz` dans `public/ocr/` pour un fonctionnement 100 % autonome et hors-ligne).
+- [x] **Frontend — Prétraitement d'Image Mobile (`frontend/src/utils/preprocessReceiptImage.ts`) :**
+  * Créer un utilitaire pur client-side prenant un `File` / `Blob` image et le préparant sur un `<canvas>` hors-écran pour maximiser la précision sur papier thermique froissé ou peu contrasté :
+    * Respect de l'orientation EXIF et redimensionnement proportionnel à **`1400 px` max** de largeur (prévention des pics RAM sur iOS/Android).
+    * Conversion en **niveaux de gris** (luminance pondérée) + **renforcement de contraste** (étirement d'histogramme / seuillage doux).
+    * Libération explicite des `ObjectURL` et du buffer canvas après conversion (`canvas.width = 0; canvas.height = 0`) afin d'éviter toute fuite mémoire.
+- [x] **Frontend — Parseur de Ticket Français (`frontend/src/utils/parseReceiptText.ts`) :**
+  * Créer un module 100 % pur et unitairement testable extrayant une structure typée `ParsedReceipt { amount: number | null; candidateAmounts: number[]; merchant: string | null; date: string | null; rawText: string; confidence: 'high' | 'medium' | 'low' }` à partir du texte brut OCR :
+    * **Extraction du montant total :**
+      * Normalisation des séparateurs (`42,80`, `42.80`, `42, 80 €`, `EUR`, erreurs OCR classiques `O`→`0`, `l`/`I`→`1`).
+      * Score prioritaire pour les lignes contenant des mots-clés de total français (`TOTAL`, `NET A PAYER`, `A PAYER`, `MONTANT TTC`, `CB`, `CARTE BANCAIRE`, `SOMME`, `REGLEMENT`).
+      * Exclusion explicite des lignes parasites (`TVA`, `SOUS-TOTAL`, `RENDU`, `ESPECES`, `REMISE`, `ECONOMIE`, `POINTS`, `FIDELITE`, `CODE`, `SIRET`, `TEL`).
+      * Fallback sur le montant cohérent le plus élevé du ticket (`> 0` et `< 50 000 €`) + collecte des **3 meilleurs montants candidats** (`candidateAmounts`, dédupliqués) pour correction en 1 tap.
+    * **Extraction de la date :**
+      * Détection des formats français `JJ/MM/AAAA`, `JJ-MM-AAAA`, `JJ.MM.AAAA`, `JJ/MM/AA` et `JJ mois AAAA` (ex. `26 nov. 2026`).
+      * Garde-fou temporel (ignorer les dates incohérentes hors plage `[année courante - 2 ; aujourd'hui + 7 jours]`) et normalisation en format ISO `YYYY-MM-DD`.
+    * **Extraction du marchand / libellé :**
+      * Analyse des 5 premières lignes significatives en haut du ticket avec nettoyage des lignes purement numériques, numéros de téléphone, codes postaux, adresses (`RUE`, `AVENUE`, `BD`), mentions légales (`SAS`, `SARL`, `SIRET`, `RCS`, `BIENVENUE`, `MERCI`).
+      * Capitalisation propre (Title Case) et croisement prioritaire avec les **`PayeeRules`** existantes (`applyPayeeRules.ts`, Étape 54) pour pré-sélectionner automatiquement l'enveloppe correspondante.
+- [x] **Frontend — Service OCR & Hook React (`frontend/src/utils/receiptOcr.ts`, `frontend/src/hooks/useReceiptScanner.ts`) :**
+  * Encapsuler `tesseract.js` dans `receiptOcr.ts` avec langue française (`fra`), callback de progression (`0` à `100 %`), gestion d'annulation (`AbortController` / `worker.terminate()`), timeout de sécurité (`20 s`) et terminaison systématique du worker dans un bloc `finally`.
+  * Créer le hook **`useReceiptScanner.ts`** exposant `{ scanFile, cancelScan, isScanning, progress, error, lastResult, reset }` avec messages d'erreur clairs en français (fichier non image, image illisible, timeout, annulation utilisateur).
+- [x] **Frontend — Intégration UI Mobile-First (`QuickAddExpenseSheet.tsx`, `AddExpenseSheet.tsx`, `ReceiptScanButton.tsx`) :**
+  * Créer un composant réutilisable **`ReceiptScanButton.tsx`** (compatible **modes clair et sombre**) déclenchant un `<input type="file" accept="image/*" capture="environment" />` (accès direct caméra arrière sur iOS/Android ou galerie sur desktop, zéro permission WebRTC complexe).
+  * Intégrer `ReceiptScanButton` dans **`QuickAddExpenseSheet.tsx`** (à côté du bouton micro vocal) et dans **`AddExpenseSheet.tsx`** :
+    * Pendant le scan : bandeau compact avec barre de progression (`Lecture du ticket… XX %`) et bouton **`Annuler`**.
+    * Après le scan : pré-remplissage non destructif des champs **Montant**, **Libellé**, **Date** et **Enveloppe** (via `PayeeRules`) — **jamais d'enregistrement automatique** sans validation visuelle de l'utilisateur.
+    * Si `candidateAmounts.length > 1`, afficher une rangée de **chips cliquables** (*« Autres montants détectés : 42,80 € · 38,50 € »*) permettant de corriger le montant en 1 tap.
+    * Mention discrète de confidentialité (*« Analyse 100 % locale — aucune photo n'est envoyée sur nos serveurs »*).
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests unitaires (`frontend/src/__tests__/parseReceiptText.test.ts`) :**
+    * Tickets réels/simulés français variés (supermarché Carrefour/Leclerc avec `TOTAL TTC` + `TVA` + `RENDU`, restaurant avec `NET A PAYER`, boulangerie sans mot-clé `TOTAL`, erreurs OCR `42,8O`, dates `JJ/MM/AA` et `JJ/MM/AAAA`, filtrage `SIRET`/`SAS`/`RUE`, fallback `candidateAmounts`, texte vide ou illisible).
+  * **Nouveaux tests UI (`frontend/src/__tests__/receiptScanner.test.tsx`) :**
+    * Mock du service `receiptOcr` : sélection d'un fichier image dans `QuickAddExpenseSheet` et `AddExpenseSheet`, affichage de la progression + bouton `Annuler`, pré-remplissage automatique du montant/libellé/date/enveloppe (avec `PayeeRules`), sélection d'un montant alternatif via chip, gestion d'erreur OCR, en **modes clair et sombre**.
+  * **Non-régression & Documentation :** Vérifier le poids du bundle (`npm run build --prefix frontend` sans warning `> 500 kB`), exécuter `npm run typecheck && npm test && npm run build`, et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
