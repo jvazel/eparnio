@@ -1,10 +1,12 @@
-import { CreditCard, Mail, PiggyBank, Wallet } from 'lucide-react';
+import { CreditCard, Landmark, Mail, PiggyBank, Wallet } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import type { CashFlowAnalytics } from '../../types/budget.types';
 import { formatCurrency } from '../../utils/format';
 
 export interface CashFlowSummaryCardProps {
   cashFlow: CashFlowAnalytics;
+  activeBalance?: number;
+  upcomingFixedCharges?: number;
 }
 
 function MoneyBagIcon({ className }: { className?: string }) {
@@ -31,7 +33,11 @@ function MoneyBagIcon({ className }: { className?: string }) {
  * Carte 1 de l'onglet « Budget » (calibrée sur Finzee : « Entrées et sorties d'argent »)
  * présentant Revenus, Dépenses fixes, Dépenses variables, Epargne et Restant en gras.
  */
-export function CashFlowSummaryCard({ cashFlow }: CashFlowSummaryCardProps) {
+export function CashFlowSummaryCard({
+  cashFlow,
+  activeBalance,
+  upcomingFixedCharges = 0
+}: CashFlowSummaryCardProps) {
   const rows = [
     {
       id: 'income',
@@ -115,6 +121,38 @@ export function CashFlowSummaryCard({ cashFlow }: CashFlowSummaryCardProps) {
           </li>
         ))}
       </ul>
+
+      {typeof activeBalance === 'number' && (
+        <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/70">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"
+              aria-hidden="true"
+            >
+              <Landmark className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-slate-900 dark:text-slate-50">
+                Solde estimé en compte
+              </p>
+              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                {upcomingFixedCharges > 0
+                  ? `Hors ${formatCurrency(upcomingFixedCharges)} de charges à venir`
+                  : 'Revenus perçus − dépenses passées'}
+              </p>
+            </div>
+          </div>
+          <span
+            className={`shrink-0 text-sm font-bold tabular-nums ${
+              activeBalance < 0
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-blue-700 dark:text-blue-300'
+            }`}
+          >
+            {formatCurrency(activeBalance)}
+          </span>
+        </div>
+      )}
     </Card>
   );
 }

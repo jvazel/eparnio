@@ -1260,3 +1260,17 @@
   * Écran épuré lisible en 1 scroll : `Point du dimanche`, `Entrées et sorties d'argent`, `Budget quotidien`, `Bandeau Base Zéro`, `Répartition Fixe/Variable/Épargne`, `Tags` *(si utilisés)*, `Mes jalons de régularité` *(+ `Bilan Foyer` si budget partagé, et `Clôture` uniquement dans les 5 derniers jours)*.
 - [x] **Tests & Documentation (`displayMode.test.tsx`, `ROADMAP.md`) :**
   * Mettre à jour `displayMode.test.tsx` pour vérifier : absence de `ExportActionsCard` en Mode essentiel, affichage conditionnel de la clôture (`daysRemaining <= 5` vs `> 5`), et présence en Mode détaillé.
+
+
+---
+
+## Étape 66 : Indicateur « Solde Estimé en Compte » (Hors Dépenses Fixes Futures) *(Pointage Réel & Réconciliation)*
+
+- [x] **Calcul pur (`frontend/src/utils/activeBalance.ts`) :**
+  * Implémenter `computeActiveAccountBalance(envelopes, summary)` calculant le solde actif estimé sur le compte bancaire : `Revenus perçus (✓) − Dépenses fixes payées (✓) − Épargne du mois − Dépenses variables saisies`, ainsi que le total des charges fixes payées et à venir.
+- [x] **Affichage combiné Option A + B (Modes Essentiel & Détaillé) :**
+  * **Onglet `Dépenses` (`FixedChargesList.tsx`) :** encart compact **Solde estimé en compte** juste sous la jauge `Reste à dépenser`, avec sous-ligne `Payées : X € · À venir : Y €` mise à jour en direct au pointage `✓`.
+  * **Onglet `Budget > Synthèse` (`CashFlowSummaryCard.tsx` & `MonthlyInsights.tsx`) :** ligne dédiée **Solde estimé en compte** sous `Restant`, avec mention `Hors Y € de charges à venir`.
+- [x] **Mise à jour & Réconciliation du Solde (`App.tsx`, `CheckingAccountCard`, `BalanceReconcileSheet`) :**
+  * Alimenter `CheckingAccountCard` et `BalanceReconcileSheet` avec le **solde actif estimé** (sans les dépenses fixes futures) au lieu du reste à vivre prévisionnel.
+- [x] **Documentation (`ROADMAP.md`, `USER_GUIDE.md`) :** Mise à jour du manuel utilisateur et de la roadmap.

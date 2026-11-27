@@ -11,6 +11,7 @@ import { Card } from './components/ui/Card';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { CheckingAccountCard } from './features/budget/CheckingAccountCard';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
+import { computeActiveAccountBalance } from './utils/activeBalance';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
 import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
@@ -404,6 +405,11 @@ export function App() {
   });
   const envelopes = periodQuery.data?.envelopes ?? [];
   const summary = activePeriod?.summary ?? EMPTY_SUMMARY;
+
+  const activeBalanceMetrics = useMemo(
+    () => computeActiveAccountBalance(envelopes, summary),
+    [envelopes, summary]
+  );
 
   const incomes = useMemo(
     () => envelopes.filter((item) => item.pillar === 'income'),
@@ -1100,6 +1106,7 @@ export function App() {
         <FixedChargesList
           items={fixedCharges}
           summary={summary}
+          activeBalance={activeBalanceMetrics.activeBalance}
           onAddFixedCharge={() =>
             setEditorState({ isOpen: true, pillar: 'fixed_charge', item: null })
           }
@@ -1345,7 +1352,7 @@ export function App() {
               budgetId={activeBudget.id}
               periodId={activePeriod.id}
               budgetName={activeBudget.name}
-              currentBalance={activePeriod.summary.remainingToLive}
+              currentBalance={activeBalanceMetrics.activeBalance}
             />
           )}
         </>
@@ -1763,7 +1770,7 @@ export function App() {
             isOpen={isBalanceReconcileOpen}
             onClose={() => setIsBalanceReconcileOpen(false)}
             periodId={activePeriod.id}
-            theoreticalBalance={activePeriod.summary.remainingToLive}
+            theoreticalBalance={activeBalanceMetrics.activeBalance}
           />
           <QuickAddExpenseSheet
             isOpen={isQuickAddExpenseOpen}

@@ -6,6 +6,7 @@ import { Card } from '../../components/ui/Card';
 import type { BudgetTrendItem } from '../../services/analytics.service';
 import type { EnvelopeItem, PeriodAnalytics, SavingsGoalItem, BudgetViewMode } from '../../types/budget.types';
 import { formatFullDate } from '../../utils/format';
+import { computeActiveAccountBalance } from '../../utils/activeBalance';
 import { ExportActionsCard } from '../budget/ExportActionsCard';
 import { ZeroBasedBanner, type ZeroBasedQuickActions } from '../budget/ZeroBasedBanner';
 import type { DetectedAnomalyItem } from '../../services/transaction.service';
@@ -186,6 +187,14 @@ export function MonthlyInsights({
     [envelopes]
   );
 
+  const activeBalanceMetrics = useMemo(
+    () =>
+      envelopes.length > 0
+        ? computeActiveAccountBalance(envelopes, analytics.cashFlow)
+        : null,
+    [envelopes, analytics.cashFlow]
+  );
+
   const zeroBasedProps: {
     variableEnvelopes: EnvelopeItem[];
     goals: SavingsGoalItem[];
@@ -208,7 +217,11 @@ export function MonthlyInsights({
     <div className="space-y-4">
       {budgetViewMode === 'essential' ? (
         <div className="space-y-4">
-          <CashFlowSummaryCard cashFlow={analytics.cashFlow} />
+          <CashFlowSummaryCard
+            cashFlow={analytics.cashFlow}
+            activeBalance={activeBalanceMetrics?.activeBalance}
+            upcomingFixedCharges={activeBalanceMetrics?.upcomingFixedCharges}
+          />
 
           <DailyBudgetCard dailyBudget={analytics.dailyBudget} />
 
@@ -327,7 +340,11 @@ export function MonthlyInsights({
       >
         {effectiveSubTab === 'essentiel' && (
           <>
-            <CashFlowSummaryCard cashFlow={analytics.cashFlow} />
+            <CashFlowSummaryCard
+            cashFlow={analytics.cashFlow}
+            activeBalance={activeBalanceMetrics?.activeBalance}
+            upcomingFixedCharges={activeBalanceMetrics?.upcomingFixedCharges}
+          />
 
             <DailyBudgetCard dailyBudget={analytics.dailyBudget} />
 

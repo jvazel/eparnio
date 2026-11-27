@@ -103,7 +103,8 @@ export async function getBudgetNetWorth(
   let totalAssets = 0;
   let totalLiabilities = 0;
   const catTotals = new Map<AssetCategory, number>();
-  const historyMap = new Map<string, number>();
+  const allDateKeys = new Set<string>();
+  const accountSnapshots: Array<Map<string, number>> = [];
 
   const accountDTOs: AssetAccountDTO[] = accounts.map((acc) => {
     const bal = roundCurrency(acc.currentBalance || 0);
@@ -114,11 +115,18 @@ export async function getBudgetNetWorth(
     }
     catTotals.set(acc.category, roundCurrency((catTotals.get(acc.category) ?? 0) + bal));
 
-    for (const pt of acc.history ?? []) {
+    // Par compte : conserver le dernier solde connu pour chaque dateKey (sans jamais additionner 2 points du même jour)
+    const perDate = new Map<string, number>();
+    const sortedPoints = [...(acc.history ?? [])].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    for (const pt of sortedPoints) {
       const key = new Date(pt.date).toISOString().slice(0, 10);
       const signed = acc.category === 'liability' ? -(pt.balance || 0) : pt.balance || 0;
-      historyMap.set(key, roundCurrency((historyMap.get(key) ?? 0) + signed));
+      perDate.set(key, roundCurrency(signed));
+      allDateKeys.add(key);
     }
+    accountSnapshots.push(perDate);
 
     return {
       id: String(acc._id),
@@ -153,9 +161,20 @@ export async function getBudgetNetWorth(
     amount,
   }));
 
-  const history = Array.from(historyMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateKey, netWorth]) => ({ dateKey, netWorth }));
+  // Carry-forward : pour chaque date, chaque compte conserve son dernier solde connu (<= dateKey)
+  const sortedDateKeys = Array.from(allDateKeys).sort((a, b) => a.localeCompare(b));
+  const lastKnownBalance = new Array<number>(accountSnapshots.length).fill(0);
+  const history = sortedDateKeys.map((dateKey) => {
+    let total = 0;
+    for (let i = 0; i < accountSnapshots.length; i++) {
+      const snap = accountSnapshots[i];
+      if (snap && snap.has(dateKey)) {
+        lastKnownBalance[i] = snap.get(dateKey)!;
+      }
+      total = roundCurrency(total + (lastKnownBalance[i] ?? 0));
+    }
+    return { dateKey, netWorth: total };
+  });
 
   return {
     budgetId,

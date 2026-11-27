@@ -19,6 +19,7 @@ type ChargeFilter = 'all' | 'upcoming' | 'paid';
 export interface FixedChargesListProps {
   items: EnvelopeItem[];
   summary: BudgetPeriodSummary;
+  activeBalance?: number;
   onAddFixedCharge: () => void;
   onEditFixedCharge: (item: EnvelopeItem) => void;
   onTogglePaid: (item: EnvelopeItem) => void;
@@ -36,6 +37,7 @@ export interface FixedChargesListProps {
 export function FixedChargesList({
   items,
   summary,
+  activeBalance,
   onAddFixedCharge,
   onEditFixedCharge,
   onTogglePaid,
@@ -214,6 +216,28 @@ export function FixedChargesList({
           max={Math.max(summary.plannedIncome, Math.abs(summary.remainingToLive), 1)}
           label="Reste à dépenser"
         />
+
+        {typeof activeBalance === 'number' && (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3.5 py-2.5 dark:bg-slate-800/70">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-900 dark:text-slate-50">
+                Solde estimé en compte
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Payées : {formatCurrency(paidTotal)} · À venir : {formatCurrency(upcomingTotal)}
+              </p>
+            </div>
+            <span
+              className={`shrink-0 text-sm font-bold tabular-nums ${
+                activeBalance < 0
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-blue-700 dark:text-blue-300'
+              }`}
+            >
+              {formatCurrency(activeBalance)}
+            </span>
+          </div>
+        )}
       </Card>
 
       <ZeroBasedBanner
