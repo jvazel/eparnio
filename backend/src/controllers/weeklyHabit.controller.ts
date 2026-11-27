@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { assertBudgetAccess } from './budget.controller';
+import { assertBudgetAccess } from '../services/budgetAccess.service';
 import { getBudgetWeeklyHabit } from '../services/weeklyHabit.service';
 
 export async function getWeeklyDigestHandler(

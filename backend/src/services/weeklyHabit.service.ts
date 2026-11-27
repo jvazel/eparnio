@@ -3,7 +3,7 @@ import { BudgetPeriodModel } from '../models/BudgetPeriod.model';
 import { EnvelopeModel } from '../models/Envelope.model';
 import { SavingsGoalModel } from '../models/SavingsGoal.model';
 import { TransactionModel } from '../models/Transaction.model';
-import { computeAgeOfMoneyFifo } from './ageOfMoney.service';
+import { computeAgeOfMoneyFromFlows } from './ageOfMoney.service';
 
 export type WeeklyRhythmStatus = 'serene' | 'watch' | 'adjust';
 
@@ -330,12 +330,12 @@ export async function getBudgetWeeklyHabit(
   const periodIds = periods.map((p) => p._id);
 
   const [activeEnvelopes, allEnvelopes, recentTransactions, goals, cashAssets] = await Promise.all([
-    activePeriod ? EnvelopeModel.find({ periodId: activePeriod._id }).lean() : Promise.resolve([]),
+    activePeriod ? EnvelopeModel.find({ budgetPeriodId: activePeriod._id }).lean() : Promise.resolve([]),
     periodIds.length > 0
-      ? EnvelopeModel.find({ periodId: { $in: periodIds } }).lean()
+      ? EnvelopeModel.find({ budgetPeriodId: { $in: periodIds } }).lean()
       : Promise.resolve([]),
     periodIds.length > 0
-      ? TransactionModel.find({ periodId: { $in: periodIds } }).lean()
+      ? TransactionModel.find({ budgetPeriodId: { $in: periodIds } }).lean()
       : Promise.resolve([]),
     SavingsGoalModel.find({ budgetId }).lean(),
     AssetAccountModel.find({ budgetId, category: 'cash' }).lean()
@@ -358,7 +358,7 @@ export async function getBudgetWeeklyHabit(
         color: env.color,
         allocatedAmount: env.allocatedAmount,
         isPaid: Boolean(env.isPaid),
-        dueDate: env.dueDate ? new Date(env.dueDate) : undefined
+        dueDate: env.date ? new Date(env.date) : undefined
       })),
     variableEnvelopes: activeEnvelopes
       .filter((env) => env.pillar === 'variable_envelope')
@@ -392,8 +392,8 @@ export async function getBudgetWeeklyHabit(
     if (tx.date) activeWeekSet.add(getIsoWeekKey(new Date(tx.date)));
   }
   for (const env of allEnvelopes) {
-    if (env.isPaid && env.dueDate) {
-      activeWeekSet.add(getIsoWeekKey(new Date(env.dueDate)));
+    if (env.isPaid && env.date) {
+      activeWeekSet.add(getIsoWeekKey(new Date(env.date)));
     }
   }
 
@@ -404,18 +404,18 @@ export async function getBudgetWeeklyHabit(
     goals.some((g) => g.currentAmount > 0) ||
     allEnvelopes.some((e) => e.pillar === 'savings' && e.allocatedAmount > 0);
 
-  const ageOfMoney = computeAgeOfMoneyFifo(
+  const ageOfMoney = computeAgeOfMoneyFromFlows(
     allEnvelopes
       .filter((e) => e.pillar === 'income' && e.isPaid)
       .map((e) => ({
-        date: e.dueDate ? new Date(e.dueDate) : new Date(e.createdAt),
+        date: e.date ? new Date(e.date) : new Date(e.createdAt),
         amount: e.allocatedAmount
       })),
     [
       ...allEnvelopes
         .filter((e) => e.pillar === 'fixed_charge' && e.isPaid)
         .map((e) => ({
-          date: e.dueDate ? new Date(e.dueDate) : new Date(e.createdAt),
+          date: e.date ? new Date(e.date) : new Date(e.createdAt),
           amount: e.allocatedAmount
         })),
       ...recentTransactions
