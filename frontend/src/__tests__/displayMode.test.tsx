@@ -126,8 +126,8 @@ describe('Mode essentiel / Mode détaillé (Étape 63)', () => {
     expect(useAuthStore.getState().user?.preferences.budgetViewMode).toBe('advanced');
   });
 
-  it('ne rend aucun toggle Essentiel/Avancé dans MonthlyInsights et masque Pilotage/Tendances/Import CSV en mode essentiel', () => {
-    render(
+  it('ne rend aucun toggle Essentiel/Avancé dans MonthlyInsights et masque Pilotage/Tendances/Import CSV/Exports et Clôture (> 5 j) en mode essentiel', () => {
+    const { rerender } = render(
       <MonthlyInsights
         analytics={mockAnalytics}
         budgetViewMode="essential"
@@ -144,6 +144,19 @@ describe('Mode essentiel / Mode détaillé (Étape 63)', () => {
     expect(screen.queryByRole('tab', { name: 'Tendances' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /importer un relevé csv/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /réconcilier mon solde bancaire/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /clôturer le mois/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /exporter en csv/i })).not.toBeInTheDocument();
+
+    rerender(
+      <MonthlyInsights
+        analytics={{
+          ...mockAnalytics,
+          dailyBudget: { ...mockAnalytics.dailyBudget, daysRemaining: 3 }
+        }}
+        budgetViewMode="essential"
+        onOpenMonthClosing={vi.fn()}
+      />
+    );
     expect(screen.getByRole('button', { name: /clôturer le mois/i })).toBeInTheDocument();
   });
 

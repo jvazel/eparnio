@@ -1243,3 +1243,20 @@
   * **Nouveaux tests Backend (`backend/src/__tests__/weeklyHabit.test.ts`) :** calcul du digest (charges à 7 jours, top 2 enveloppes, note positive) et calcul des jalons cumulés sans remise à zéro punitive.
   * **Nouveaux tests Frontend (`frontend/src/__tests__/weeklyHabit.test.tsx`) :** rendu de `WeeklyDigestCard`, `WeeklyDigestSheet` (y compris pointage `✓` d'une charge fixe et navigation enveloppe) et `HabitMilestonesCard`.
   * **Non-régression & Documentation :** Mise à jour de `ROADMAP.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 65 : Épuration du Mode Essentiel & Suppression du Doublon `StreakBadgeCard` *(Lisibilité en 1 Scroll)*
+
+- [x] **Suppression complète de `StreakBadgeCard` & `WeeklyRecapSheet` (`App.tsx`) :**
+  * Retirer `StreakBadgeCard`, `WeeklyRecapSheet`, l'état `isWeeklyRecapOpen` et la query `streakQuery` de `App.tsx` (remplacés avantageusement par **Point du dimanche** et **Mes jalons de régularité** de l'Étape 64).
+  * Nettoyer les imports devenus inutilisés afin d'éviter tout code mort.
+- [x] **Épuration de `Budget > Synthèse` en Mode Essentiel (`MonthlyInsights.tsx`, `App.tsx`) :**
+  * **Retirer `ExportActionsCard`** de `Budget > Synthèse` en Mode essentiel (les exports PDF/CSV restent accessibles à tout moment dans *Paramètres de l'espace `•••` → onglet Données* et en Mode détaillé).
+  * **Affichage contextuel de « Clôture de fin de mois » :** en Mode essentiel, n'afficher la carte de clôture que dans les **5 derniers jours du cycle** (`analytics.dailyBudget.daysRemaining <= 5`) ou si la période est déjà clôturée (`isPeriodClosed`) ; elle reste toujours visible en Mode détaillé.
+  * **Masquer `CheckingAccountCard` (*Compte courant*)** dans `Budget > Synthèse` en Mode essentiel (le compte courant reste accessible en 1 tap dans la vue **Patrimoine** déjà visible en Mode essentiel, et dans `Synthèse` en Mode détaillé).
+- [x] **Résultat cible en Mode Essentiel (`Budget > Synthèse`) :**
+  * Écran épuré lisible en 1 scroll : `Point du dimanche`, `Entrées et sorties d'argent`, `Budget quotidien`, `Bandeau Base Zéro`, `Répartition Fixe/Variable/Épargne`, `Tags` *(si utilisés)*, `Mes jalons de régularité` *(+ `Bilan Foyer` si budget partagé, et `Clôture` uniquement dans les 5 derniers jours)*.
+- [x] **Tests & Documentation (`displayMode.test.tsx`, `ROADMAP.md`) :**
+  * Mettre à jour `displayMode.test.tsx` pour vérifier : absence de `ExportActionsCard` en Mode essentiel, affichage conditionnel de la clôture (`daysRemaining <= 5` vs `> 5`), et présence en Mode détaillé.

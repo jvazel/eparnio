@@ -12,13 +12,11 @@ import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { CheckingAccountCard } from './features/budget/CheckingAccountCard';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
-import { StreakBadgeCard } from './features/analytics/StreakBadgeCard';
-import { WeeklyRecapSheet } from './features/analytics/WeeklyRecapSheet';
 import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
 import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
 import { HabitMilestonesCard } from './features/analytics/HabitMilestonesCard';
 import { fetchBudgetWeeklyHabit } from './services/weeklyHabit.service';
-import { getTagsSummary, fetchBudgetStreak } from './services/analytics.service';
+import { getTagsSummary } from './services/analytics.service';
 import { TagAnalyticsCard } from './features/analytics/TagAnalyticsCard';
 import { QuickAddExpenseSheet } from './features/transactions/QuickAddExpenseSheet';
 import { createQuickTemplate, deleteQuickTemplate } from './services/budget.service';
@@ -308,7 +306,6 @@ export function App() {
   const [isClosingWizardOpen, setIsClosingWizardOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
   const [isBalanceReconcileOpen, setIsBalanceReconcileOpen] = useState(false);
-  const [isWeeklyRecapOpen, setIsWeeklyRecapOpen] = useState(false);
   const [isWeeklyDigestOpen, setIsWeeklyDigestOpen] = useState(false);
 
   const canLoadApp = Boolean(isAuthenticated && user && token && user.hasCompletedOnboarding);
@@ -465,15 +462,6 @@ export function App() {
     queryKey: analyticsQueryKey,
     queryFn: () => getPeriodAnalytics(activePeriod!.id),
     enabled: canLoadApp && Boolean(activePeriod?.id) && activeTab === 'budget'
-  });
-
-  const streakQuery = useQuery({
-    queryKey: ['budget-streak', activeBudget?.id],
-    queryFn: async () => {
-      // fetchBudgetStreak importé statiquement
-      return fetchBudgetStreak(activeBudget!.id);
-    },
-    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
   });
 
   const selectedEnvelope = useMemo(
@@ -1271,12 +1259,6 @@ export function App() {
               onOpenDigest={() => setIsWeeklyDigestOpen(true)}
             />
           ) : null}
-          {streakQuery.data ? (
-            <StreakBadgeCard
-              streak={streakQuery.data}
-              onOpenRecap={() => setIsWeeklyRecapOpen(true)}
-            />
-          ) : null}
           <MonthlyInsights
         analytics={resolvedAnalytics}
         envelopes={envelopes}
@@ -1356,38 +1338,19 @@ export function App() {
         {weeklyHabitQuery.data?.milestones ? (
           <HabitMilestonesCard milestones={weeklyHabitQuery.data.milestones} />
         ) : null}
-        {activeBudget && activePeriod && (
-          <CheckingAccountCard
-            budgetId={activeBudget.id}
-            periodId={activePeriod.id}
-            budgetName={activeBudget.name}
-            currentBalance={activePeriod.summary.remainingToLive}
-          />
-        )}
+        {activeBudget &&
+          activePeriod &&
+          (user.preferences?.budgetViewMode ?? 'essential') === 'advanced' && (
+            <CheckingAccountCard
+              budgetId={activeBudget.id}
+              periodId={activePeriod.id}
+              budgetName={activeBudget.name}
+              currentBalance={activePeriod.summary.remainingToLive}
+            />
+          )}
         </>
         )}
         {activePeriod && (
-          <>
-          <WeeklyRecapSheet
-            isOpen={isWeeklyRecapOpen}
-            onClose={() => setIsWeeklyRecapOpen(false)}
-            streak={streakQuery.data ?? null}
-          />
-          <WeeklyDigestSheet
-            isOpen={isWeeklyDigestOpen}
-            onClose={() => setIsWeeklyDigestOpen(false)}
-            digest={weeklyHabitQuery.data?.digest ?? null}
-            onMarkFixedChargePaid={async (periodId, envelopeId) => {
-              await updateEnvelope(periodId, envelopeId, { isPaid: true });
-              void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
-              void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
-              void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
-            }}
-            onSelectEnvelope={(envelopeId) => {
-              setActiveTab('enveloppes');
-              setSelectedEnvelopeId(envelopeId);
-            }}
-          />
           <WhatIfSimulatorSheet
             isOpen={isWhatIfOpen}
             onClose={() => setIsWhatIfOpen(false)}
@@ -1398,7 +1361,6 @@ export function App() {
             totalIncome={summary.plannedIncome}
             variableEnvelopes={variableEnvelopes}
           />
-          </>
         )}
         {activeBudget && (
           <WrappedModal
@@ -1666,6 +1628,22 @@ export function App() {
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         onProfileSaved={() => setToastMessage('Modification du profil enregistrée !')}
+      />
+
+      <WeeklyDigestSheet
+        isOpen={isWeeklyDigestOpen}
+        onClose={() => setIsWeeklyDigestOpen(false)}
+        digest={weeklyHabitQuery.data?.digest ?? null}
+        onMarkFixedChargePaid={async (periodId, envelopeId) => {
+          await updateEnvelope(periodId, envelopeId, { isPaid: true });
+          void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+          void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+          void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
+        }}
+        onSelectEnvelope={(envelopeId) => {
+          setActiveTab('enveloppes');
+          setSelectedEnvelopeId(envelopeId);
+        }}
       />
 
       {toastMessage && (

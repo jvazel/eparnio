@@ -257,7 +257,7 @@ export function MonthlyInsights({
                 </div>
               </div>
             </Card>
-          ) : onOpenMonthClosing ? (
+          ) : onOpenMonthClosing && analytics.dailyBudget.daysRemaining <= 5 ? (
             <Card className="space-y-3 border-violet-100 dark:border-violet-900/60">
               <div className="flex items-center gap-3">
                 <span
@@ -281,12 +281,6 @@ export function MonthlyInsights({
               </Button>
             </Card>
           ) : null}
-
-          <ExportActionsCard
-            variant="card"
-            onExportCsv={onExportCsv}
-            onExportPdf={onExportPdf}
-          />
         </div>
       ) : (
         <>
