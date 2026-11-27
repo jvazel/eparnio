@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, History, Landmark, Pencil, Plus, Search, Settings, X } from 'lucide-react';
+import { ArrowLeft, History, Landmark, Pencil, Plus, Search, Settings, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import {
   CartesianGrid,
@@ -16,6 +16,7 @@ import { formatDateKeyDDMMYYYY } from '../../services/calendar.service';
 import {
   createAssetAccount,
   deleteAssetAccount,
+  deleteAssetOperation,
   fetchBudgetNetWorth,
   recordAssetOperation,
   updateAssetAccount,
@@ -138,6 +139,18 @@ export function BudgetPatrimoineView({
       setEditingAccount(null);
       setNewName('');
       setAmountInput('0');
+    },
+  });
+
+  const deleteOpMutation = useMutation({
+    mutationFn: ({ assetId, operationId }: { assetId: string; operationId: string }) =>
+      deleteAssetOperation(budgetId, assetId, operationId),
+    onSuccess: async (updatedAsset) => {
+      setFullHistoryAccount(updatedAsset);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['net-worth', budgetId] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar'] }),
+      ]);
     },
   });
 
@@ -688,20 +701,38 @@ export function BudgetPatrimoineView({
                         {op.counterpartyName ? ` • ${op.counterpartyName}` : ''}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p
-                        className={`text-sm font-bold tabular-nums ${
-                          isPos
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-red-500 dark:text-red-400'
-                        }`}
-                      >
-                        {isPos ? '+' : '-'}
-                        {op.amount.toFixed(2)} €
-                      </p>
-                      <p className="text-[11px] text-slate-400 tabular-nums">
-                        Solde : {op.balanceAfter.toFixed(2)} €
-                      </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <p
+                          className={`text-sm font-bold tabular-nums ${
+                            isPos
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-red-500 dark:text-red-400'
+                          }`}
+                        >
+                          {isPos ? '+' : '-'}
+                          {op.amount.toFixed(2)} €
+                        </p>
+                        <p className="text-[11px] text-slate-400 tabular-nums">
+                          Solde : {op.balanceAfter.toFixed(2)} €
+                        </p>
+                      </div>
+                      {op.id && (
+                        <button
+                          type="button"
+                          disabled={deleteOpMutation.isPending}
+                          aria-label={`Supprimer l'opération ${op.label}`}
+                          onClick={() =>
+                            deleteOpMutation.mutate({
+                              assetId: fullHistoryAccount.id,
+                              operationId: op.id,
+                            })
+                          }
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-400"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

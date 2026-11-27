@@ -1274,3 +1274,17 @@
 - [x] **Mise à jour & Réconciliation du Solde (`App.tsx`, `CheckingAccountCard`, `BalanceReconcileSheet`) :**
   * Alimenter `CheckingAccountCard` et `BalanceReconcileSheet` avec le **solde actif estimé** (sans les dépenses fixes futures) au lieu du reste à vivre prévisionnel.
 - [x] **Documentation (`ROADMAP.md`, `USER_GUIDE.md`) :** Mise à jour du manuel utilisateur et de la roadmap.
+
+
+---
+
+## Étape 67 : Suppression d’Opérations Patrimoniales & Assainissement du Calendrier *(Zéro Pollution & Zéro Doublon)*
+
+- [x] **Backend — Suppression d'une opération patrimoniale (`netWorth.service.ts`, `netWorth.controller.ts`, `budget.routes.ts`) :**
+  * Ajouter `deleteAssetOperation(budgetId, assetId, operationId, userId)` et l'endpoint `DELETE /api/budgets/:budgetId/assets/:assetId/operations/:operationId` : supprime l'opération erronée de `operations[]`, recalcule `currentBalance` et met à jour `history[]` afin que l'erreur disparaisse du patrimoine et du calendrier.
+- [x] **Backend — Assainissement du Calendrier (`calendar.service.ts`) :**
+  * Ne plus impacter la courbe de trésorerie (`netRealized`) par les mouvements purement patrimoniaux (`pillar === 'asset'` → `0` dans `getSignedAmount`).
+  * Exclure `counterpartyType === 'savings_goal'` des événements `asset` du calendrier (déjà comptés dans le pilier `savings`, évitant tout doublon).
+- [x] **Frontend — Bouton supprimer dans l'historique patrimonial (`BudgetPatrimoineView.tsx`, `netWorth.service.ts`) :**
+  * Ajouter un bouton `🗑️` sur chaque ligne d'opération dans l'historique plein écran d'un compte patrimonial, avec rafraîchissement immédiat du patrimoine et du calendrier.
+- [x] **Documentation (`ROADMAP.md`, `USER_GUIDE.md`) :** Mise à jour de la roadmap et du manuel utilisateur.

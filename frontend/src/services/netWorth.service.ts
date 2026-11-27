@@ -129,3 +129,14 @@ export async function updateCheckingAccountBalance(
   }>(`/budgets/${budgetId}/checking-balance`, payload);
   return data.checkingAccount;
 }
+
+export async function deleteAssetOperation(
+  budgetId: string,
+  assetId: string,
+  operationId: string
+): Promise<AssetAccountDTO> {
+  const { data } = await apiClient.delete<{ status: string; asset: AssetAccountDTO }>(
+    `/budgets/${budgetId}/assets/${assetId}/operations/${operationId}`
+  );
+  return data.asset;
+}

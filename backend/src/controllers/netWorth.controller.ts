@@ -9,6 +9,7 @@ import { recalculatePeriodSummary } from '../services/remainingToLive.service';
 import {
   createAssetAccount,
   deleteAssetAccount,
+  deleteAssetOperation,
   getBudgetNetWorth,
   importSavingsGoalsToAssets,
   recordAssetOperation,
@@ -109,6 +110,29 @@ export async function deleteAssetHandler(
     const { budgetId, assetId } = req.params as { budgetId: string; assetId: string };
     await deleteAssetAccount(budgetId, assetId, userId);
     res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteAssetOperationHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Authentification requise.' });
+      return;
+    }
+    const { budgetId, assetId, operationId } = req.params as {
+      budgetId: string;
+      assetId: string;
+      operationId: string;
+    };
+    const asset = await deleteAssetOperation(budgetId, assetId, operationId, userId);
+    res.status(200).json({ status: 'ok', asset });
   } catch (err) {
     next(err);
   }

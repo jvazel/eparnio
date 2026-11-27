@@ -109,6 +109,7 @@ function addMonthsClamped(baseDate: Date, monthsToAdd: number, anchorDay: number
 }
 
 function getSignedAmount(pillar: CalendarPillar, amount: number): number {
+  if (pillar === 'asset') return 0;
   return pillar === 'income' ? amount : -amount;
 }
 
@@ -232,10 +233,10 @@ export async function getPeriodCalendar(
     });
   }
 
-  // 3. Opérations patrimoniales dans la fenêtre du cycle (hors budget_period pour éviter les doublons)
+  // 3. Opérations patrimoniales dans la fenêtre du cycle (hors budget_period et savings_goal pour éviter les doublons)
   for (const acc of assetAccounts) {
     for (const op of acc.operations ?? []) {
-      if (op.counterpartyType === 'budget_period') continue;
+      if (op.counterpartyType === 'budget_period' || op.counterpartyType === 'savings_goal') continue;
       if (op.type === 'set') continue;
       const opDate = new Date(op.date);
       const dateKey = toUtcDateKey(opDate);

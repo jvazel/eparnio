@@ -73,6 +73,70 @@ async function assertBudgetMember(budgetId: string, userId: string) {
   }
 }
 
+export async function deleteAssetOperation(
+  budgetId: string,
+  assetId: string,
+  operationId: string,
+  userId: string
+): Promise<AssetAccountDTO> {
+  await assertBudgetMember(budgetId, userId);
+
+  const account = await AssetAccountModel.findOne({ _id: assetId, budgetId });
+  if (!account) {
+    throw new Error('Compte patrimonial introuvable.');
+  }
+
+  const ops = account.operations ?? [];
+  const idx = ops.findIndex((op) => String(op._id) === operationId);
+  if (idx === -1) {
+    throw new Error('Opération patrimoniale introuvable.');
+  }
+
+  const removed = ops[idx]!;
+  ops.splice(idx, 1);
+
+  // Recalculer le solde courant : inverser l'impact de l'opération supprimée si possible,
+  // sinon reprendre le balanceAfter de la dernière opération restante.
+  if (removed.type === 'add') {
+    account.currentBalance = Math.max(0, roundCurrency((account.currentBalance || 0) - (removed.amount || 0)));
+  } else if (removed.type === 'withdraw') {
+    account.currentBalance = Math.max(0, roundCurrency((account.currentBalance || 0) + (removed.amount || 0)));
+  } else if (ops.length > 0) {
+    const latest = [...ops].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    account.currentBalance = roundCurrency(latest?.balanceAfter ?? account.currentBalance);
+  }
+
+  account.operations = ops;
+  account.history.push({ date: new Date(), balance: account.currentBalance });
+  await account.save();
+
+  return {
+    id: String(account._id),
+    budgetId: String(account.budgetId),
+    name: account.name,
+    category: account.category,
+    icon: account.icon || '🏦',
+    color: account.color || '#3B82F6',
+    currentBalance: roundCurrency(account.currentBalance),
+    isCheckingAccount: Boolean(account.isCheckingAccount),
+    linkedGoals: [],
+    operations: [...(account.operations ?? [])]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .map((op) => ({
+        id: String(op._id ?? ''),
+        date: new Date(op.date).toISOString(),
+        type: op.type,
+        amount: roundCurrency(op.amount),
+        label: op.label,
+        balanceAfter: roundCurrency(op.balanceAfter),
+        counterpartyType: op.counterpartyType,
+        counterpartyId: op.counterpartyId,
+        counterpartyName: op.counterpartyName,
+      })),
+    updatedAt: new Date(account.updatedAt).toISOString(),
+  };
+}
+
 export async function getBudgetNetWorth(
   budgetId: string,
   userId: string

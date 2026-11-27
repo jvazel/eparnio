@@ -3,6 +3,7 @@ import {
   createAssetHandler,
   createAssetSchema,
   deleteAssetHandler,
+  deleteAssetOperationHandler,
   getNetWorthHandler,
   importGoalsToAssetsHandler,
   recordAssetOperationHandler,
@@ -145,6 +146,11 @@ budgetRouter.post(
   requireAuth,
   validate({ body: recordAssetOperationSchema }),
   recordAssetOperationHandler
+);
+budgetRouter.delete(
+  '/:budgetId/assets/:assetId/operations/:operationId',
+  requireAuth,
+  deleteAssetOperationHandler
 );
 
 budgetRouter.get(
