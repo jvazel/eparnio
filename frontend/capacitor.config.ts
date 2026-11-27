@@ -4,7 +4,9 @@
  * chaque mise à jour React soit disponible instantanément sans renvoyer un nouvel APK,
  * tout en conservant le pont natif vers les widgets d'écran d'accueil Android.
  */
-const serverUrl = process.env.VITE_CAPACITOR_SERVER_URL?.trim();
+const runtimeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+  .process?.env;
+const serverUrl = runtimeEnv?.VITE_CAPACITOR_SERVER_URL?.trim();
 
 const config = {
   appId: 'com.eparnio.app',
