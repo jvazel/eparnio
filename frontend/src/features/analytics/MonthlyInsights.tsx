@@ -108,7 +108,6 @@ export function MonthlyInsights({
   anomalies = [],
   onDismissAnomaly,
   budgetViewMode = 'essential',
-  onChangeBudgetViewMode,
   goals = [],
   isAutoBalancing = false,
   onAutoBalanceToEnvelope,

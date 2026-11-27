@@ -47,17 +47,24 @@ const mockAnalytics: PeriodAnalytics = {
   dailyBudget: {
     startDate: '2026-11-01T00:00:00.000Z',
     endDate: '2026-11-30T23:59:59.999Z',
+    referenceDate: '2026-11-20T00:00:00.000Z',
     totalDays: 30,
     daysRemaining: 10,
-    dailyAllowance: 80
+    remainingToLive: 800,
+    dailyAmount: 80
   },
   allocation: {
-    fixedPercentage: 40,
-    variablePercentage: 12,
-    savingsPercentage: 16
+    totalOutflows: 1700,
+    plannedIncome: 2500,
+    items: [
+      { key: 'fixed', label: 'Fixe', color: '#8B5CF6', amount: 1000, percentage: 58.8, incomeSharePercentage: 40 },
+      { key: 'variable', label: 'Variable', color: '#3B82F6', amount: 300, percentage: 17.6, incomeSharePercentage: 12 },
+      { key: 'savings', label: 'Épargne', color: '#22C55E', amount: 400, percentage: 23.6, incomeSharePercentage: 16 }
+    ]
   },
   zeroBased: {
     plannedIncome: 2500,
+    totalAllocated: 2200,
     remainingToAllocate: 300,
     isBalanced: false
   },

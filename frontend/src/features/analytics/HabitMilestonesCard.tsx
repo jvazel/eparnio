@@ -65,7 +65,7 @@ export function HabitMilestonesCard({ milestones }: HabitMilestonesCardProps) {
               {nextMilestone.progress} %
             </span>
           </div>
-          <ProgressBar value={nextMilestone.progress} color="#7C3AED" />
+          <ProgressBar value={nextMilestone.progress} max={100} color="#7C3AED" />
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
             {nextMilestone.description}
           </p>
