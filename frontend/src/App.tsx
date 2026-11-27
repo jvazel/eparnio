@@ -639,6 +639,8 @@ export function App() {
       });
       void queryClient.invalidateQueries({ queryKey: ['period'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      void queryClient.invalidateQueries({ queryKey: ['net-worth'] });
+      void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
     }
   });
 
@@ -703,6 +705,12 @@ export function App() {
             : [response.transaction]
         })
       );
+      void queryClient.invalidateQueries({ queryKey: ['calendar'] });
+      void queryClient.invalidateQueries({ queryKey: ['trends'] });
+      void queryClient.invalidateQueries({ queryKey: ['tags-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['period-anomalies'] });
+      void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
+      void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
     }
   });
 
@@ -730,6 +738,13 @@ export function App() {
           };
         }
       );
+      void queryClient.invalidateQueries({ queryKey: ['period'] });
+      void queryClient.invalidateQueries({ queryKey: ['transactions', response.period.id] });
+      void queryClient.invalidateQueries({ queryKey: ['calendar'] });
+      void queryClient.invalidateQueries({ queryKey: ['trends'] });
+      void queryClient.invalidateQueries({ queryKey: ['tags-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['period-anomalies'] });
+      void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
     }
   });
 

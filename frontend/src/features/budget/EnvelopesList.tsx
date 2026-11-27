@@ -29,8 +29,14 @@ export function EnvelopesList({
   zeroBasedActions
 }: EnvelopesListProps) {
   const sortedItems = useMemo(() => sortEnvelopesByOrder(items), [items]);
+  const totalRollover = useMemo(
+    () => sortedItems.reduce((acc, item) => acc + (item.rolloverAmount ?? 0), 0),
+    [sortedItems]
+  );
+  const totalAvailable =
+    Math.round((summary.plannedEnvelopes + totalRollover) * 100) / 100;
   const remainingInEnvelopes =
-    Math.round((summary.plannedEnvelopes - summary.spentVariables) * 100) / 100;
+    Math.round((totalAvailable - summary.spentVariables) * 100) / 100;
 
   return (
     <div className="space-y-4">

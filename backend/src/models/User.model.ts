@@ -61,6 +61,7 @@ export interface UserResponse {
   hasBiometrics: boolean;
   hasCompletedOnboarding: boolean;
   preferences: IUserPreferences;
+  notificationPreferences?: NotificationPreferences;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +83,11 @@ const userPreferencesSchema = new Schema<IUserPreferences>(
       type: String,
       enum: ['light', 'dark'],
       default: 'light'
+    },
+    defaultTab: {
+      type: String,
+      enum: ['revenus', 'depenses', 'enveloppes', 'epargne', 'budget'],
+      default: 'depenses'
     },
     budgetViewMode: {
       type: String,
@@ -174,7 +180,10 @@ const userSchema = new Schema<IUser>(
           dailyReminderHour: { type: String, default: '20:00' },
           upcomingDueAlertEnabled: { type: Boolean, default: true },
           envelopeThresholdAlertEnabled: { type: Boolean, default: true },
-          sharedActivityAlertEnabled: { type: Boolean, default: true }
+          sharedActivityAlertEnabled: { type: Boolean, default: true },
+          weeklyDigestEnabled: { type: Boolean, default: false },
+          weeklyDigestDay: { type: Number, min: 0, max: 6, default: 0 },
+          weeklyDigestHour: { type: String, default: '18:00' }
         },
         { _id: false }
       ),

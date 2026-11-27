@@ -120,6 +120,7 @@ export function BudgetPatrimoineView({
         queryClient.invalidateQueries({ queryKey: ['period'] }),
         queryClient.invalidateQueries({ queryKey: ['envelopes'] }),
         queryClient.invalidateQueries({ queryKey: ['analytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar'] }),
       ]);
       setEditingAccount(null);
       setOpLabel('');

@@ -217,8 +217,24 @@ export async function updateCheckingBalanceHandler(
       }
 
       const beforePeriod = await recalculatePeriodSummary(period._id);
-      const currentRemaining = beforePeriod.summary.remainingToLive;
-      const delta = Math.round((roundedBalance - currentRemaining) * 100) / 100;
+      const periodEnvelopes = await EnvelopeModel.find({ budgetPeriodId: period._id })
+        .select('pillar allocatedAmount isPaid')
+        .lean();
+      const receivedIncome = periodEnvelopes
+        .filter((e) => e.pillar === 'income' && e.isPaid)
+        .reduce((acc, e) => acc + (e.allocatedAmount || 0), 0);
+      const paidFixedCharges = periodEnvelopes
+        .filter((e) => e.pillar === 'fixed_charge' && e.isPaid)
+        .reduce((acc, e) => acc + (e.allocatedAmount || 0), 0);
+      const currentActiveBalance =
+        Math.round(
+          (receivedIncome -
+            paidFixedCharges -
+            beforePeriod.summary.plannedSavings -
+            beforePeriod.summary.spentVariables) *
+            100
+        ) / 100;
+      const delta = Math.round((roundedBalance - currentActiveBalance) * 100) / 100;
 
       if (Math.abs(delta) >= 0.01) {
         await EnvelopeModel.create({
@@ -237,14 +253,14 @@ export async function updateCheckingBalanceHandler(
         });
       }
 
-      const updatedPeriod = await recalculatePeriodSummary(period._id);
+      await recalculatePeriodSummary(period._id);
 
       res.status(200).json({
         status: 'ok',
         checkingAccount: {
           id: period._id.toString(),
           name: budget.name,
-          currentBalance: updatedPeriod.summary.remainingToLive,
+          currentBalance: roundedBalance,
           delta,
           isCheckingAccount: true,
           updatedAt: now.toISOString()

@@ -107,7 +107,26 @@ export async function deleteAssetOperation(
   }
 
   account.operations = ops;
-  account.history.push({ date: new Date(), balance: account.currentBalance });
+
+  // Nettoyer le point d'historique de la date de l'opération supprimée pour éviter tout pic fantôme
+  const removedDateKey = new Date(removed.date).toISOString().slice(0, 10);
+  const remainingOnRemovedDate = ops
+    .filter((op) => new Date(op.date).toISOString().slice(0, 10) === removedDateKey)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  account.history = (account.history ?? []).filter(
+    (pt) => new Date(pt.date).toISOString().slice(0, 10) !== removedDateKey
+  );
+  if (remainingOnRemovedDate.length > 0) {
+    account.history.push({
+      date: new Date(remainingOnRemovedDate[0]!.date),
+      balance: roundCurrency(remainingOnRemovedDate[0]!.balanceAfter)
+    });
+  }
+  const todayKey = new Date().toISOString().slice(0, 10);
+  if (removedDateKey === todayKey || remainingOnRemovedDate.length === 0) {
+    account.history.push({ date: new Date(), balance: account.currentBalance });
+  }
   await account.save();
 
   return {

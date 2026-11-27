@@ -230,6 +230,15 @@ export async function updateTransaction(
     if (payload.notes !== undefined) {
       transaction.notes = payload.notes ? payload.notes : undefined;
     }
+    if (payload.tags !== undefined) {
+      transaction.tags = Array.from(
+        new Set(
+          payload.tags
+            .map((t) => t.trim().toLowerCase().replace(/^#+/, ''))
+            .filter(Boolean)
+        )
+      ).slice(0, 5);
+    }
     if (payload.paidByUserId !== undefined) {
       transaction.paidByUserId = resolveValidPaidByMemberId(
         budget,

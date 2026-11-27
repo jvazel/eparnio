@@ -1288,3 +1288,33 @@
 - [x] **Frontend — Bouton supprimer dans l'historique patrimonial (`BudgetPatrimoineView.tsx`, `netWorth.service.ts`) :**
   * Ajouter un bouton `🗑️` sur chaque ligne d'opération dans l'historique plein écran d'un compte patrimonial, avec rafraîchissement immédiat du patrimoine et du calendrier.
 - [x] **Documentation (`ROADMAP.md`, `USER_GUIDE.md`) :** Mise à jour de la roadmap et du manuel utilisateur.
+
+
+---
+
+## Étape 68 : Correctifs de Cohérence Mongoose, Historique Patrimoine & Nettoyage Code Mort *(Fiabilité & Hygiène)*
+
+- [x] **Backend — Persistance Mongoose de `defaultTab` & `weeklyDigest*` (`backend/src/models/User.model.ts`) :**
+  * Ajouter `defaultTab` (`enum: ['revenus', 'depenses', 'enveloppes', 'epargne', 'budget']`, défaut `'depenses'`) dans `userPreferencesSchema` afin que l'onglet d'ouverture par défaut choisi dans `ProfileSheet` soit bien persisté en base.
+  * Ajouter `weeklyDigestEnabled` (`Boolean`, défaut `false`), `weeklyDigestDay` (`Number`, défaut `0`) et `weeklyDigestHour` (`String`, défaut `'18:00'`) dans le sous-schéma `notificationPreferences` de `userSchema` afin que les préférences du *Point du dimanche* ne soient plus ignorées en mode strict Mongoose.
+- [x] **Backend — Nettoyage de `account.history[]` lors de la suppression d'une opération patrimoniale (`backend/src/services/netWorth.service.ts`) :**
+  * Dans `deleteAssetOperation`, retirer de `account.history[]` les points correspondant à la date de l'opération supprimée (ou reconstruire proprement le point du jour concerné à partir des opérations restantes) afin qu'aucun pic fantôme ne persiste sur le graphique d'évolution du patrimoine.
+- [ ] **Nettoyage du code mort résiduel (suite à l'Étape 65) :**
+  * Supprimer les composants UI orphelins `frontend/src/features/analytics/StreakBadgeCard.tsx` et `frontend/src/features/analytics/WeeklyRecapSheet.tsx` (à supprimer localement après vérification qu'aucun test ne les importe).
+- [x] **Validation & Documentation :** Mise à jour de `ROADMAP.md`.
+
+
+---
+
+## Étape 69 : Audit & Résolution de 6 Incohérences Métier, Cache & Typage *(Qualité & Fiabilité)*
+
+- [x] **Alignement du calcul de mise à jour du compte courant (`backend/src/controllers/netWorth.controller.ts`) :**
+  * Dans `updateCheckingBalanceHandler`, calculer `delta` par rapport au **solde actif** (`Revenus perçus ✓ − Charges fixes payées ✓ − Épargne − Variables`) au lieu de `remainingToLive`, en cohérence totale avec l'affichage frontend.
+- [x] **Prise en compte des `tags` à l'édition d'une transaction (`backend/src/controllers/transaction.controller.ts`) :**
+  * Appliquer et normaliser `payload.tags` dans `updateTransaction` avant `transaction.save()`.
+- [x] **Prise en compte de `rolloverAmount` dans la jauge « Reste dans les enveloppes » (`frontend/src/features/budget/EnvelopesList.tsx`) :**
+  * Inclure la somme des `rolloverAmount` des enveloppes dans `remainingInEnvelopes` pour correspondre exactement à la somme des restants des tuiles `PastelEnvelopeCard`.
+- [x] **Invalidations TanStack Query complètes (`frontend/src/App.tsx`, `frontend/src/features/budget/BudgetPatrimoineView.tsx`) :**
+  * Invalider `['period']` et `['transactions', periodId]` lors du déplacement d'une transaction entre enveloppes (`updateTransactionMutation`), `['net-worth']` dans `deleteGoalMutation`, `['calendar']` dans `BudgetPatrimoineView`, ainsi que `['calendar']`, `['trends']`, `['tags-summary']`, `['period-anomalies']`, `['weekly-habit']` et `['transaction-suggestions']`.
+- [x] **Alignement des contrats TypeScript (`backend/src/models/User.model.ts`, `frontend/src/types/budget.types.ts`) :**
+  * Ajouter `notificationPreferences` dans `UserResponse` et `sharedActivityAlertEnabled` / `weeklyDigest*` dans `UserProfile.notificationPreferences`.

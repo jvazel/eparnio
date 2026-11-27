@@ -25,6 +25,10 @@ export interface UserProfile {
     dailyReminderHour: string;
     upcomingDueAlertEnabled: boolean;
     envelopeThresholdAlertEnabled: boolean;
+    sharedActivityAlertEnabled?: boolean;
+    weeklyDigestEnabled?: boolean;
+    weeklyDigestDay?: number;
+    weeklyDigestHour?: string;
   };
   createdAt?: string;
   updatedAt?: string;
