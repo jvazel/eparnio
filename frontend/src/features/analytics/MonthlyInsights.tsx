@@ -207,44 +207,6 @@ export function MonthlyInsights({
 
   return (
     <div className="space-y-4">
-      {onChangeBudgetViewMode && (
-        <div className="flex items-center justify-between gap-2 px-1">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Affichage
-          </span>
-          <div
-            role="group"
-            aria-label="Mode d'affichage du budget"
-            className="inline-flex rounded-full bg-slate-100 p-0.5 dark:bg-slate-800"
-          >
-            <button
-              type="button"
-              onClick={() => onChangeBudgetViewMode('essential')}
-              aria-pressed={budgetViewMode === 'essential'}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                budgetViewMode === 'essential'
-                  ? 'bg-white text-[#7C3AED] shadow-sm dark:bg-slate-900 dark:text-violet-300'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50'
-              }`}
-            >
-              Essentiel
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeBudgetViewMode('advanced')}
-              aria-pressed={budgetViewMode === 'advanced'}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                budgetViewMode === 'advanced'
-                  ? 'bg-white text-[#7C3AED] shadow-sm dark:bg-slate-900 dark:text-violet-300'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50'
-              }`}
-            >
-              Avancé
-            </button>
-          </div>
-        </div>
-      )}
-
       {budgetViewMode === 'essential' ? (
         <div className="space-y-4">
           <CashFlowSummaryCard cashFlow={analytics.cashFlow} />
@@ -258,6 +220,74 @@ export function MonthlyInsights({
           />
 
           <AllocationDonutCard allocation={analytics.allocation} />
+
+          {isSharedBudget && (
+            <div className="space-y-3">
+              <MemberBreakdownCard
+                members={analytics.memberBreakdown}
+                currentUserId={currentUserId}
+              />
+              <SharedActivityCard envelopes={envelopes} />
+              {onOpenCalculator ? (
+                <Button type="button" variant="secondary" fullWidth onClick={onOpenCalculator}>
+                  <Scale className="h-4 w-4 text-violet-600 dark:text-violet-400" aria-hidden="true" />
+                  Calculateur 50/50 &amp; Prorata
+                </Button>
+              ) : null}
+            </div>
+          )}
+
+          {isPeriodClosed ? (
+            <Card className="border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/40">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300"
+                  aria-hidden="true"
+                >
+                  <Lock className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
+                    Mois clôturé
+                  </p>
+                  <p className="text-xs text-emerald-800/85 dark:text-emerald-200/85">
+                    {periodClosedAt
+                      ? `Clôture enregistrée le ${formatFullDate(periodClosedAt)}.`
+                      : 'Ce cycle a été clôturé et reconduit vers le mois suivant.'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          ) : onOpenMonthClosing ? (
+            <Card className="space-y-3 border-violet-100 dark:border-violet-900/60">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300"
+                  aria-hidden="true"
+                >
+                  <CalendarCheck2 className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                    Clôture de fin de mois
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Faites le bilan, répartissez vos surplus et préparez le mois suivant.
+                  </p>
+                </div>
+              </div>
+              <Button type="button" variant="secondary" fullWidth onClick={onOpenMonthClosing}>
+                <CalendarCheck2 className="h-4 w-4 text-violet-600 dark:text-violet-400" aria-hidden="true" />
+                Clôturer le mois
+              </Button>
+            </Card>
+          ) : null}
+
+          <ExportActionsCard
+            variant="card"
+            onExportCsv={onExportCsv}
+            onExportPdf={onExportPdf}
+          />
         </div>
       ) : (
         <>

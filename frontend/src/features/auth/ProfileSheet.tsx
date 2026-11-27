@@ -35,7 +35,7 @@ import {
 } from '../../services/auth.service';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useBudgetStore } from '../../store/useBudgetStore';
-import type { ThemeMode } from '../../types/budget.types';
+import type { BudgetViewMode, ThemeMode } from '../../types/budget.types';
 import { downloadRecoveryKeyFile, validateStrongPassword } from '../../utils/format';
 
 export interface ProfileSheetProps {
@@ -70,6 +70,9 @@ export function ProfileSheet({ isOpen, onClose, onProfileSaved }: ProfileSheetPr
   const [defaultTab, setDefaultTab] = useState<NonNullable<typeof user>['preferences']['defaultTab']>(
     user?.preferences.defaultTab ?? 'depenses'
   );
+  const [budgetViewMode, setBudgetViewMode] = useState<BudgetViewMode>(
+    user?.preferences.budgetViewMode ?? 'essential'
+  );
   const [profileStatus, setProfileStatus] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -101,6 +104,7 @@ export function ProfileSheet({ isOpen, onClose, onProfileSaved }: ProfileSheetPr
       setBudgetStartDay(user.preferences.budgetStartDay);
       setTheme(document.documentElement.classList.contains('dark') ? 'dark' : user.preferences.theme);
       setDefaultTab(user.preferences.defaultTab ?? 'depenses');
+      setBudgetViewMode(user.preferences.budgetViewMode ?? 'essential');
       setProfileStatus(null);
       setProfileError(null);
     }
@@ -134,6 +138,25 @@ export function ProfileSheet({ isOpen, onClose, onProfileSaved }: ProfileSheetPr
     document.documentElement.style.colorScheme = nextTheme;
   };
 
+  const handleBudgetViewModeSwitch = async (nextMode: BudgetViewMode) => {
+    setBudgetViewMode(nextMode);
+    if (user) {
+      updateUser({
+        ...user,
+        preferences: {
+          ...user.preferences,
+          budgetViewMode: nextMode
+        }
+      });
+    }
+    try {
+      const updated = await updateMe({ budgetViewMode: nextMode });
+      updateUser(updated);
+    } catch {
+      // L'état optimiste reste actif en session même hors-ligne.
+    }
+  };
+
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setProfileStatus(null);
@@ -156,6 +179,7 @@ export function ProfileSheet({ isOpen, onClose, onProfileSaved }: ProfileSheetPr
         avatarEmoji,
         budgetStartDay,
         theme,
+        budgetViewMode,
         ...(defaultTab !== (user?.preferences.defaultTab ?? 'depenses') ? { defaultTab } : {})
       });
       updateUser(updated);
@@ -399,6 +423,47 @@ export function ProfileSheet({ isOpen, onClose, onProfileSaved }: ProfileSheetPr
                   { value: 'budget', label: 'Budget', icon: '📊' },
                 ]}
               />
+
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Mode d’affichage
+                </span>
+                <div
+                  role="group"
+                  aria-label="Mode d’affichage"
+                  className="grid grid-cols-2 gap-1 rounded-xl bg-slate-200/70 p-1 dark:bg-slate-900"
+                >
+                  <button
+                    type="button"
+                    onClick={() => void handleBudgetViewModeSwitch('essential')}
+                    aria-pressed={budgetViewMode === 'essential'}
+                    className={`flex min-h-10 items-center justify-center rounded-lg px-2 text-xs font-semibold transition-colors ${
+                      budgetViewMode === 'essential'
+                        ? 'bg-white text-violet-700 shadow-sm dark:bg-slate-800 dark:text-violet-300'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+                    }`}
+                  >
+                    Mode essentiel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBudgetViewModeSwitch('advanced')}
+                    aria-pressed={budgetViewMode === 'advanced'}
+                    className={`flex min-h-10 items-center justify-center rounded-lg px-2 text-xs font-semibold transition-colors ${
+                      budgetViewMode === 'advanced'
+                        ? 'bg-white text-violet-700 shadow-sm dark:bg-slate-800 dark:text-violet-300'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+                    }`}
+                  >
+                    Mode détaillé
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  {budgetViewMode === 'essential'
+                    ? 'Affiche l’essentiel (piliers, synthèse, calendrier, patrimoine, tags, scan et vocal).'
+                    : 'Débloque les outils experts : pilotage, tendances, simulateur, import CSV, scénarios, règles, fractionnement et rollover.'}
+                </p>
+              </div>
 
               {profileError ? (
                 <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">

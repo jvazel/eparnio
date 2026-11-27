@@ -14,8 +14,11 @@ import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCa
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { StreakBadgeCard } from './features/analytics/StreakBadgeCard';
 import { WeeklyRecapSheet } from './features/analytics/WeeklyRecapSheet';
+import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
+import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
+import { HabitMilestonesCard } from './features/analytics/HabitMilestonesCard';
+import { fetchBudgetWeeklyHabit } from './services/weeklyHabit.service';
 import { getTagsSummary, fetchBudgetStreak } from './services/analytics.service';
-import { updateMe } from './services/auth.service';
 import { TagAnalyticsCard } from './features/analytics/TagAnalyticsCard';
 import { QuickAddExpenseSheet } from './features/transactions/QuickAddExpenseSheet';
 import { createQuickTemplate, deleteQuickTemplate } from './services/budget.service';
@@ -306,6 +309,7 @@ export function App() {
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
   const [isBalanceReconcileOpen, setIsBalanceReconcileOpen] = useState(false);
   const [isWeeklyRecapOpen, setIsWeeklyRecapOpen] = useState(false);
+  const [isWeeklyDigestOpen, setIsWeeklyDigestOpen] = useState(false);
 
   const canLoadApp = Boolean(isAuthenticated && user && token && user.hasCompletedOnboarding);
 
@@ -394,6 +398,12 @@ export function App() {
     queryKey: ['period-anomalies', activePeriod?.id],
     queryFn: () => getPeriodAnomalies(activePeriod!.id),
     enabled: Boolean(canLoadApp && activePeriod?.id)
+  });
+
+  const weeklyHabitQuery = useQuery({
+    queryKey: ['weekly-habit', activeBudget?.id],
+    queryFn: () => fetchBudgetWeeklyHabit(activeBudget!.id),
+    enabled: Boolean(canLoadApp && activeBudget?.id)
   });
   const envelopes = periodQuery.data?.envelopes ?? [];
   const summary = activePeriod?.summary ?? EMPTY_SUMMARY;
@@ -1255,6 +1265,12 @@ export function App() {
           />
         ) : (
           <>
+          {weeklyHabitQuery.data?.digest ? (
+            <WeeklyDigestCard
+              digest={weeklyHabitQuery.data.digest}
+              onOpenDigest={() => setIsWeeklyDigestOpen(true)}
+            />
+          ) : null}
           {streakQuery.data ? (
             <StreakBadgeCard
               streak={streakQuery.data}
@@ -1332,28 +1348,14 @@ export function App() {
         onAutoBalanceToGoal={handleAutoBalanceToGoal}
         onNavigateToTab={setActiveTab}
         budgetViewMode={user.preferences?.budgetViewMode ?? 'essential'}
-        onChangeBudgetViewMode={async (mode) => {
-          useAuthStore.setState({
-            user: {
-              ...user,
-              preferences: { ...user.preferences, budgetViewMode: mode }
-            }
-          });
-          try {
-            // updateMe importé statiquement
-            const updated = await updateMe({ budgetViewMode: mode });
-            useAuthStore.setState({ user: updated });
-          } catch {
-            // L'état optimiste reste actif en session même hors-ligne.
-          }
-        }}
       />
-        {(user.preferences?.budgetViewMode ?? 'essential') === 'advanced' && (
-          <TagAnalyticsCard
-            tags={tagsSummaryQuery.data ?? []}
-            onSelectTag={setSelectedTag}
-          />
-        )}
+        <TagAnalyticsCard
+          tags={tagsSummaryQuery.data ?? []}
+          onSelectTag={setSelectedTag}
+        />
+        {weeklyHabitQuery.data?.milestones ? (
+          <HabitMilestonesCard milestones={weeklyHabitQuery.data.milestones} />
+        ) : null}
         {activeBudget && activePeriod && (
           <CheckingAccountCard
             budgetId={activeBudget.id}
@@ -1370,6 +1372,21 @@ export function App() {
             isOpen={isWeeklyRecapOpen}
             onClose={() => setIsWeeklyRecapOpen(false)}
             streak={streakQuery.data ?? null}
+          />
+          <WeeklyDigestSheet
+            isOpen={isWeeklyDigestOpen}
+            onClose={() => setIsWeeklyDigestOpen(false)}
+            digest={weeklyHabitQuery.data?.digest ?? null}
+            onMarkFixedChargePaid={async (periodId, envelopeId) => {
+              await updateEnvelope(periodId, envelopeId, { isPaid: true });
+              void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+              void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+              void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
+            }}
+            onSelectEnvelope={(envelopeId) => {
+              setActiveTab('enveloppes');
+              setSelectedEnvelopeId(envelopeId);
+            }}
           />
           <WhatIfSimulatorSheet
             isOpen={isWhatIfOpen}
@@ -1543,6 +1560,7 @@ export function App() {
           currentUserId={user.id}
           isSharedBudget={activeBudget?.type === 'shared'}
           isSubmitting={isMutating}
+          showRolloverOption={(user.preferences?.budgetViewMode ?? 'essential') === 'advanced'}
           onSubmit={handleSaveEnvelope}
           onDelete={editorState.item ? handleDeleteById : undefined}
         />
@@ -1553,14 +1571,18 @@ export function App() {
           isOpen={expenseEditorState.isOpen && Boolean(selectedEnvelope)}
           suggestions={suggestionsQuery.data ?? []}
           envelopes={envelopes.filter((env) => env.pillar === 'variable_envelope')}
-          onSplitSubmit={async (payload) => {
-            if (!activePeriod) return;
-            await splitTransaction(activePeriod.id, payload);
-            void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
-            void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
-            void queryClient.invalidateQueries({ queryKey: ['transactions'] });
-            void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
-          }}
+          onSplitSubmit={
+            (user.preferences?.budgetViewMode ?? 'essential') === 'advanced'
+              ? async (payload) => {
+                  if (!activePeriod) return;
+                  await splitTransaction(activePeriod.id, payload);
+                  void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+                  void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+                  void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+                  void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
+                }
+              : undefined
+          }
           onSaveQuickTemplate={
             activeBudget
               ? async (payload) => {
@@ -1702,6 +1724,7 @@ export function App() {
           }
         }}
         onOpenCalculator={(targetBudget) => setCalculatorBudget(targetBudget)}
+        budgetViewMode={user.preferences?.budgetViewMode ?? 'essential'}
       />
 
       <InvitePartnerSheet
@@ -1790,13 +1813,17 @@ export function App() {
                   }
                 : undefined
             }
-            onSplitSubmit={async (payload) => {
-              await splitTransaction(activePeriod.id, payload);
-              void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
-              void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
-              void queryClient.invalidateQueries({ queryKey: ['transactions'] });
-              void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
-            }}
+            onSplitSubmit={
+              (user.preferences?.budgetViewMode ?? 'essential') === 'advanced'
+                ? async (payload) => {
+                    await splitTransaction(activePeriod.id, payload);
+                    void queryClient.invalidateQueries({ queryKey: ['period-summary'] });
+                    void queryClient.invalidateQueries({ queryKey: ['envelopes'] });
+                    void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+                    void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
+                  }
+                : undefined
+            }
             onSubmit={async (payload) => {
               await createTransaction(activePeriod.id, payload);
               void queryClient.invalidateQueries({ queryKey: ['period-summary'] });

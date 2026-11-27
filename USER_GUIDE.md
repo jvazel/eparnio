@@ -29,6 +29,7 @@ Revenus du mois − Dépenses fixes − Enveloppes variables − Épargne = 0 �
 - Depuis votre **Profil** (icône avatar en haut à gauche) :
   - Changez le **thème** (*Clair* / *Sombre*).
   - Choisissez votre **onglet d'ouverture par défaut** (*Dépenses fixes*, *Enveloppes*, *Revenus*, *Épargne* ou *Budget*).
+  - Basculez entre le **Mode essentiel** (affichage épuré par défaut) et le **Mode détaillé** (outils experts : pilotage, tendances, simulateur, import CSV, scénarios, règles, fractionnement et rollover).
 
 ---
 
@@ -131,3 +132,4 @@ Dans l'onglet **Budget**, utilisez le sélecteur **Synthèse | Calendrier** en h
 - **Âge de l'Argent (`Budget > Pilotage`) :** dans la carte **Santé de l'épargne**, suivez en jours depuis combien de temps l'argent que vous dépensez aujourd'hui est arrivé sur votre compte (méthode FIFO sur vos 10 dernières sorties), avec barre de progression vers l'objectif des **30 jours** et explication rapide via l'icône `ⓘ`.
 - **Scan de ticket de caisse (`📷 Scanner un ticket`) :** tout en haut de **Ajouter une dépense rapide** et **Ajouter une dépense** (dans une enveloppe), photographiez ou importez un ticket de caisse pour pré-remplir automatiquement le montant, le marchand, la date et l'enveloppe suggérée — **100 % en local** (aucune photo n'est envoyée sur un serveur), avec chips de montants alternatifs en 1 tap pour corriger si besoin.
 - **Synchronisation Épargne ↔ Patrimoine (sans double comptage) :** lorsqu'un objectif d'épargne est lié à un compte patrimonial (*« Placé sur le compte »*, ex. *Livret A*), chaque versement, ajustement, suppression ou retrait sur cette épargne met automatiquement à jour le solde et l'historique du compte patrimonial lié, sans jamais compter la somme deux fois dans votre fortune totale.
+- **Point du dimanche & Jalons de régularité (`Budget`, visibles dès le Mode essentiel) :** consultez en 30 secondes votre budget par jour, vos charges fixes des 7 prochains jours (pointables en 1 tap `✓`) et vos enveloppes à surveiller, et suivez vos jalons de régularité cumulés sans remise à zéro punitive. Le rappel hebdomadaire est activable dans *Mon profil & préférences → Alertes*.

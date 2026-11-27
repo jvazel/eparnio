@@ -6,6 +6,9 @@ export interface NotificationPreferences {
   upcomingDueAlertEnabled: boolean;
   envelopeThresholdAlertEnabled: boolean;
   sharedActivityAlertEnabled?: boolean;
+  weeklyDigestEnabled?: boolean;
+  weeklyDigestDay?: number;
+  weeklyDigestHour?: string;
 }
 
 export function isPushSupported(): boolean {

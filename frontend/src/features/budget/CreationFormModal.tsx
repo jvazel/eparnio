@@ -93,6 +93,7 @@ export interface CreationFormModalProps {
   currentUserId?: string;
   isSharedBudget?: boolean;
   isSubmitting?: boolean;
+  showRolloverOption?: boolean;
   onSubmit: (payload: CreateEnvelopePayload) => Promise<void> | void;
   onDelete?: (envelopeId: string) => Promise<void> | void;
 }
@@ -112,6 +113,7 @@ export function CreationFormModal({
   currentUserId,
   isSharedBudget = false,
   isSubmitting = false,
+  showRolloverOption = true,
   onSubmit,
   onDelete
 }: CreationFormModalProps) {
@@ -514,7 +516,7 @@ export function CreationFormModal({
             </>
           )}
 
-          {pillar === 'variable_envelope' && (
+          {pillar === 'variable_envelope' && showRolloverOption && (
             <div className="space-y-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-900">
               <label className="flex cursor-pointer items-center justify-between gap-3">
                 <div>

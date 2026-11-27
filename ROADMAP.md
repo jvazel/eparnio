@@ -1168,3 +1168,78 @@
   * Invalider automatiquement le cache TanStack Query `['net-worth']` dans `syncGoalCache` dès qu'un objectif lié à un compte patrimonial (`goal.assetAccountId`) est mis à jour.
 - [x] **Tests & Documentation (`savingsAssetSync.test.ts`, `ROADMAP.md`, `ARCHITECTURE.md`, `USER_GUIDE.md`) :**
   * Test d'intégration complet vérifiant versement (`1 000 → 1 200 €`, `netWorth === 1 200 €`), ajustement (`1 350 €`), retrait (`1 250 €`) et suppression (`900 €`), validé par `npm run typecheck && npm run build`.
+
+
+---
+
+## Étape 63 : Mode Essentiel / Mode Détaillé — Progressive Disclosure Global *(Simplicité au Démarrage & Contrôle Unique)*
+
+- [x] **Principe Directeur & Périmètre Global :**
+  * Utiliser la préférence existante et déjà persistée `User.preferences.budgetViewMode` (`'essential' | 'advanced'`, valeur par défaut `'essential'` pour tout nouvel utilisateur, aucune migration de base de données requise) comme interrupteur global de complexité à travers toute l'application.
+  * **Point d'entrée unique :** le basculement entre **Mode essentiel** et **Mode détaillé** se fait **exclusivement** depuis le toggle dédié dans **Mon profil & préférences** (`ProfileSheet` → onglet *Préférences*). Aucun autre toggle, bouton, bannière de découverte ni suggestion automatique ne doit être affiché ailleurs dans l'interface.
+  * **Garantie zéro perte de données :** repasser du *Mode détaillé* au *Mode essentiel* masque uniquement l'affichage des outils experts ; aucune donnée existante (scénarios, règles d'auto-catégorisation, rapports, opérations fractionnées, etc.) n'est supprimée ni désactivée côté serveur.
+- [x] **Frontend — Point d'Entrée Unique dans `ProfileSheet` (`frontend/src/features/auth/ProfileSheet.tsx`) :**
+  * Ajouter dans l'onglet **Préférences** (aux côtés du thème et de l'onglet par défaut) un contrôle clair **« Mode d'affichage »** proposant **Mode essentiel** / **Mode détaillé** (avec courte description explicative de ce qui est affiché/masqué), compatible **modes clair et sombre**.
+  * Persister immédiatement le changement via `PATCH /api/auth/me` (`preferences.budgetViewMode`) et mettre à jour le store utilisateur (`useAuthStore`) sans rechargement de page.
+- [x] **Frontend — Nettoyage & Filtrage de l'Onglet « Budget » (`MonthlyInsights.tsx`, `App.tsx`) :**
+  * **Supprimer** le sélecteur pilule `Essentiel | Avancé` actuellement rendu en tête de `MonthlyInsights.tsx` (afin de garantir l'unicité du point d'entrée dans `ProfileSheet`).
+  * **Conserver en Mode essentiel :**
+    * Vues **Synthèse épurée** (*Entrées/Sorties*, *Budget quotidien*, *Bandeau Base Zéro*, *Donut Répartition*, *Compte courant* et *Bilan Foyer* si budget partagé), **Calendrier & Trésorerie** et **Patrimoine Net** (y compris la liaison Épargne ↔ Compte Patrimonial).
+    * Actions **Exports PDF / CSV** et **Clôture de fin de mois**.
+  * **Afficher uniquement en Mode détaillé (`budgetViewMode === 'advanced'`) :**
+    * Sous-onglets **Pilotage** (*Âge de l'argent*, *Burn Rate / Projection de fin de mois*, *Avancement mois vs enveloppes*, *Enveloppes en tension*, *Dépenses atypiques*) et **Tendances** (*Tendances multi-mois*, *Simulateur « Et si… ? »*, *Eparnio Wrapped*).
+    * Actions **Import CSV / OFX** et **Réconciliation de solde bancaire**.
+- [x] **Frontend — Filtrage des Paramètres de l'Espace (`BudgetSettingsSheet.tsx`) :**
+  * **Conserver en Mode essentiel :** nom de l'espace, jour de paie (`budgetStartDay`), gestion des membres / partage / calculateur 50-50 & prorata (si budget commun), et suppression de l'espace.
+  * **Afficher uniquement en Mode détaillé (`budgetViewMode === 'advanced'`) :** **Scénarios de budget**, **Règles d'auto-catégorisation**, **Automatisation Apple Pay & Raccourcis** et **Restauration de sauvegarde JSON**.
+- [x] **Frontend — Filtrage de la Saisie & des Enveloppes (`QuickAddExpenseSheet.tsx`, `AddExpenseSheet.tsx`, `CreationFormModal.tsx`) :**
+  * **Conserver en Mode essentiel :** pavé numérique + mini-calculatrice, sélection d'enveloppe, favoris 1-tap, auto-complétion, **Scan de ticket OCR**, **Dictée vocale / langage naturel** et **Tags `#`**.
+  * **Afficher uniquement en Mode détaillé (`budgetViewMode === 'advanced'`) :**
+    * Option **« ✂️ Répartir sur plusieurs enveloppes »** (*Split Transaction*) dans `QuickAddExpenseSheet.tsx`.
+    * Option **Rollover** (*« Reporter le solde au mois suivant »* — positif uniquement / positif et négatif) dans `CreationFormModal.tsx`.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/displayMode.test.tsx`) :**
+    * Vérifier le basculement **Mode essentiel ↔ Mode détaillé** depuis `ProfileSheet` (persistance `PATCH /api/auth/me`, modes clair et sombre).
+    * Vérifier l'absence de tout toggle `Essentiel | Avancé` dans `MonthlyInsights.tsx`.
+    * Vérifier qu'en **Mode essentiel** : Calendrier, Patrimoine, OCR, Vocal et Tags `#` restent visibles, tandis que Pilotage, Tendances, Import CSV, Réconciliation, Scénarios, Règles, Apple Pay, Restauration JSON, Split Transaction et Rollover sont masqués.
+    * Vérifier qu'en **Mode détaillé** : l'ensemble des outils experts réapparaît immédiatement sans perte de données.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm run test:coverage && npm run build`, vérifier zéro régression sur les tests existants (notamment `analytics.test.tsx`) et mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 64 : Rétention & Habitude sans Culpabilisation (« Point du dimanche » & Jalons de Régularité) *(Mode Essentiel & Détaillé)*
+
+- [x] **Backend — Service de Synthèse Hebdomadaire & Jalons (`backend/src/services/weeklyHabit.service.ts`) :**
+  * **Calcul du « Point du dimanche » (`getWeeklyDigest`) :**
+    * **Cap de la semaine :** `remainingToLive`, `dailyBudget` (`Y € / jour`), `remainingDays` et statut de rythme bienveillant (`'serene' | 'watch' | 'adjust'` — ton constructif, jamais culpabilisant).
+    * **Charges fixes des 7 prochains jours :** filtrer les `EnvelopeModel` (`pillar: 'fixed_charge'`, `isPaid: false`) dont la date d'échéance tombe dans les 7 prochains jours, avec montant total à prévoir.
+    * **Enveloppes à surveiller (top 2 max) :** identifier les 1 à 2 enveloppes variables dont le taux de consommation dépasse le plus l'avancement du mois.
+    * **Note positive dynamique :** générer 1 phrase valorisante basée sur les données réelles (montant épargné du mois, part de charges fixes déjà passées ou budget équilibré à `0 €`).
+  * **Calcul des Jalons de Régularité (`getHabitMilestones`) — 100 % automatique, sans streak quotidien punitif :**
+    * **Équilibre Base Zéro :** `1`, `3`, `6` mois équilibrés à `0 €` (cumulés, jamais remis à zéro).
+    * **Matelas de sécurité :** `1`, `3`, `6` mois de charges fixes couverts (réutilisation de `computeEmergencyFundAmount`).
+    * **Régularité douce :** `4`, `12` semaines de suivi actif (au moins 1 saisie ou pointage dans la semaine).
+    * **Épargne :** premier versement enregistré, premier objectif atteint (`currentAmount >= targetAmount`).
+    * **Sérénité de trésorerie :** Âge de l'argent `≥ 30 jours` (réutilisation d'`ageOfMoney.service.ts`).
+    * Retourner pour chaque jalon : `id`, `category`, `title`, `description`, `unlocked`, `progress` (`0` à `100`), `currentValue`, `targetValue`.
+  * **Exposition API (`GET /api/budgets/:budgetId/weekly-digest` & préférences d'alerte) :**
+    * Exposer `digest` et `milestones` sur un endpoint protégé par JWT + `assertBudgetAccess`.
+    * Étendre `User.notificationPreferences` avec `weeklyDigestEnabled` (défaut `false`), `weeklyDigestDay` (`0–6`, défaut `0` = dimanche) et `weeklyDigestHour` (défaut `'18:00'`), modifiable via `PATCH /api/notifications/preferences`.
+- [x] **Frontend — Rituel « Point du dimanche » (`WeeklyDigestSheet.tsx` & `WeeklyDigestCard.tsx`) :**
+  * **Visible dès le Mode essentiel** (et en Mode détaillé) dans l'onglet **`Budget`**.
+  * Créer une carte compacte **`WeeklyDigestCard.tsx`** dans l'onglet `Budget` donnant un aperçu rapide (météo de rythme + nombre d'échéances de la semaine) et ouvrant **`WeeklyDigestSheet.tsx`** en 1 tap.
+  * Dans **`WeeklyDigestSheet.tsx`** (lisible en 30 secondes, compatible **modes clair et sombre**) :
+    1. Bloc *Cap de la semaine* (reste à vivre, `Y € / jour`, badge de rythme doux),
+    2. Bloc *Charges fixes des 7 prochains jours* avec pointage rapide `✓` en 1 tap,
+    3. Bloc *Enveloppes à surveiller* (top 2 max) avec lien direct vers l'enveloppe,
+    4. Encart de clôture positif.
+  * Ajouter le réglage opt-in **« Point du dimanche »** (activation et heure) dans `ProfileSheet → Alertes`.
+- [x] **Frontend — Gamification Douce (`HabitMilestonesCard.tsx`) :**
+  * **Visible dès le Mode essentiel** (et en Mode détaillé) dans l'onglet **`Budget`**.
+  * Afficher les jalons débloqués (badges sobres) et la barre de progression vers le prochain palier à atteindre — aucune pop-up bloquante ni compteur punitif.
+  * Support complet des **modes clair et sombre**.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/weeklyHabit.test.ts`) :** calcul du digest (charges à 7 jours, top 2 enveloppes, note positive) et calcul des jalons cumulés sans remise à zéro punitive.
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/weeklyHabit.test.tsx`) :** rendu de `WeeklyDigestCard`, `WeeklyDigestSheet` (y compris pointage `✓` d'une charge fixe et navigation enveloppe) et `HabitMilestonesCard`.
+  * **Non-régression & Documentation :** Mise à jour de `ROADMAP.md` et `USER_GUIDE.md`.

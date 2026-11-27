@@ -17,6 +17,9 @@ const DEFAULT_PREFS: NotificationPreferences = {
   dailyReminderHour: '20:00',
   upcomingDueAlertEnabled: true,
   envelopeThresholdAlertEnabled: true,
+  weeklyDigestEnabled: false,
+  weeklyDigestDay: 0,
+  weeklyDigestHour: '18:00',
 };
 
 export function NotificationsSettingsSection({
@@ -30,7 +33,11 @@ export function NotificationsSettingsSection({
   const [isSendingTest, setIsSendingTest] = useState(false);
 
   const handleToggle = async (
-    key: 'dailyReminderEnabled' | 'upcomingDueAlertEnabled' | 'envelopeThresholdAlertEnabled',
+    key:
+      | 'dailyReminderEnabled'
+      | 'upcomingDueAlertEnabled'
+      | 'envelopeThresholdAlertEnabled'
+      | 'weeklyDigestEnabled',
     nextVal: boolean
   ) => {
     setStatusMsg(null);
@@ -57,6 +64,15 @@ export function NotificationsSettingsSection({
       await updateNotificationPreferences({ dailyReminderHour: hour });
     } catch {
       setStatusMsg('Impossible de sauvegarder l’heure.');
+    }
+  };
+
+  const handleWeeklyDigestHourChange = async (hour: string) => {
+    setPrefs((prev) => ({ ...prev, weeklyDigestHour: hour }));
+    try {
+      await updateNotificationPreferences({ weeklyDigestHour: hour });
+    } catch {
+      setStatusMsg('Impossible de sauvegarder l’heure du Point du dimanche.');
     }
   };
 
@@ -139,6 +155,34 @@ export function NotificationsSettingsSection({
             type="checkbox"
             checked={prefs.dailyReminderEnabled}
             onChange={(e) => void handleToggle('dailyReminderEnabled', e.target.checked)}
+            className="w-4 h-4 accent-violet-600"
+          />
+        </div>
+      </div>
+
+      {/* 1b. Point du dimanche */}
+      <div className="flex items-center justify-between gap-2">
+        <label
+          htmlFor="toggle-weekly-digest"
+          className="text-xs font-medium text-slate-700 dark:text-slate-300"
+        >
+          Point du dimanche (résumé hebdo)
+        </label>
+        <div className="flex items-center gap-2">
+          {prefs.weeklyDigestEnabled && (
+            <input
+              type="time"
+              aria-label="Heure du Point du dimanche"
+              value={prefs.weeklyDigestHour ?? '18:00'}
+              onChange={(e) => void handleWeeklyDigestHourChange(e.target.value)}
+              className="text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 px-2 py-1"
+            />
+          )}
+          <input
+            id="toggle-weekly-digest"
+            type="checkbox"
+            checked={Boolean(prefs.weeklyDigestEnabled)}
+            onChange={(e) => void handleToggle('weeklyDigestEnabled', e.target.checked)}
             className="w-4 h-4 accent-violet-600"
           />
         </div>

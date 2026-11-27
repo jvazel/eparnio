@@ -27,6 +27,12 @@ export const notificationPreferencesSchema = z.object({
   upcomingDueAlertEnabled: z.boolean().optional(),
   envelopeThresholdAlertEnabled: z.boolean().optional(),
   sharedActivityAlertEnabled: z.boolean().optional(),
+  weeklyDigestEnabled: z.boolean().optional(),
+  weeklyDigestDay: z.number().int().min(0).max(6).optional(),
+  weeklyDigestHour: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, 'Format HH:MM requis')
+    .optional(),
 });
 
 export async function getVapidPublicKey(

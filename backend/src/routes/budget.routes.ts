@@ -19,6 +19,7 @@ import {
   getTagDetailAnalytics,
   getTagsSummary
 } from '../controllers/analytics.controller';
+import { getWeeklyDigestHandler } from '../controllers/weeklyHabit.controller';
 import {
   searchBudget,
   searchBudgetParamsSchema
@@ -112,6 +113,7 @@ budgetRouter.patch(
 budgetRouter.delete('/:id', validate({ params: budgetIdParamsSchema }), deleteBudget);
 
 budgetRouter.get('/:budgetId/trends', requireAuth, getBudgetTrends);
+budgetRouter.get('/:budgetId/weekly-digest', requireAuth, getWeeklyDigestHandler);
 budgetRouter.get('/:budgetId/wrapped', requireAuth, getBudgetWrappedHandler);
 budgetRouter.get('/:budgetId/net-worth', requireAuth, getNetWorthHandler);
 budgetRouter.put(

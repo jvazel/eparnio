@@ -18,6 +18,7 @@ import type {
   BudgetPeriod,
   BudgetSpace,
   BudgetType,
+  BudgetViewMode,
   EnvelopeItem,
   PeriodAnalytics,
   SavingsGoalItem
@@ -47,6 +48,7 @@ export interface BudgetSettingsSheetProps {
   onBudgetCreated: (budget: BudgetSpace) => void;
   onBudgetDeleted: (budgetId: string) => void;
   onOpenCalculator?: (budget: BudgetSpace) => void;
+  budgetViewMode?: BudgetViewMode;
 }
 
 /**
@@ -66,8 +68,10 @@ export function BudgetSettingsSheet({
   activeGoals = [],
   onBudgetCreated,
   onBudgetDeleted,
-  onOpenCalculator
+  onOpenCalculator,
+  budgetViewMode = 'advanced'
 }: BudgetSettingsSheetProps) {
+  const isAdvancedMode = budgetViewMode === 'advanced';
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<'edit' | 'create'>(initialMode);
   const [activeBudgetState, setActiveBudgetState] = useState<BudgetSpace | null>(budget);
@@ -376,93 +380,99 @@ export function BudgetSettingsSheet({
 
         {mode === 'edit' && currentBudget && activeSection === 'general' ? (
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <p className="px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Outils intelligents
-              </p>
-              <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
-                <button
-                  type="button"
-                  onClick={() => setIsTemplatesOpen(true)}
-                  className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300">
-                    <Layers className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
-                      Scénarios de budget
-                    </span>
-                    <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                      Mois Normal, Mois Serré, Vacances
-                    </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                </button>
+            {isAdvancedMode || onOpenCalculator ? (
+              <div className="space-y-1.5">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Outils intelligents
+                </p>
+                <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+                  {isAdvancedMode ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsTemplatesOpen(true)}
+                        className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300">
+                          <Layers className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
+                            Scénarios de budget
+                          </span>
+                          <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                            Mois Normal, Mois Serré, Vacances
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={() => setIsPayeeRulesOpen(true)}
-                  className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300">
-                    <Zap className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
-                      Règles d’auto-catégorisation
-                    </span>
-                    <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                      Tri automatique des imports CSV &amp; saisie
-                    </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsPayeeRulesOpen(true)}
+                        className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300">
+                          <Zap className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
+                            Règles d’auto-catégorisation
+                          </span>
+                          <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                            Tri automatique des imports CSV &amp; saisie
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={() => setIsApplePayGuideOpen(true)}
-                  className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300">
-                    <Smartphone className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
-                      Apple Pay &amp; Raccourcis
-                    </span>
-                    <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                      Saisie express via Raccourcis iOS / Partage
-                    </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsApplePayGuideOpen(true)}
+                        className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300">
+                          <Smartphone className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
+                            Apple Pay &amp; Raccourcis
+                          </span>
+                          <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                            Saisie express via Raccourcis iOS / Partage
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                      </button>
+                    </>
+                  ) : null}
 
-                {onOpenCalculator ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenCalculator(currentBudget);
-                    }}
-                    className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300">
-                      <Scale className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
-                        Calculateur 50/50 &amp; Prorata
+                  {onOpenCalculator ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenCalculator(currentBudget);
+                      }}
+                      className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300">
+                        <Scale className="h-4 w-4" aria-hidden="true" />
                       </span>
-                      <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                        Répartir équitablement les apports
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-slate-900 dark:text-slate-50">
+                          Calculateur 50/50 &amp; Prorata
+                        </span>
+                        <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                          Répartir équitablement les apports
+                        </span>
                       </span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                  </button>
-                ) : null}
+                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            ) : null}
 
             <div className="space-y-2 pt-1">
               <Button variant="secondary" fullWidth onClick={switchToCreateMode}>
@@ -546,7 +556,7 @@ export function BudgetSettingsSheet({
             onExportJson={() =>
               downloadBudgetJsonBackup(currentBudget.id, currentBudget.name)
             }
-            onImportJson={() => setIsJsonImportOpen(true)}
+            onImportJson={isAdvancedMode ? () => setIsJsonImportOpen(true) : undefined}
           />
         ) : null}
       </div>
