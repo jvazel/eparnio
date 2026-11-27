@@ -43,7 +43,8 @@ const envSchema = z
     PASSWORD_RESET_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
     VAPID_PUBLIC_KEY: z.string().trim().default(''),
     VAPID_PRIVATE_KEY: z.string().trim().default(''),
-    VAPID_SUBJECT: z.string().trim().default('mailto:contact@eparnio.app')
+    VAPID_SUBJECT: z.string().trim().default('mailto:contact@eparnio.app'),
+    REGISTRATION_INVITE_CODE: z.string().trim().default('')
   })
   .superRefine((data, ctx) => {
     if (

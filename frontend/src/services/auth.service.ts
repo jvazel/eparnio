@@ -21,6 +21,17 @@ export interface RegisterPayload {
   displayName: string;
   avatarEmoji?: string;
   budgetStartDay?: number;
+  inviteCode?: string;
+}
+
+export interface AuthConfigResponse {
+  status: 'ok';
+  registrationRequiresInviteCode: boolean;
+}
+
+export async function fetchAuthConfig(): Promise<AuthConfigResponse> {
+  const { data } = await apiClient.get<AuthConfigResponse>('/auth/config');
+  return data;
 }
 
 export interface LoginPayload {

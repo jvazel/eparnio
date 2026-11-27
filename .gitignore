@@ -24,3 +24,13 @@ npm-debug.log*
 
 # Guides locaux non commités
 DEPLOY_GUIDE.md
+
+# Android / Capacitor (clés de signature & APK compilés)
+*.jks
+*.keystore
+*.apk
+*.aab
+frontend/android/local.properties
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/app/release/

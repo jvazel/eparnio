@@ -1318,3 +1318,32 @@
   * Invalider `['period']` et `['transactions', periodId]` lors du déplacement d'une transaction entre enveloppes (`updateTransactionMutation`), `['net-worth']` dans `deleteGoalMutation`, `['calendar']` dans `BudgetPatrimoineView`, ainsi que `['calendar']`, `['trends']`, `['tags-summary']`, `['period-anomalies']`, `['weekly-habit']` et `['transaction-suggestions']`.
 - [x] **Alignement des contrats TypeScript (`backend/src/models/User.model.ts`, `frontend/src/types/budget.types.ts`) :**
   * Ajouter `notificationPreferences` dans `UserResponse` et `sharedActivityAlertEnabled` / `weeklyDigest*` dans `UserProfile.notificationPreferences`.
+
+
+---
+
+## Étape 70 : Application Android (Capacitor Mode Hybride), Widgets d'Écran d'Accueil & Accès Prod Limité *(Distribution Privée Hors Play Store)*
+
+> 📖 **Guide manuel complet (macOS → APK) :** Voir [ANDROID_APK_GUIDE.md](./ANDROID_APK_GUIDE.md) pour la procédure pas à pas de compilation, signature, partage et installation de l'APK.
+
+- [x] **Backend — Verrouillage Optionnel d'Inscription en Production (`backend/src/config/env.ts`, `backend/src/controllers/auth.controller.ts`, `backend/.env.example`) :**
+  * Ajouter une variable d'environnement optionnelle `REGISTRATION_INVITE_CODE` (chaîne vide par défaut = inscriptions ouvertes en dev).
+  * Lorsque `REGISTRATION_INVITE_CODE` est renseignée, exiger un champ `inviteCode` correspondant dans `POST /api/auth/register` (comparaison à temps constant via `crypto.timingSafeEqual`, retour HTTP `403` si manquant ou invalide) et exposer `registrationRequiresInviteCode: boolean` via `GET /api/auth/config` afin que le frontend n'affiche le champ « Code d'accès » que si nécessaire.
+- [x] **Frontend — Champ Code d'Accès & Socle Capacitor Android (`frontend/package.json`, `frontend/capacitor.config.ts`, `frontend/src/features/auth/AuthScreen.tsx`) :**
+  * Installer `@capacitor/core`, `@capacitor/cli`, `@capacitor/android` et `@capacitor/app` dans `frontend/`.
+  * Créer `frontend/capacitor.config.ts` en **Mode Hybride** (`appId: 'com.eparnio.app'`, `appName: 'Eparnio'`, `webDir: 'dist'`, `server.url` piloté par `VITE_CAPACITOR_SERVER_URL` pointant vers l'URL Vercel de production) afin que toutes les mises à jour React déployées sur Vercel soient instantanément disponibles sans réinstaller l'APK, tout en conservant un fonctionnement **100 % identique sur navigateur / PWA (PC, iOS, Android Chrome)**.
+  * Générer le projet natif `frontend/android/` (`npx cap add android`) et ajouter les scripts npm `android:sync` et `android:open` dans `frontend/package.json`.
+- [x] **Frontend — Deep-Link Natif & Pont Widgets (`frontend/src/utils/androidWidgetBridge.ts`, `frontend/src/App.tsx`, `frontend/src/utils/quickAddDeepLink.ts`) :**
+  * Étendre `quickAddDeepLink.ts` pour supporter le paramètre `mode=voice | ocr` (en plus de `amount`, `label`, `envelope`, `tags`) et déclencher automatiquement la dictée vocale ou le sélecteur de scan de ticket à l'ouverture de `QuickAddExpenseSheet`.
+  * Écouter `App.addListener('appUrlOpen', ...)` (via `@capacitor/app`, uniquement si `Capacitor.isNativePlatform()`) dans `App.tsx` pour intercepter les liens natifs `eparnio://quick-add`, `eparnio://quick-add?mode=voice` et `eparnio://quick-add?mode=ocr`.
+  * Créer `androidWidgetBridge.ts` enregistrant le plugin `WidgetBridge` (`registerPlugin`) et exposant `syncAndroidWidgetData({ dailyBudget, remainingToLive, daysRemaining, budgetName, isNegative })` (no-op silencieux sur navigateur web) appelé automatiquement dès que les données de période / analytics sont mises à jour.
+- [x] **Android Natif (`frontend/android-widgets/` + `frontend/scripts/setup-android-widgets.sh`) — Plugin & 2 Widgets d'Écran d'Accueil :**
+  * **Deep-Link (`AndroidManifest.xml`) :** Déclarer l'`<intent-filter>` pour le schéma `eparnio://quick-add` sur `MainActivity`.
+  * **Pont natif (`WidgetBridgePlugin.kt` + `MainActivity.kt`) :** Stocker le JSON de synthèse dans `SharedPreferences` (`eparnio_widget_prefs`) et diffuser `AppWidgetManager.ACTION_APPWIDGET_UPDATE` vers `DailyBudgetWidgetProvider`.
+  * **Widget 1 — « Mon Budget du Jour » (4×2) :** `DailyBudgetWidgetProvider.kt`, `res/layout/widget_daily_budget.xml` et `res/xml/widget_daily_budget_info.xml` affichant le **Budget du jour (`Y € / jour`)**, le **Reste à vivre (`X € · N j restants`)**, le nom du budget actif et un bouton bleu **`+`** ouvrant `eparnio://quick-add`.
+  * **Widget 2 — « Saisie Express » (4×1) :** `QuickActionsWidgetProvider.kt`, `res/layout/widget_quick_actions.xml` et `res/xml/widget_quick_actions_info.xml` proposant 3 boutons directs : **`+` Dépense** (`eparnio://quick-add`), **`🎤` Voix** (`eparnio://quick-add?mode=voice`) et **`📷` Ticket** (`eparnio://quick-add?mode=ocr`).
+  * Déclarer les deux `<receiver>` dans `AndroidManifest.xml` et exclure les fichiers sensibles (`*.jks`, `*.keystore`, `*.apk`) dans `.gitignore`.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Backend (`backend/src/__tests__/registrationInvite.test.ts`) :** Vérifier `POST /api/auth/register` avec `REGISTRATION_INVITE_CODE` actif (rejet `403` sans code ou mauvais code, succès `201` avec bon code) et inactif (inscription libre).
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/androidWidgetBridge.test.tsx`) :** Vérifier que `syncAndroidWidgetData` est un no-op sûr sur navigateur web, appelle `WidgetBridge.updateWidgetData` sur plateforme native mockée, et que `parseQuickAddUrlParams` gère `eparnio://quick-add?mode=voice` et `?mode=ocr`.
+  * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm test && npm run build`, vérifier que le déploiement Web/PWA reste 100 % intact et mettre à jour `ROADMAP.md`, `README.md` et `ANDROID_APK_GUIDE.md`.

@@ -3,6 +3,7 @@ import {
   deleteAccountSchema,
   deleteMe,
   forgotPasswordSchema,
+  getAuthConfig,
   getMe,
   login,
   loginSchema,
@@ -30,6 +31,7 @@ import { validate } from '../middlewares/validate.middleware';
 
 const authRouter = Router();
 
+authRouter.get('/config', getAuthConfig);
 authRouter.post('/register', authRateLimiter, validate({ body: registerSchema }), register);
 authRouter.post('/login', authRateLimiter, validate({ body: loginSchema }), login);
 authRouter.post('/refresh', authRateLimiter, refreshSession);

@@ -116,3 +116,4 @@ Toutes les commandes suivantes s'exécutent depuis la racine `Eparnio/` :
 - [Architecture technique & Contrat API](./ARCHITECTURE.md)
 - [Roadmap de développement](./ROADMAP.md)
 - [Guide de déploiement (Render + Vercel + MongoDB Atlas)](./DEPLOY_GUIDE.md)
+- [Guide de création & partage de l'APK Android (macOS + Widgets)](./ANDROID_APK_GUIDE.md)

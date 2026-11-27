@@ -57,7 +57,8 @@ export const registerSchema = z.object({
     .min(1, 'Le prénom ou pseudo est requis')
     .max(60, 'Le prénom ou pseudo ne doit pas dépasser 60 caractères'),
   avatarEmoji: z.string().trim().min(1).max(16).optional(),
-  budgetStartDay: z.coerce.number().int().min(1).max(31).optional()
+  budgetStartDay: z.coerce.number().int().min(1).max(31).optional(),
+  inviteCode: z.string().trim().max(128).optional()
 });
 
 export const loginSchema = z.object({
@@ -93,14 +94,44 @@ export const updatePasswordSchema = z.object({
   newPassword: strongPasswordSchema
 });
 
+function isValidRegistrationInviteCode(providedCode: string | undefined): boolean {
+  const expected = env.REGISTRATION_INVITE_CODE;
+  if (!expected) {
+    return true;
+  }
+  const actual = (providedCode ?? '').trim();
+  if (!actual) {
+    return false;
+  }
+  const expectedBuf = Buffer.from(expected, 'utf8');
+  const actualBuf = Buffer.from(actual, 'utf8');
+  if (expectedBuf.length !== actualBuf.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(expectedBuf, actualBuf);
+}
+
+/**
+ * Retourne la configuration publique d'authentification (ex. si un code d'accès est requis à l'inscription).
+ */
+export function getAuthConfig(_req: Request, res: Response): void {
+  res.json({
+    status: 'ok',
+    registrationRequiresInviteCode: Boolean(env.REGISTRATION_INVITE_CODE)
+  });
+}
+
 /**
  * Inscription d'un utilisateur et création automatique de son premier `Budget Perso`.
  */
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { email, password, displayName, avatarEmoji, budgetStartDay } = req.body as z.infer<
-      typeof registerSchema
-    >;
+    const { email, password, displayName, avatarEmoji, budgetStartDay, inviteCode } =
+      req.body as z.infer<typeof registerSchema>;
+
+    if (!isValidRegistrationInviteCode(inviteCode)) {
+      throw new AppError("Code d'accès d'inscription invalide ou manquant", 403);
+    }
 
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) {

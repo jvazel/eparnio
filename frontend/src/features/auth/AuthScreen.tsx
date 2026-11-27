@@ -1,10 +1,11 @@
 import { Eye, Fingerprint, EyeOff, KeyRound, Lock, Mail, ShieldCheck, Sparkles, User } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { getApiErrorMessage } from '../../services/api';
 import {
   browserSupportsWebAuthn,
+  fetchAuthConfig,
   loginUser,
   loginWithBiometrics,
   registerUser,
@@ -43,8 +44,26 @@ export function AuthScreen() {
   const [avatarEmoji, setAvatarEmoji] = useState('🧑');
   const [email, setEmail] = useState('');
   const [recoveryOrCurrent, setRecoveryOrCurrent] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [requiresInviteCode, setRequiresInviteCode] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void fetchAuthConfig()
+      .then((cfg) => {
+        if (active && cfg?.registrationRequiresInviteCode) {
+          setRequiresInviteCode(true);
+        }
+      })
+      .catch(() => {
+        // Ignorer si indisponible
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -157,7 +176,8 @@ export function AuthScreen() {
           displayName: displayName.trim(),
           avatarEmoji,
           email: email.trim(),
-          password
+          password,
+          ...(inviteCode.trim() ? { inviteCode: inviteCode.trim() } : {})
         });
         if (res.defaultBudget) {
           setActiveBudgetId(res.defaultBudget.id);
@@ -406,6 +426,37 @@ export function AuthScreen() {
               </p>
             ) : null}
           </div>
+
+          {mode === 'register' && requiresInviteCode ? (
+            <div>
+              <label
+                htmlFor="register-invite-code"
+                className="mb-1.5 block text-sm font-semibold text-slate-700"
+              >
+                Code d’accès d’inscription
+              </label>
+              <div className="relative">
+                <KeyRound
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+                <input
+                  id="register-invite-code"
+                  name="inviteCode"
+                  type="text"
+                  autoComplete="off"
+                  required
+                  value={inviteCode}
+                  onChange={(e) => {
+                    setInviteCode(e.target.value);
+                    if (submitError) setSubmitError(null);
+                  }}
+                  placeholder="Code fourni par l’administrateur"
+                  className="min-h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-base text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
+            </div>
+          ) : null}
 
           {mode === 'reset-password' ? (
             <div>

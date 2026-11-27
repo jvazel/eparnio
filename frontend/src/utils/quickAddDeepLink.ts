@@ -2,8 +2,11 @@ import { parseNaturalExpense } from './parseNaturalExpense';
 
 export const EPARNIO_PENDING_QUICK_ADD_KEY = 'eparnio_pending_quick_add_v1';
 
+export type QuickAddLaunchMode = 'voice' | 'ocr';
+
 export interface QuickAddPrefill {
   source: 'deep_link' | 'share_target' | 'shortcut';
+  mode?: QuickAddLaunchMode;
   amount?: number;
   label?: string;
   envelopeName?: string;
@@ -62,6 +65,9 @@ export function parseQuickAddUrlParams(
   }
 
   const params = new URLSearchParams(search);
+  const rawMode = params.get('mode')?.trim().toLowerCase();
+  const mode: QuickAddLaunchMode | undefined =
+    rawMode === 'voice' || rawMode === 'ocr' ? rawMode : undefined;
   const rawAmount = params.get('amount');
   const rawLabel = params.get('label')?.trim().slice(0, 160) || undefined;
   const rawEnvelope = params.get('envelope')?.trim().slice(0, 120) || undefined;
@@ -97,13 +103,14 @@ export function parseQuickAddUrlParams(
     };
   }
 
-  // Mode structuré (Apple Pay / Raccourcis) ou raccourci d'icône vide
+  // Mode structuré (Apple Pay / Raccourcis / Widgets Android) ou raccourci d'icône vide
   const hasAnyStructuredField = Boolean(
-    amount !== undefined || rawLabel || rawEnvelope || rawDate || rawTags || rawNotes
+    mode || amount !== undefined || rawLabel || rawEnvelope || rawDate || rawTags || rawNotes
   );
 
   return {
     source: hasAnyStructuredField ? 'deep_link' : 'shortcut',
+    ...(mode ? { mode } : {}),
     ...(amount !== undefined ? { amount } : {}),
     ...(rawLabel ? { label: rawLabel } : {}),
     ...(rawEnvelope ? { envelopeName: rawEnvelope } : {}),
@@ -111,6 +118,21 @@ export function parseQuickAddUrlParams(
     ...(rawTags ? { tags: rawTags } : {}),
     ...(rawNotes ? { notes: rawNotes } : {})
   };
+}
+
+/**
+ * Analyse une URL de deep-link natif Android (`eparnio://quick-add?mode=voice|ocr&...`).
+ */
+export function parseNativeQuickAddUrl(rawUrl: string): QuickAddPrefill | null {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol === 'eparnio:' && parsed.hostname === 'quick-add') {
+      return parseQuickAddUrlParams('/quick-add', parsed.search);
+    }
+    return parseQuickAddUrlParams(parsed.pathname, parsed.search);
+  } catch {
+    return null;
+  }
 }
 
 /**
