@@ -26,7 +26,7 @@
 ### 1.1. Node.js & Git
 Vérifiez dans votre Terminal Mac que Node.js `>= 20` est installé :
 ```bash
-node -v
+node -v  
 npm -v
 ```
 
