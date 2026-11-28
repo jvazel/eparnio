@@ -139,8 +139,14 @@ export async function updateNotificationPreferences(
       upcomingDueAlertEnabled: updates.upcomingDueAlertEnabled ?? current.upcomingDueAlertEnabled,
       envelopeThresholdAlertEnabled:
         updates.envelopeThresholdAlertEnabled ?? current.envelopeThresholdAlertEnabled,
+      envelopeThresholdPercent:
+        updates.envelopeThresholdPercent ?? current.envelopeThresholdPercent ?? 80,
       sharedActivityAlertEnabled:
         updates.sharedActivityAlertEnabled ?? current.sharedActivityAlertEnabled ?? true,
+      weeklyDigestEnabled:
+        updates.weeklyDigestEnabled ?? current.weeklyDigestEnabled ?? false,
+      weeklyDigestDay: updates.weeklyDigestDay ?? current.weeklyDigestDay ?? 0,
+      weeklyDigestHour: updates.weeklyDigestHour ?? current.weeklyDigestHour ?? '18:00',
     };
 
     await user.save();

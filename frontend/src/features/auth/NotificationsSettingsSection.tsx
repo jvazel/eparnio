@@ -7,6 +7,7 @@ import {
   updateNotificationPreferences,
   type NotificationPreferences,
 } from '../../services/notification.service';
+import { useAuthStore } from '../../store/useAuthStore';
 
 interface NotificationsSettingsSectionProps {
   initialPreferences?: NotificationPreferences;
@@ -32,6 +33,16 @@ export function NotificationsSettingsSection({
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [isSendingTest, setIsSendingTest] = useState(false);
 
+  const syncUserNotificationPrefs = (updated: NotificationPreferences) => {
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser) {
+      useAuthStore.getState().updateUser({
+        ...currentUser,
+        notificationPreferences: updated
+      });
+    }
+  };
+
   const handleToggle = async (
     key:
       | 'dailyReminderEnabled'
@@ -52,7 +63,9 @@ export function NotificationsSettingsSection({
     const nextPrefs = { ...prefs, [key]: nextVal };
     setPrefs(nextPrefs);
     try {
-      await updateNotificationPreferences({ [key]: nextVal });
+      const updated = await updateNotificationPreferences({ [key]: nextVal });
+      setPrefs(updated);
+      syncUserNotificationPrefs(updated);
     } catch {
       setStatusMsg('Impossible de sauvegarder vos préférences.');
     }
@@ -61,7 +74,9 @@ export function NotificationsSettingsSection({
   const handleHourChange = async (hour: string) => {
     setPrefs((prev) => ({ ...prev, dailyReminderHour: hour }));
     try {
-      await updateNotificationPreferences({ dailyReminderHour: hour });
+      const updated = await updateNotificationPreferences({ dailyReminderHour: hour });
+      setPrefs(updated);
+      syncUserNotificationPrefs(updated);
     } catch {
       setStatusMsg('Impossible de sauvegarder l’heure.');
     }
@@ -70,7 +85,9 @@ export function NotificationsSettingsSection({
   const handleWeeklyDigestHourChange = async (hour: string) => {
     setPrefs((prev) => ({ ...prev, weeklyDigestHour: hour }));
     try {
-      await updateNotificationPreferences({ weeklyDigestHour: hour });
+      const updated = await updateNotificationPreferences({ weeklyDigestHour: hour });
+      setPrefs(updated);
+      syncUserNotificationPrefs(updated);
     } catch {
       setStatusMsg('Impossible de sauvegarder l’heure du Point du dimanche.');
     }
@@ -241,6 +258,7 @@ export function NotificationsSettingsSection({
                       envelopeThresholdPercent: pct
                     });
                     setPrefs(updated);
+                    syncUserNotificationPrefs(updated);
                   }}
                   className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors ${
                     active
