@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getVapidPublicKey,
   notificationPreferencesSchema,
+  runNotificationCron,
   sendTestNotification,
   subscribePush,
   subscribeSchema,
@@ -13,6 +14,8 @@ import { requireAuth } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 
 const notificationRouter = Router();
+
+notificationRouter.post('/cron/run', runNotificationCron);
 
 notificationRouter.use(requireAuth);
 

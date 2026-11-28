@@ -211,7 +211,7 @@ export function NotificationsSettingsSection({
           htmlFor="toggle-threshold-alert"
           className="text-xs font-medium text-slate-700 dark:text-slate-300"
         >
-          Alerte seuil d’enveloppe (≥ 80 %)
+          Alerte seuil d’enveloppe (≥ {prefs.envelopeThresholdPercent ?? 80} %)
         </label>
         <input
           id="toggle-threshold-alert"
@@ -223,6 +223,38 @@ export function NotificationsSettingsSection({
           className="w-4 h-4 accent-violet-600"
         />
       </div>
+
+      {prefs.envelopeThresholdAlertEnabled && (
+        <div className="flex items-center justify-between gap-2 pl-2">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            Seuil d’alerte
+          </span>
+          <div className="flex gap-1">
+            {([75, 80, 90] as const).map((pct) => {
+              const active = (prefs.envelopeThresholdPercent ?? 80) === pct;
+              return (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={async () => {
+                    const updated = await updateNotificationPreferences({
+                      envelopeThresholdPercent: pct
+                    });
+                    setPrefs(updated);
+                  }}
+                  className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors ${
+                    active
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-white text-slate-600 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700'
+                  }`}
+                >
+                  {pct} %
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <button
         type="button"

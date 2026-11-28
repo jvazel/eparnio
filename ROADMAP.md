@@ -1395,3 +1395,75 @@
 - [x] **Validation & Non-Régression Complète :**
   * Exécuter `npm run typecheck && npm test && npm run build` (Frontend) et vérifier que les tests et le build PWA passent sans régression.
   * Mettre à jour `ROADMAP.md`.
+
+
+---
+
+## Étape 73 : Refactorisation Architecturale, Nettoyage du Code Mort & Optimistic UI *(Maintenabilité & Perf — Zéro Recompilation Android)*
+
+> **Objectif :** Assainir durablement l'architecture Frontend et Backend (découpage des fichiers géants, suppression du code mort résiduel) et fluidifier les interactions quotidiennes via l'**Optimistic UI** TanStack Query, **sans aucune modification nécessitant de recompiler l'APK Android** (déploiement 100 % Web/Vercel + API/Render).
+
+- [x] **Nettoyage du Code Mort & Hygiène du Dépôt :**
+  * **Frontend :** Supprimer le composant orphelin `frontend/src/features/transactions/EnvelopeDetailSheet.tsx` (remplacé par `EnvelopeDetailPage.tsx` depuis l'Étape 9) et nettoyer/migrer les assertions dédiées dans `frontend/src/__tests__/envelopes-transactions.test.tsx`.
+  * **Backend :** Auditer et supprimer le service orphelin `backend/src/services/streak.service.ts` ainsi que son endpoint/handler résiduel dans `backend/src/controllers/analytics.controller.ts` et `backend/src/routes/` (remplacé par `weeklyHabit.service.ts` aux Étapes 64–65), après vérification qu'aucun client ni test actif n'en dépend.
+  * **Dépôt :** Supprimer les dossiers de couverture dupliqués (`frontend/coverage 2`, `backend/coverage/lcov-report 3`, `backend/coverage/src 3`) et renforcer `.gitignore` (`coverage*/`) pour éviter toute pollution future.
+- [x] **Refactorisation Modulaire du Frontend (`App.tsx` → `useAppModals.ts` & `useBudgetMutations.ts`) :**
+  * Extraire `frontend/src/hooks/useBudgetMutations.ts` : centraliser les 14 `useMutation` TanStack Query et l'invalidation de caches unifiée (`invalidateAnalyticsAndInsights`).
+  * Extraire `frontend/src/hooks/useAppModals.ts` : isoler les états d'ouverture/édition de toutes les modales et tiroirs (avec `closeAllOverlays`), réduisant `frontend/src/App.tsx` de ~1 901 à ~1 555 lignes.
+  * *(Suite optionnelle)* : découpage complémentaire de `useBudgetQueries.ts`, `AppModalsHost.tsx`, `GoalDetailSheet.tsx` et `ProfileSheet.tsx`.
+- [x] **Refactorisation Modulaire du Backend (`periodRollover.service.ts`) :**
+  * Scinder `backend/src/services/periodRollover.service.ts` (~1 016 lignes) en 3 services à responsabilité unique :
+    * `periodRollover.service.ts` : création/reconduction de période mensuelle et gestion des récurrences (`monthly`, `quarterly`, `semiannual`, `yearly`, `recurrenceRemainingCount`, `recurrenceEndDate`).
+    * `envelopeRollover.service.ts` : calcul et propagation dynamique $M \rightarrow M+1$ de `rolloverAmount` (`positive_only` / `both`, chaînage `previousEnvelopeId`).
+    * `monthClosing.service.ts` : clôture guidée (`closePeriodAndRollover`), affectation des surplus (`rollover_next_month`, `transfer_to_goal`, `reset_zero`) et garde-fou `409`.
+  * Conserver des ré-exports propres depuis `periodRollover.service.ts` pour garantir zéro rupture d'import dans les contrôleurs et tests existants.
+- [x] **Optimistic UI & Fluidité Mobile (`useBudgetMutations.ts`) :**
+  * Implémenter des mises à jour optimistes TanStack Query (`onMutate` avec sauvegarde du snapshot, rollback propre dans `onError`, revalidation dans `onSuccess`) sur les actions quotidiennes les plus fréquentes :
+    * Pointage `✓` d'un revenu ou d'une charge fixe (`togglePaid`) — mise à jour instantanée de la pastille et du *Solde estimé en compte*.
+    * Ajout et suppression d'une dépense variable dans une enveloppe — mise à jour instantanée du restant de l'enveloppe et de la liste.
+    * Réordonnancement (`order`) en mode gestion rapide `⚙️`.
+  * Préserver la compatibilité totale avec la file hors-ligne (`offlineQueue.ts`), la synchro temps réel SSE (`useBudgetRealtimeSync.ts`) et le pont widgets Android (`useAndroidWidgetSync.ts`, sans modifier son contrat natif).
+- [x] **Garantie Zéro Recompilation Android :**
+  * Vérifier explicitement via `git status` qu'**aucun fichier** sous `frontend/android/`, `frontend/capacitor.config.ts` ni le contrat natif `WidgetBridge` / deep-links `eparnio://` n'a été altéré.
+- [x] **Tests (Nouveaux Tests & Non-Régression Complète) & Documentation :**
+  * **Nouveaux tests Frontend :** `frontend/src/__tests__/useBudgetMutations.test.tsx` (3/3 : Optimistic UI + rollback sur erreur pour `togglePaid`, `createTransaction`, `reorderEnvelopes`) et `frontend/src/__tests__/useAppModals.test.tsx` (1/1 : isolation & `closeAllOverlays`).
+  * **Non-Régression :** `npm run typecheck` (0 erreur Backend + Frontend), `npm test --prefix backend` (34/35 fichiers, 100/101 tests passés ; 100 % sur `period-envelope`, `envelopeRollover`, `monthClosing`, `sharedBudgetAndRollover`, `analytics`, `transaction`, `goal`), `npm run build` propre (`index` `346.74 kB < 500 kB`, 0 warning Vite).
+
+
+---
+
+## Étape 74 : Pointage Groupé des Charges Fixes (« Pointer jusqu'à aujourd'hui ») & Alertes Web Push Intelligentes *(Confort Quotidien & Fiabilité — Zéro Recompilation Android)*
+
+> **Objectif :** Accélérer la mise à jour du *Solde estimé en compte* grâce au pointage groupé des charges fixes échues en 1 tap, et fiabiliser/enrichir les alertes Web Push existantes (cron externe Render, anti-spam, messages contextuels avec jours restants, seuil configurable et envoi du *Point du dimanche*), **sans aucune modification nécessitant de recompiler l'APK Android**.
+
+- [x] **Partie A — Pointage Groupé des Charges Fixes (« Pointer jusqu'à aujourd'hui ») :**
+  * **Backend (`envelope.controller.ts`, `period.routes.ts`) :**
+    * Créer l'endpoint `PATCH /api/periods/:periodId/envelopes/bulk-paid` (protégé par JWT + `assertBudgetAccess` `owner`/`editor`, validé par Zod : `{ envelopeIds: string[], isPaid: boolean }`).
+    * Mettre à jour de manière cohérente les `EnvelopeModel` (`pillar: 'fixed_charge'` appartenant à `periodId`, `isPaid` et `spentOrPaidAmount = isPaid ? allocatedAmount : 0`), recalculer la période via `recalculatePeriodSummary(periodId)` et diffuser l'événement SSE (`realtime.service.ts`) en budget partagé.
+  * **Frontend (`envelope.service.ts`, `useBudgetMutations.ts`, `FixedChargesList.tsx`) :**
+    * Ajouter `bulkUpdateEnvelopesPaid(periodId, envelopeIds, isPaid)` dans `envelope.service.ts` et `bulkTogglePaidMutation` dans `useBudgetMutations.ts` avec **Optimistic UI + rollback** sur erreur et invalidation de `['analytics']` / `['weekly-habit']`.
+    * Afficher un bouton contextuel **`✓ Pointer X charges échues (Y €)`** dans `FixedChargesList.tsx` (uniquement si `>= 2` charges fixes non payées ont une date `<= aujourd'hui`), ouvrant un `BottomSheet` de confirmation (cases pré-cochées modifiables + aperçu live **`Solde estimé en compte : Ancien → Nouveau`** + bouton **`Confirmer le pointage`**).
+    * Afficher un toast **« Annuler »** (5 s) permettant d'inverser le pointage groupé en 1 tap, en **modes clair et sombre** (Modes Essentiel & Détaillé).
+- [x] **Partie B — Alertes Web Push Intelligentes, Anti-Spam & Cron Externe Render :**
+  * **Modèles (`Envelope.model.ts`, `User.model.ts`, `env.ts`) :**
+    * Ajouter sur `EnvelopeModel` les champs optionnels d'anti-spam : `lastDueAlertSentAt?: Date` et `lastThresholdAlertLevel?: number` (`80` ou `100`).
+    * Ajouter sur `User.notificationPreferences` le champ `envelopeThresholdPercent?: number` (`75 | 80 | 90`, défaut `80`), modifiable via `PATCH /api/notifications/preferences`.
+    * Ajouter la variable d'environnement optionnelle `CRON_SECRET` dans `backend/src/config/env.ts` et `backend/.env.example`.
+  * **Backend (`pushNotification.service.ts`, `notification.controller.ts`, `notification.routes.ts`) :**
+    * **Endpoint Cron sécurisé :** Créer `POST /api/notifications/cron/run` protégé par `X-Cron-Secret` (comparaison à temps constant `crypto.timingSafeEqual`, retour `401`/`503` si invalide/non configuré) exécutant `checkAndSendDueAlerts`, `checkAndSendEnvelopeThresholdAlerts`, `checkAndSendDailyReminders` et `checkAndSendWeeklyDigestPush` (compatible GitHub Actions / cron-job.org sur Render Free Tier).
+    * **Anti-spam & Messages contextuels :**
+      * Regrouper les charges fixes dues à J-2 par budget/utilisateur (*« 📅 2 prélèvements dans 2 jours : Loyer + Internet (920 €) »*) et marquer `lastDueAlertSentAt` pour éviter tout doublon.
+      * Enrichir `checkAndSendEnvelopeThresholdAlerts` avec le **seuil utilisateur** (`envelopeThresholdPercent`), le **nombre de jours restants** dans le cycle (*« 🛒 Enveloppe Courses à 85 % alors qu'il reste 12 jours »*) et la déduplication `lastThresholdAlertLevel` (1 seule alerte au seuil configuré, puis 1 seule à 100 %).
+      * Implémenter `checkAndSendWeeklyDigestPush(now)` et le brancher dans `startNotificationScheduler()` pour envoyer le *Point du dimanche* selon `weeklyDigestEnabled` / `weeklyDigestDay` / `weeklyDigestHour`.
+  * **Frontend (`NotificationsSettingsSection.tsx` / `ProfileSheet.tsx`) :**
+    * Ajouter le sélecteur de seuil d'alerte d'enveloppe (`75 %` / `80 %` / `90 %`) dans `ProfileSheet → Alertes`, compatible **modes clair et sombre**.
+- [x] **Garantie Zéro Recompilation Android :**
+  * Vérifier via `git status` qu'**aucun fichier** sous `frontend/android/`, `frontend/capacitor.config.ts` ni le contrat natif `WidgetBridge` / deep-links `eparnio://` n'a été modifié.
+- [x] **Tests (Nouveaux Tests & Non-Régression Complète) & Documentation :**
+  * **Nouveaux tests Backend :**
+    * `backend/src/__tests__/bulkPaidEnvelopes.test.ts` : pointage groupé (`isPaid: true` / rollback `false`), recalcul `spentOrPaidAmount` & `summary`, refus `viewer` (`403`), filtrage strict `pillar: 'fixed_charge'`.
+    * Extension de `backend/src/__tests__/notifications.test.ts` : anti-spam `lastDueAlertSentAt` & `lastThresholdAlertLevel` (pas de double envoi), regroupement J-2, message avec jours restants & seuil personnalisé, `checkAndSendWeeklyDigestPush`, et sécurité `POST /api/notifications/cron/run` (`401` sans/mauvais secret, `200` avec bon secret).
+  * **Nouveaux tests Frontend :**
+    * Extension de `frontend/src/__tests__/income-fixed.test.tsx` : affichage conditionnel du bouton `Pointer X charges échues`, tiroir de confirmation avec aperçu du *Solde estimé en compte*, désélection d'une charge et toast `Annuler` (modes clair & sombre).
+    * Extension de `frontend/src/__tests__/useBudgetMutations.test.tsx` : Optimistic UI + rollback sur `bulkTogglePaidMutation`.
+  * **Non-Régression & Documentation :** Exécuter `npm run typecheck`, `npm test --prefix backend`, `npm test --prefix frontend` et `npm run build` (`< 500 Ko`, 0 warning Vite), puis mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.

@@ -417,3 +417,61 @@ export async function deleteEnvelope(
     next(err);
   }
 }
+
+export const bulkUpdateEnvelopesPaidBodySchema = z.object({
+  envelopeIds: z.array(objectIdSchema).min(1).max(100),
+  isPaid: z.boolean()
+});
+
+/**
+ * Pointe ou dépointe en lot plusieurs charges fixes (ex. « Pointer jusqu'à aujourd'hui »)
+ * en une seule opération cohérente avec recalcul de la période.
+ */
+export async function bulkUpdateEnvelopesPaid(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodId } = req.params as z.infer<typeof periodParamsSchema>;
+    const { envelopeIds, isPaid } = req.body as z.infer<
+      typeof bulkUpdateEnvelopesPaidBodySchema
+    >;
+    const { period } = await assertPeriodAccess(periodId, req.user?.id, { requireWrite: true });
+
+    const targets = await EnvelopeModel.find({
+      budgetPeriodId: period._id,
+      pillar: 'fixed_charge',
+      _id: { $in: envelopeIds }
+    });
+
+    if (targets.length === 0) {
+      res.status(200).json({
+        status: 'ok',
+        updatedCount: 0,
+        envelopes: [],
+        period: toBudgetPeriodResponse(period)
+      });
+      return;
+    }
+
+    await Promise.all(
+      targets.map((item) => {
+        item.isPaid = isPaid;
+        item.spentOrPaidAmount = isPaid ? item.allocatedAmount : 0;
+        return item.save();
+      })
+    );
+
+    const updatedPeriod = await recalculatePeriodSummary(period._id);
+
+    res.status(200).json({
+      status: 'ok',
+      updatedCount: targets.length,
+      envelopes: targets.map(toEnvelopeResponse),
+      period: toBudgetPeriodResponse(updatedPeriod)
+    });
+  } catch (err) {
+    next(err);
+  }
+}

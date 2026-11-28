@@ -7,7 +7,6 @@ import { CreationFormModal } from '../features/budget/CreationFormModal';
 import { EnvelopesList } from '../features/budget/EnvelopesList';
 import { AddExpenseSheet } from '../features/transactions/AddExpenseSheet';
 import { EnvelopeDetailPage } from '../features/transactions/EnvelopeDetailPage';
-import { EnvelopeDetailSheet } from '../features/transactions/EnvelopeDetailSheet';
 import { TransactionHistory } from '../features/transactions/TransactionHistory';
 import * as budgetService from '../services/budget.service';
 import * as envelopeService from '../services/envelope.service';
@@ -507,50 +506,6 @@ describe('Saisie au pouce — AddExpenseSheet, NumericKeypad & EnvelopeDetailShe
         normalizeSpaces(node.textContent ?? '') === '-25,00 €'
     );
     expect(gaugeValue.className).toContain('text-emerald-600');
-  });
-
-  it('permet de rééquilibrer une enveloppe et de gérer l’historique des dépenses', async () => {
-    const user = userEvent.setup();
-    const onAddExpense = vi.fn();
-    const onEditEnvelope = vi.fn();
-    const onEditTransaction = vi.fn();
-    const onDeleteTransaction = vi.fn().mockResolvedValue(undefined);
-
-    render(
-      <EnvelopeDetailSheet
-        isOpen
-        onClose={vi.fn()}
-        envelope={coursesEnvelope}
-        transactions={sampleTransactions}
-        members={members}
-        currentUserId="user-1"
-        isSharedBudget
-        onAddExpense={onAddExpense}
-        onEditEnvelope={onEditEnvelope}
-        onEditTransaction={onEditTransaction}
-        onDeleteTransaction={onDeleteTransaction}
-      />
-    );
-
-    expect(screen.getByRole('progressbar', { name: 'Consommation Courses' })).toHaveAttribute(
-      'aria-valuenow',
-      '30'
-    );
-    expect(screen.getByText('Membre 2')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Modifier l’enveloppe Courses' }));
-    expect(onEditEnvelope).toHaveBeenCalledWith(coursesEnvelope);
-
-    await user.click(screen.getByRole('button', { name: /Supermarché/i }));
-    await user.click(screen.getByRole('button', { name: 'Modifier Supermarché' }));
-    expect(onEditTransaction).toHaveBeenCalledWith(sampleTransactions[0]);
-
-    await user.click(screen.getByRole('button', { name: 'Supprimer Supermarché' }));
-    await user.click(screen.getByRole('button', { name: 'Confirmer la suppression de Supermarché' }));
-    expect(onDeleteTransaction).toHaveBeenCalledWith('tx-1');
-
-    await user.click(screen.getByRole('button', { name: 'Ajouter une dépense' }));
-    expect(onAddExpense).toHaveBeenCalledTimes(1);
   });
 
   it('masque Date et récurrence lors de la création d’une enveloppe variable dans CreationFormModal', async () => {

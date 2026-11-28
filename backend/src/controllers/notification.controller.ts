@@ -1,9 +1,16 @@
+import crypto from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { env } from '../config/env';
 import { PushSubscriptionModel } from '../models/PushSubscription.model';
 import { UserModel } from '../models/User.model';
-import { sendPushToUser } from '../services/pushNotification.service';
+import {
+  checkAndSendDailyReminders,
+  checkAndSendDueAlerts,
+  checkAndSendEnvelopeThresholdAlerts,
+  checkAndSendWeeklyDigestPush,
+  sendPushToUser
+} from '../services/pushNotification.service';
 
 export const subscribeSchema = z.object({
   endpoint: z.string().url(),
@@ -26,6 +33,7 @@ export const notificationPreferencesSchema = z.object({
     .optional(),
   upcomingDueAlertEnabled: z.boolean().optional(),
   envelopeThresholdAlertEnabled: z.boolean().optional(),
+  envelopeThresholdPercent: z.union([z.literal(75), z.literal(80), z.literal(90)]).optional(),
   sharedActivityAlertEnabled: z.boolean().optional(),
   weeklyDigestEnabled: z.boolean().optional(),
   weeklyDigestDay: z.number().int().min(0).max(6).optional(),
@@ -166,6 +174,54 @@ export async function sendTestNotification(
     });
 
     res.status(200).json({ status: 'ok', ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Endpoint déclenchable par un cron externe (GitHub Actions / cron-job.org sur Render Free Tier),
+ * protégé par l'en-tête `X-Cron-Secret` (comparaison à temps constant).
+ */
+export async function runNotificationCron(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const expectedSecret = process.env.CRON_SECRET || env.CRON_SECRET;
+    if (!expectedSecret) {
+      res.status(503).json({ message: 'CRON_SECRET non configuré sur le serveur.' });
+      return;
+    }
+
+    const provided = String(req.headers['x-cron-secret'] ?? '');
+    const expectedBuf = Buffer.from(expectedSecret, 'utf8');
+    const providedBuf = Buffer.from(provided, 'utf8');
+    if (
+      providedBuf.length !== expectedBuf.length ||
+      !crypto.timingSafeEqual(providedBuf, expectedBuf)
+    ) {
+      res.status(401).json({ message: 'Secret cron invalide.' });
+      return;
+    }
+
+    const now = new Date();
+    const hourStr = `${String(now.getHours()).padStart(2, '0')}:00`;
+    const [dueAlerts, thresholdAlerts, dailyReminders, weeklyDigests] = await Promise.all([
+      checkAndSendDueAlerts(now),
+      checkAndSendEnvelopeThresholdAlerts(now),
+      checkAndSendDailyReminders(hourStr),
+      checkAndSendWeeklyDigestPush(now)
+    ]);
+
+    res.status(200).json({
+      status: 'ok',
+      dueAlerts,
+      thresholdAlerts,
+      dailyReminders,
+      weeklyDigests
+    });
   } catch (err) {
     next(err);
   }

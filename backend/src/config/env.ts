@@ -44,7 +44,8 @@ const envSchema = z
     VAPID_PUBLIC_KEY: z.string().trim().default(''),
     VAPID_PRIVATE_KEY: z.string().trim().default(''),
     VAPID_SUBJECT: z.string().trim().default('mailto:contact@eparnio.app'),
-    REGISTRATION_INVITE_CODE: z.string().trim().default('')
+    REGISTRATION_INVITE_CODE: z.string().trim().default(''),
+    CRON_SECRET: z.string().trim().default('')
   })
   .superRefine((data, ctx) => {
     if (

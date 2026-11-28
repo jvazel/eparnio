@@ -18,6 +18,7 @@ export interface NotificationPreferences {
   dailyReminderHour: string;
   upcomingDueAlertEnabled: boolean;
   envelopeThresholdAlertEnabled: boolean;
+  envelopeThresholdPercent?: number;
   sharedActivityAlertEnabled?: boolean;
   weeklyDigestEnabled?: boolean;
   weeklyDigestDay?: number;
@@ -180,6 +181,7 @@ const userSchema = new Schema<IUser>(
           dailyReminderHour: { type: String, default: '20:00' },
           upcomingDueAlertEnabled: { type: Boolean, default: true },
           envelopeThresholdAlertEnabled: { type: Boolean, default: true },
+          envelopeThresholdPercent: { type: Number, default: 80 },
           sharedActivityAlertEnabled: { type: Boolean, default: true },
           weeklyDigestEnabled: { type: Boolean, default: false },
           weeklyDigestDay: { type: Number, min: 0, max: 6, default: 0 },

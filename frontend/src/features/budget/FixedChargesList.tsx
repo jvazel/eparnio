@@ -1,5 +1,6 @@
-import { CalendarClock, ListFilter, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CalendarClock, CheckCheck, ListFilter, Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { CheckableListCard } from '../../components/ui/CheckableListCard';
@@ -23,6 +24,7 @@ export interface FixedChargesListProps {
   onAddFixedCharge: () => void;
   onEditFixedCharge: (item: EnvelopeItem) => void;
   onTogglePaid: (item: EnvelopeItem) => void;
+  onBulkTogglePaid?: (envelopeIds: string[], isPaid: boolean) => Promise<void> | void;
   onReorder: (orderedIds: string[]) => void;
   onDeleteFixedCharge: (item: EnvelopeItem) => void;
   onSyncRecurring?: () => Promise<void> | void;
@@ -41,6 +43,7 @@ export function FixedChargesList({
   onAddFixedCharge,
   onEditFixedCharge,
   onTogglePaid,
+  onBulkTogglePaid,
   onReorder,
   onDeleteFixedCharge,
   onSyncRecurring,
@@ -51,8 +54,60 @@ export function FixedChargesList({
   const [filter, setFilter] = useState<ChargeFilter>('all');
   const [viewMode, setViewMode] = useState<'list' | 'schedule'>('list');
   const [includePaidInSchedule, setIncludePaidInSchedule] = useState(false);
+  const [isBulkSheetOpen, setIsBulkSheetOpen] = useState(false);
+  const [selectedBulkIds, setSelectedBulkIds] = useState<string[]>([]);
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+  const [lastBulkUndoIds, setLastBulkUndoIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!lastBulkUndoIds) return;
+    const timer = window.setTimeout(() => setLastBulkUndoIds(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [lastBulkUndoIds]);
 
   const sortedItems = useMemo(() => sortEnvelopesByOrder(items), [items]);
+
+  const dueUnpaidItems = useMemo(() => {
+    const todayStr = toDateInputValue(new Date().toISOString());
+    return sortedItems.filter((item) => !item.isPaid && toDateInputValue(item.date) <= todayStr);
+  }, [sortedItems]);
+
+  const dueUnpaidTotal = useMemo(
+    () => dueUnpaidItems.reduce((sum, item) => sum + item.allocatedAmount, 0),
+    [dueUnpaidItems]
+  );
+
+  const selectedBulkTotal = useMemo(() => {
+    const idSet = new Set(selectedBulkIds);
+    return dueUnpaidItems
+      .filter((item) => idSet.has(item.id))
+      .reduce((sum, item) => sum + item.allocatedAmount, 0);
+  }, [dueUnpaidItems, selectedBulkIds]);
+
+  const openBulkSheet = () => {
+    setSelectedBulkIds(dueUnpaidItems.map((item) => item.id));
+    setIsBulkSheetOpen(true);
+  };
+
+  const handleConfirmBulkPaid = async () => {
+    if (!onBulkTogglePaid || selectedBulkIds.length === 0) return;
+    setIsBulkSubmitting(true);
+    try {
+      const idsToMark = [...selectedBulkIds];
+      await onBulkTogglePaid(idsToMark, true);
+      setIsBulkSheetOpen(false);
+      setLastBulkUndoIds(idsToMark);
+    } finally {
+      setIsBulkSubmitting(false);
+    }
+  };
+
+  const handleUndoBulkPaid = async () => {
+    if (!onBulkTogglePaid || !lastBulkUndoIds?.length) return;
+    const idsToRevert = [...lastBulkUndoIds];
+    setLastBulkUndoIds(null);
+    await onBulkTogglePaid(idsToRevert, false);
+  };
 
   const paidTotal = useMemo(
     () =>
@@ -266,6 +321,35 @@ export function FixedChargesList({
           onToggleManageMode={() => setIsManageMode((previous) => !previous)}
         />
 
+        {onBulkTogglePaid && dueUnpaidItems.length >= 2 && (
+          <button
+            type="button"
+            onClick={openBulkSheet}
+            className="flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-800/70 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+          >
+            <CheckCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              Pointer {dueUnpaidItems.length} charges échues ({formatCurrency(dueUnpaidTotal)})
+            </span>
+          </button>
+        )}
+
+        {lastBulkUndoIds && lastBulkUndoIds.length > 0 && (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white shadow-sm dark:border-slate-700 dark:bg-slate-800"
+          >
+            <span>{lastBulkUndoIds.length} charges pointées comme payées.</span>
+            <button
+              type="button"
+              onClick={() => void handleUndoBulkPaid()}
+              className="rounded-lg bg-white/15 px-2.5 py-1 font-semibold text-white hover:bg-white/25"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
+
         {sortedItems.length > 0 && (
           <div
             role="group"
@@ -448,6 +532,85 @@ export function FixedChargesList({
           </div>
         )}
       </section>
+
+      <BottomSheet
+        isOpen={isBulkSheetOpen}
+        onClose={() => setIsBulkSheetOpen(false)}
+        title="Pointer les charges échues"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            Sélectionnez les charges fixes déjà prélevées sur votre compte pour mettre à jour votre
+            solde estimé en 1 tap.
+          </p>
+
+          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+            {dueUnpaidItems.map((item) => {
+              const checked = selectedBulkIds.includes(item.id);
+              return (
+                <label
+                  key={item.id}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-800/80"
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setSelectedBulkIds((prev) =>
+                          prev.includes(item.id)
+                            ? prev.filter((id) => id !== item.id)
+                            : [...prev, item.id]
+                        )
+                      }
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span aria-hidden="true">{item.icon}</span>
+                    <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">
+                      {item.name}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm font-bold tabular-nums text-slate-800 dark:text-slate-100">
+                    {formatCurrency(item.allocatedAmount)}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          {activeBalance !== undefined && (
+            <div className="rounded-2xl bg-slate-50 p-3 text-xs dark:bg-slate-800/70">
+              <p className="font-semibold text-slate-600 dark:text-slate-300">
+                Solde estimé en compte
+              </p>
+              <p className="mt-1 font-bold tabular-nums text-slate-900 dark:text-slate-50">
+                {formatCurrency(activeBalance)} → {formatCurrency(activeBalance - selectedBulkTotal)}
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setIsBulkSheetOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={selectedBulkIds.length === 0 || isBulkSubmitting}
+              onClick={() => void handleConfirmBulkPaid()}
+            >
+              {isBulkSubmitting
+                ? 'Pointage…'
+                : `Confirmer (${selectedBulkIds.length})`}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

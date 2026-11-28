@@ -277,28 +277,3 @@ export async function getTagDetailAnalytics(
   );
   return data.analytics;
 }
-
-export interface BudgetStreakData {
-  consecutiveWeeksInGreen: number;
-  consecutiveMonthsRespected: number;
-  status: 'in_green' | 'fresh_start';
-  headline: string;
-  subtext: string;
-  weeklyRecap: {
-    currentWeekSpent: number;
-    weeklyAverageSpent: number;
-    transactionsCount: number;
-    bestControlledEnvelope: {
-      name: string;
-      icon: string;
-      usagePercent: number;
-    } | null;
-  };
-}
-
-export async function fetchBudgetStreak(budgetId: string): Promise<BudgetStreakData> {
-  const { data } = await apiClient.get<{ status: string; streak: BudgetStreakData }>(
-    `/budgets/${budgetId}/streak`
-  );
-  return data.streak;
-}

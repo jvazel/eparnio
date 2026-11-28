@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import {
+  bulkUpdateEnvelopesPaid,
+  bulkUpdateEnvelopesPaidBodySchema,
   createEnvelope,
   createEnvelopeBodySchema,
   deleteEnvelope,
@@ -33,6 +35,11 @@ envelopeRouter.patch(
   '/reorder',
   validate({ params: periodParamsSchema, body: reorderEnvelopesBodySchema }),
   reorderEnvelopes
+);
+envelopeRouter.patch(
+  '/bulk-paid',
+  validate({ params: periodParamsSchema, body: bulkUpdateEnvelopesPaidBodySchema }),
+  bulkUpdateEnvelopesPaid
 );
 envelopeRouter.patch(
   '/:id',

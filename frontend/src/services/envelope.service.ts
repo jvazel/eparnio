@@ -96,3 +96,22 @@ export async function deleteEnvelope(
   );
   return data;
 }
+
+export interface BulkPaidEnvelopesResponse {
+  status: 'ok';
+  updatedCount: number;
+  envelopes: import('../types/budget.types').EnvelopeItem[];
+  period: import('../types/budget.types').BudgetPeriod;
+}
+
+export async function bulkUpdateEnvelopesPaid(
+  periodId: string,
+  envelopeIds: string[],
+  isPaid: boolean
+): Promise<BulkPaidEnvelopesResponse> {
+  const { data } = await apiClient.patch<BulkPaidEnvelopesResponse>(
+    `/periods/${periodId}/envelopes/bulk-paid`,
+    { envelopeIds, isPaid }
+  );
+  return data;
+}

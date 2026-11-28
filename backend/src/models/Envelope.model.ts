@@ -26,6 +26,8 @@ export interface IEnvelope extends Document {
   memberId?: Types.ObjectId;
   linkedGoalId?: Types.ObjectId;
   order: number;
+  lastDueAlertSentAt?: Date;
+  lastThresholdAlertLevel?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -150,6 +152,14 @@ const envelopeSchema = new Schema<IEnvelope>(
     order: {
       type: Number,
       default: 0
+    },
+    lastDueAlertSentAt: {
+      type: Date,
+      required: false
+    },
+    lastThresholdAlertLevel: {
+      type: Number,
+      required: false
     }
   },
   {

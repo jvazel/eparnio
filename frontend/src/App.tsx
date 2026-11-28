@@ -1,5 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { useAppModals } from './hooks/useAppModals';
+import { useBudgetMutations } from './hooks/useBudgetMutations';
 import type { TabId } from './components/layout/BottomNav';
 import { BudgetSwitcherOverlay } from './components/layout/BudgetSwitcher';
 import { OfflineBanner } from './components/pwa/OfflineBanner';
@@ -14,7 +16,6 @@ import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCa
 import { computeActiveAccountBalance } from './utils/activeBalance';
 import { useAndroidWidgetSync } from './hooks/useAndroidWidgetSync';
 import { useQuickAddDeepLink } from './hooks/useQuickAddDeepLink';
-import type { QuickAddPrefill } from './utils/quickAddDeepLink';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
 import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
@@ -109,52 +110,29 @@ import {
   listBudgets
 } from './services/budget.service';
 import {
-  createEnvelope,
   type CreateEnvelopePayload,
-  deleteEnvelope,
-  reorderEnvelopes,
-  updateEnvelope,
-  type UpdateEnvelopePayload
+  updateEnvelope
 } from './services/envelope.service';
 import {
-  createGoal,
   type CreateGoalPayload,
-  createGoalWithdrawal,
   type CreateGoalWithdrawalPayload,
-  deleteGoal,
-  deleteGoalWithdrawal,
-  listGoals,
-  updateGoal,
-  updateGoalWithdrawal
+  listGoals
 } from './services/goal.service';
 import {
-  closePeriod,
-  type ClosePeriodPayload,
   getPeriodByMonth,
   syncRecurringFromPrevious
 } from './services/period.service';
 import {
   createTransaction,
-  deleteTransaction,
-  listTransactions,
-  updateTransaction,
-  type UpdateTransactionPayload
+  listTransactions
 } from './services/transaction.service';
 import { useAuthStore } from './store/useAuthStore';
 import { useBudgetStore } from './store/useBudgetStore';
 import type {
-  GoalsListResponse,
-  PeriodWithEnvelopesResponse,
-  TransactionsListResponse
-} from './types/api.types';
-import type {
   BudgetPeriod,
   BudgetPeriodSummary,
-  BudgetSpace,
   EnvelopeItem,
-  SavingsGoalItem,
-  SavingsWithdrawalItem,
-  TransactionItem
+  SavingsGoalItem
 } from './types/budget.types';
 import {
   downloadBudgetCsv,
@@ -231,8 +209,6 @@ export function App() {
   }, [activeTheme]);
 
   const [budgetSubView, setBudgetSubView] = useState<'synthese' | 'calendrier' | 'patrimoine'>('synthese');
-  const [isWhatIfOpen, setIsWhatIfOpen] = useState(false);
-  const [isWrappedOpen, setIsWrappedOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -243,75 +219,59 @@ export function App() {
   const [activeTab, setActiveTab] = useState<TabId>(
     () => user?.preferences?.defaultTab ?? 'depenses'
   );
-  const [isQuickAddExpenseOpen, setIsQuickAddExpenseOpen] = useState(false);
-  const [quickAddPrefill, setQuickAddPrefill] = useState<QuickAddPrefill | null>(null);
   const [referenceDate, setReferenceDate] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [editorState, setEditorState] = useState<{
-    isOpen: boolean;
-    pillar: 'income' | 'fixed_charge' | 'variable_envelope';
-    item: EnvelopeItem | null;
-  }>({
-    isOpen: false,
-    pillar: 'fixed_charge',
-    item: null
-  });
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string | null>(null);
-  const [expenseEditorState, setExpenseEditorState] = useState<{
-    isOpen: boolean;
-    transaction: TransactionItem | null;
-  }>({
-    isOpen: false,
-    transaction: null
-  });
-  const [goalFormState, setGoalFormState] = useState<{
-    isOpen: boolean;
-    goal: SavingsGoalItem | null;
-  }>({
-    isOpen: false,
-    goal: null
-  });
-  const [contributionState, setContributionState] = useState<{
-    isOpen: boolean;
-    goal: SavingsGoalItem | null;
-    envelope: EnvelopeItem | null;
-  }>({
-    isOpen: false,
-    goal: null,
-    envelope: null
-  });
-  const [withdrawalState, setWithdrawalState] = useState<{
-    isOpen: boolean;
-    goal: SavingsGoalItem | null;
-    withdrawal: SavingsWithdrawalItem | null;
-  }>({
-    isOpen: false,
-    goal: null,
-    withdrawal: null
-  });
-  const [isPlaceholderAddOpen, setIsPlaceholderAddOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
-  const [settingsState, setSettingsState] = useState<{
-    isOpen: boolean;
-    mode: 'edit' | 'create';
-    budget: BudgetSpace | null;
-  }>({
-    isOpen: false,
-    mode: 'edit',
-    budget: null
-  });
-  const [isJoinOpen, setIsJoinOpen] = useState(false);
-  const [joinInitialCode, setJoinInitialCode] = useState('');
-  const [calculatorBudget, setCalculatorBudget] = useState<BudgetSpace | null>(null);
-  const [isClosingWizardOpen, setIsClosingWizardOpen] = useState(false);
-  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
-  const [isBalanceReconcileOpen, setIsBalanceReconcileOpen] = useState(false);
-  const [isWeeklyDigestOpen, setIsWeeklyDigestOpen] = useState(false);
+
+  const {
+    isWhatIfOpen,
+    setIsWhatIfOpen,
+    isWrappedOpen,
+    setIsWrappedOpen,
+    isQuickAddExpenseOpen,
+    setIsQuickAddExpenseOpen,
+    quickAddPrefill,
+    setQuickAddPrefill,
+    editorState,
+    setEditorState,
+    isSearchOpen,
+    setIsSearchOpen,
+    selectedTag,
+    setSelectedTag,
+    selectedEnvelopeId,
+    setSelectedEnvelopeId,
+    expenseEditorState,
+    setExpenseEditorState,
+    goalFormState,
+    setGoalFormState,
+    contributionState,
+    setContributionState,
+    withdrawalState,
+    setWithdrawalState,
+    isPlaceholderAddOpen,
+    setIsPlaceholderAddOpen,
+    isProfileOpen,
+    setIsProfileOpen,
+    isSwitcherOpen,
+    setIsSwitcherOpen,
+    settingsState,
+    setSettingsState,
+    isJoinOpen,
+    setIsJoinOpen,
+    joinInitialCode,
+    setJoinInitialCode,
+    calculatorBudget,
+    setCalculatorBudget,
+    isClosingWizardOpen,
+    setIsClosingWizardOpen,
+    isCsvImportOpen,
+    setIsCsvImportOpen,
+    isBalanceReconcileOpen,
+    setIsBalanceReconcileOpen,
+    isWeeklyDigestOpen,
+    setIsWeeklyDigestOpen
+  } = useAppModals();
 
   const canLoadApp = Boolean(isAuthenticated && user && token && user.hasCompletedOnboarding);
 
@@ -513,335 +473,30 @@ export function App() {
 
   const envelopeTransactions = envelopeTransactionsQuery.data?.transactions ?? [];
 
-  const syncGoalCache = (goal?: SavingsGoalItem) => {
-    if (!goal) return;
-    queryClient.setQueryData<GoalsListResponse>(goalsQueryKey, (current) => {
-      if (!current) {
-        return { status: 'ok', goals: [goal] };
-      }
-      const exists = current.goals.some((item) => item.id === goal.id);
-      return {
-        status: 'ok',
-        goals: exists
-          ? current.goals.map((item) => (item.id === goal.id ? goal : item))
-          : [...current.goals, goal]
-      };
-    });
-    if (goal.assetAccountId) {
-      void queryClient.invalidateQueries({ queryKey: ['net-worth'] });
-    }
-  };
-
-  const syncEnvelopeAndPeriodCache = (
-    envelope: EnvelopeItem,
-    period: BudgetPeriod,
-    goal?: SavingsGoalItem
-  ) => {
-    queryClient.setQueryData<PeriodWithEnvelopesResponse>(periodQueryKey, (current) => {
-      if (!current) return current;
-      return {
-        status: 'ok',
-        period,
-        envelopes: current.envelopes.map((item) =>
-          item.id === envelope.id ? envelope : item
-        )
-      };
-    });
-    syncGoalCache(goal);
-    void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-  };
-
-  const createEnvelopeMutation = useMutation({
-    mutationFn: ({
-      periodId,
-      payload
-    }: {
-      periodId: string;
-      payload: CreateEnvelopePayload;
-    }) => createEnvelope(periodId, payload),
-    onSuccess: (response) => {
-      queryClient.setQueryData<PeriodWithEnvelopesResponse>(periodQueryKey, (current) => {
-        if (!current) {
-          return {
-            status: 'ok',
-            period: response.period,
-            envelopes: [response.envelope]
-          };
-        }
-        return {
-          status: 'ok',
-          period: response.period,
-          envelopes: [...current.envelopes, response.envelope]
-        };
-      });
-      syncGoalCache(response.goal);
-      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-    }
-  });
-
-  const updateEnvelopeMutation = useMutation({
-    mutationFn: ({
-      periodId,
-      envelopeId,
-      payload
-    }: {
-      periodId: string;
-      envelopeId: string;
-      payload: UpdateEnvelopePayload;
-    }) => updateEnvelope(periodId, envelopeId, payload),
-    onSuccess: (response) => {
-      queryClient.setQueryData<PeriodWithEnvelopesResponse>(periodQueryKey, (current) => {
-        if (!current) return current;
-        return {
-          status: 'ok',
-          period: response.period,
-          envelopes: current.envelopes.map((item) =>
-            item.id === response.envelope.id ? response.envelope : item
-          )
-        };
-      });
-      syncGoalCache(response.goal);
-      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-    }
-  });
-
-  const deleteEnvelopeMutation = useMutation({
-    mutationFn: ({ periodId, envelopeId }: { periodId: string; envelopeId: string }) =>
-      deleteEnvelope(periodId, envelopeId),
-    onSuccess: (response) => {
-      queryClient.setQueryData<PeriodWithEnvelopesResponse>(periodQueryKey, (current) => {
-        if (!current) return current;
-        return {
-          status: 'ok',
-          period: response.period,
-          envelopes: current.envelopes.filter((item) => item.id !== response.deletedId)
-        };
-      });
-      if (selectedEnvelopeId === response.deletedId) {
-        setSelectedEnvelopeId(null);
-      }
-      queryClient.removeQueries({
-        queryKey: ['transactions', response.period.id, response.deletedId]
-      });
-      syncGoalCache(response.goal);
-      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-    }
-  });
-
-  const createGoalMutation = useMutation({
-    mutationFn: ({ budgetId, payload }: { budgetId: string; payload: CreateGoalPayload }) =>
-      createGoal(budgetId, payload),
-    onSuccess: (response) => {
-      syncGoalCache(response.goal);
-    }
-  });
-
-  const updateGoalMutation = useMutation({
-    mutationFn: ({
-      budgetId,
-      goalId,
-      payload
-    }: {
-      budgetId: string;
-      goalId: string;
-      payload: CreateGoalPayload;
-    }) => updateGoal(budgetId, goalId, payload),
-    onSuccess: (response) => {
-      syncGoalCache(response.goal);
-    }
-  });
-
-  const deleteGoalMutation = useMutation({
-    mutationFn: ({ budgetId, goalId }: { budgetId: string; goalId: string }) =>
-      deleteGoal(budgetId, goalId),
-    onSuccess: (response) => {
-      queryClient.setQueryData<GoalsListResponse>(goalsQueryKey, (current) => {
-        if (!current) return current;
-        return {
-          status: 'ok',
-          goals: current.goals.filter((item) => item.id !== response.deletedId)
-        };
-      });
-      void queryClient.invalidateQueries({ queryKey: ['period'] });
-      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-      void queryClient.invalidateQueries({ queryKey: ['net-worth'] });
-      void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
-    }
-  });
-
-  const createGoalWithdrawalMutation = useMutation({
-    mutationFn: ({
-      budgetId,
-      goalId,
-      payload
-    }: {
-      budgetId: string;
-      goalId: string;
-      payload: CreateGoalWithdrawalPayload;
-    }) => createGoalWithdrawal(budgetId, goalId, payload),
-    onSuccess: (response) => {
-      syncGoalCache(response.goal);
-    }
-  });
-
-  const updateGoalWithdrawalMutation = useMutation({
-    mutationFn: ({
-      budgetId,
-      goalId,
-      withdrawalId,
-      payload
-    }: {
-      budgetId: string;
-      goalId: string;
-      withdrawalId: string;
-      payload: CreateGoalWithdrawalPayload;
-    }) => updateGoalWithdrawal(budgetId, goalId, withdrawalId, payload),
-    onSuccess: (response) => {
-      syncGoalCache(response.goal);
-    }
-  });
-
-  const deleteGoalWithdrawalMutation = useMutation({
-    mutationFn: ({
-      budgetId,
-      goalId,
-      withdrawalId
-    }: {
-      budgetId: string;
-      goalId: string;
-      withdrawalId: string;
-    }) => deleteGoalWithdrawal(budgetId, goalId, withdrawalId),
-    onSuccess: (response) => {
-      syncGoalCache(response.goal);
-    }
-  });
-
-  const createTransactionMutation = useMutation({
-    mutationFn: ({ periodId, payload }: { periodId: string; payload: AddExpensePayload }) =>
-      createTransaction(periodId, payload),
-    onSuccess: (response) => {
-      syncEnvelopeAndPeriodCache(response.envelope, response.period, response.goal);
-      queryClient.setQueryData<TransactionsListResponse>(
-        ['transactions', response.period.id, response.envelope.id],
-        (current) => ({
-          status: 'ok',
-          transactions: current
-            ? [response.transaction, ...current.transactions]
-            : [response.transaction]
-        })
-      );
-      void queryClient.invalidateQueries({ queryKey: ['calendar'] });
-      void queryClient.invalidateQueries({ queryKey: ['trends'] });
-      void queryClient.invalidateQueries({ queryKey: ['tags-summary'] });
-      void queryClient.invalidateQueries({ queryKey: ['period-anomalies'] });
-      void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
-      void queryClient.invalidateQueries({ queryKey: ['transaction-suggestions'] });
-    }
-  });
-
-  const updateTransactionMutation = useMutation({
-    mutationFn: ({
-      periodId,
-      transactionId,
-      payload
-    }: {
-      periodId: string;
-      transactionId: string;
-      payload: UpdateTransactionPayload;
-    }) => updateTransaction(periodId, transactionId, payload),
-    onSuccess: (response) => {
-      syncEnvelopeAndPeriodCache(response.envelope, response.period, response.goal);
-      queryClient.setQueryData<TransactionsListResponse>(
-        ['transactions', response.period.id, response.envelope.id],
-        (current) => {
-          if (!current) return current;
-          return {
-            status: 'ok',
-            transactions: current.transactions.map((item) =>
-              item.id === response.transaction.id ? response.transaction : item
-            )
-          };
-        }
-      );
-      void queryClient.invalidateQueries({ queryKey: ['period'] });
-      void queryClient.invalidateQueries({ queryKey: ['transactions', response.period.id] });
-      void queryClient.invalidateQueries({ queryKey: ['calendar'] });
-      void queryClient.invalidateQueries({ queryKey: ['trends'] });
-      void queryClient.invalidateQueries({ queryKey: ['tags-summary'] });
-      void queryClient.invalidateQueries({ queryKey: ['period-anomalies'] });
-      void queryClient.invalidateQueries({ queryKey: ['weekly-habit'] });
-    }
-  });
-
-  const deleteTransactionMutation = useMutation({
-    mutationFn: ({ periodId, transactionId }: { periodId: string; transactionId: string }) =>
-      deleteTransaction(periodId, transactionId),
-    onSuccess: (response) => {
-      syncEnvelopeAndPeriodCache(response.envelope, response.period, response.goal);
-      queryClient.setQueryData<TransactionsListResponse>(
-        ['transactions', response.period.id, response.envelope.id],
-        (current) => {
-          if (!current) return current;
-          return {
-            status: 'ok',
-            transactions: current.transactions.filter((item) => item.id !== response.deletedId)
-          };
-        }
-      );
-    }
-  });
-
-  const reorderMutation = useMutation({
-    mutationFn: ({ periodId, orderedIds }: { periodId: string; orderedIds: string[] }) =>
-      reorderEnvelopes(periodId, orderedIds),
-    onSuccess: (response) => {
-      queryClient.setQueryData<PeriodWithEnvelopesResponse>(periodQueryKey, (current) => {
-        if (!current) return current;
-        const updatedMap = new Map(response.envelopes.map((item) => [item.id, item]));
-        return {
-          ...current,
-          envelopes: current.envelopes.map((item) => updatedMap.get(item.id) ?? item)
-        };
-      });
-    }
-  });
-
-  const closePeriodMutation = useMutation({
-    mutationFn: ({
-      budgetId,
-      periodId,
-      payload
-    }: {
-      budgetId: string;
-      periodId: string;
-      payload: ClosePeriodPayload;
-    }) => closePeriod(budgetId, periodId, payload),
-    onSuccess: (response) => {
-      for (const goal of response.updatedGoals) {
-        syncGoalCache(goal);
-      }
-      queryClient.setQueryData<PeriodWithEnvelopesResponse>(
-        [
-          'period',
-          response.nextPeriod.budgetId,
-          activeBudget?.budgetStartDay ?? 1,
-          response.nextPeriod.year,
-          response.nextPeriod.month
-        ],
-        {
-          status: 'ok',
-          period: response.nextPeriod,
-          envelopes: response.nextEnvelopes
-        }
-      );
-      void queryClient.invalidateQueries({ queryKey: ['period'] });
-      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
-      void queryClient.invalidateQueries({ queryKey: ['trends'] });
-      void queryClient.invalidateQueries({ queryKey: ['goals'] });
-      setIsClosingWizardOpen(false);
-      setSelectedEnvelopeId(null);
-      setReferenceDate(new Date(response.nextPeriod.year, response.nextPeriod.month - 1, 1));
-    }
+  const {
+    createEnvelopeMutation,
+    updateEnvelopeMutation,
+    deleteEnvelopeMutation,
+    createGoalMutation,
+    updateGoalMutation,
+    deleteGoalMutation,
+    createGoalWithdrawalMutation,
+    updateGoalWithdrawalMutation,
+    deleteGoalWithdrawalMutation,
+    createTransactionMutation,
+    updateTransactionMutation,
+    deleteTransactionMutation,
+    reorderMutation,
+    bulkTogglePaidMutation,
+    closePeriodMutation
+  } = useBudgetMutations({
+    periodQueryKey,
+    goalsQueryKey,
+    activeBudget,
+    selectedEnvelopeId,
+    setSelectedEnvelopeId,
+    setIsClosingWizardOpen,
+    setReferenceDate
   });
 
   const periodLabel = useMemo(() => formatMonthLabel(referenceDate), [referenceDate]);
@@ -1154,6 +809,14 @@ export function App() {
             setEditorState({ isOpen: true, pillar: 'fixed_charge', item })
           }
           onTogglePaid={handleTogglePaid}
+          onBulkTogglePaid={async (envelopeIds, isPaid) => {
+            if (!activePeriod) return;
+            await bulkTogglePaidMutation.mutateAsync({
+              periodId: activePeriod.id,
+              envelopeIds,
+              isPaid
+            });
+          }}
           onReorder={handleReorder}
           onDeleteFixedCharge={(item) => handleDeleteById(item.id)}
           onSyncRecurring={async () => {
