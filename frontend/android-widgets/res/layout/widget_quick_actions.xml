@@ -5,13 +5,16 @@
     android:background="@drawable/widget_bg_card"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="10dp">
+    android:paddingStart="12dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="10dp">
 
     <TextView
         android:id="@+id/widget_action_add"
         android:layout_width="0dp"
-        android:layout_height="44dp"
-        android:layout_weight="1"
+        android:layout_height="46dp"
+        android:layout_weight="1.15"
         android:background="@drawable/widget_btn_primary"
         android:gravity="center"
         android:text="+ Dépense"
@@ -22,26 +25,26 @@
     <TextView
         android:id="@+id/widget_action_voice"
         android:layout_width="0dp"
-        android:layout_height="44dp"
+        android:layout_height="46dp"
         android:layout_marginStart="8dp"
         android:layout_weight="1"
         android:background="@drawable/widget_btn_pill"
         android:gravity="center"
         android:text="🎤 Voix"
-        android:textColor="#1E293B"
+        android:textColor="#6D28D9"
         android:textSize="13sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_action_ocr"
         android:layout_width="0dp"
-        android:layout_height="44dp"
+        android:layout_height="46dp"
         android:layout_marginStart="8dp"
         android:layout_weight="1"
-        android:background="@drawable/widget_btn_pill"
+        android:background="@drawable/widget_btn_pill_blue"
         android:gravity="center"
         android:text="📷 Ticket"
-        android:textColor="#1E293B"
+        android:textColor="#1D4ED8"
         android:textSize="13sp"
         android:textStyle="bold" />
 </LinearLayout>

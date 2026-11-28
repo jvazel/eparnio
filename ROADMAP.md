@@ -1347,3 +1347,34 @@
   * **Nouveaux tests Backend (`backend/src/__tests__/registrationInvite.test.ts`) :** Vérifier `POST /api/auth/register` avec `REGISTRATION_INVITE_CODE` actif (rejet `403` sans code ou mauvais code, succès `201` avec bon code) et inactif (inscription libre).
   * **Nouveaux tests Frontend (`frontend/src/__tests__/androidWidgetBridge.test.tsx`) :** Vérifier que `syncAndroidWidgetData` est un no-op sûr sur navigateur web, appelle `WidgetBridge.updateWidgetData` sur plateforme native mockée, et que `parseQuickAddUrlParams` gère `eparnio://quick-add?mode=voice` et `?mode=ocr`.
   * **Non-régression & Documentation :** Exécuter `npm run typecheck && npm test && npm run build`, vérifier que le déploiement Web/PWA reste 100 % intact et mettre à jour `ROADMAP.md`, `README.md` et `ANDROID_APK_GUIDE.md`.
+
+
+---
+
+## Étape 71 : Widget Android « Mes Enveloppes » (4×2) — Suivi Temps Réel & Saisie Directe par Enveloppe *(Confort Quotidien)*
+
+> **Objectif :** Permettre de consulter en un coup d'œil le montant restant de ses enveloppes variables principales depuis l'écran d'accueil Android (avant de passer en caisse) et d'ajouter une dépense directement dans l'enveloppe concernée en 1 tap.
+
+- [x] **Frontend — Contrat de Données & Synchronisation des Enveloppes (`frontend/src/utils/androidWidgetBridge.ts`, `frontend/src/App.tsx`) :**
+  * Étendre `AndroidWidgetPayload` avec un tableau optionnel `envelopes?: AndroidWidgetEnvelopeItem[]` contenant pour chaque enveloppe : `id`, `name`, `icon` (emoji), `color`, `allocated` (plafond + `rolloverAmount`), `spent`, `remaining` et `percentUsed` (0 à 100+).
+  * Créer un helper pur `selectTopWidgetEnvelopes(envelopes, limit = 4)` sélectionnant jusqu'à **4 enveloppes prioritaires** (triées par activité / taux de consommation ou ordre utilisateur, en incluant `rolloverAmount` dans le calcul du disponible) et les transmettre dans `syncAndroidWidgetData(...)` à chaque mise à jour de la période ou d'une transaction.
+  * Étendre `parseQuickAddUrlParams` (`frontend/src/utils/quickAddDeepLink.ts`) et l'écouteur `appUrlOpen` dans `App.tsx` pour supporter `eparnio://quick-add?envelopeId=<id>&budgetId=<budgetId>` : basculer automatiquement sur le bon budget si nécessaire puis ouvrir directement la saisie de dépense pré-affectée à l'enveloppe tapée.
+- [x] **Android Natif — Stockage Multi-Budgets & Diffusion (`WidgetBridgePlugin.kt`) :**
+  * Enregistrer le tableau JSON `envelopes` dans chaque entrée budget de `budgetsJson` (`SharedPreferences` `eparnio_widget_prefs`) afin de conserver les enveloppes propres à chaque budget (*Budget Perso*, *Budget Commun*, etc.).
+  * Diffuser `AppWidgetManager.ACTION_APPWIDGET_UPDATE` vers `EnvelopesWidgetProvider` en plus de `DailyBudgetWidgetProvider` à chaque appel de `updateWidgetData`, et synchroniser le switch multi-budgets (`selectedBudgetId`).
+- [x] **Android Natif — Widget 3 « Mes Enveloppes » (4×2) (`EnvelopesWidgetProvider.kt`, layouts, drawables & Manifest) :**
+  * Créer `EnvelopesWidgetProvider.kt`, `res/layout/widget_envelopes.xml`, `res/xml/widget_envelopes_info.xml` (taille 4×2 redimensionnable) et les drawables de barres de progression (`widget_progress_green.xml` < 80 %, `widget_progress_amber.xml` 80–99 %, `widget_progress_red.xml` ≥ 100 % ou solde négatif).
+  * **Design UI/UX (Design System Eparnio / One UI) :**
+    * Fond de carte premium `widget_bg_card` (dégradé blanc → lavande `#F5F3FF`, coins `26dp`, bordure `#E9D5FF`).
+    * En-tête : mini icône Eparnio + badge pilule violet **`Nom du budget  ⇄`** cliquable pour switcher entre les budgets sans ouvrir l'app + résumé discret du total restant dans les enveloppes.
+    * Liste compacte de **3 à 4 lignes d'enveloppes** (visibilité dynamique `View.GONE` si moins de 4 enveloppes) : emoji + nom en gras + **montant restant** aligné à droite (vert `#16A34A`, ambre `#D97706` ou rouge `#EF4444`) + `ProgressBar` horizontale fine (`4dp`).
+    * État vide élégant (*« Créez vos enveloppes dans Eparnio »*) lorsque le budget n'a pas encore d'enveloppe variable.
+  * **Interactions tactiles :**
+    * Tap sur une ligne d'enveloppe → `PendingIntent` vers `eparnio://quick-add?envelopeId=<id>&budgetId=<budgetId>` (saisie directe dans cette enveloppe).
+    * Tap sur le badge `Nom du budget  ⇄` → broadcast `ACTION_SWITCH_ENVELOPES_BUDGET` pour basculer sur le budget suivant sans ouvrir l'app.
+    * Tap sur le fond / en-tête → ouverture d'Eparnio sur l'onglet **Enveloppes**.
+  * Déclarer le `<receiver android:name=".EnvelopesWidgetProvider">` dans `frontend/android/app/src/main/AndroidManifest.xml`, copier les templates dans `frontend/android-widgets/` et mettre à jour `frontend/scripts/setup-android-widgets.sh`.
+- [x] **Tests (Nouveaux tests & Non-régression) & Documentation :**
+  * **Nouveaux tests Frontend (`frontend/src/__tests__/androidWidgetBridge.test.tsx`) :** Tester `selectTopWidgetEnvelopes` (tri, limite à 4, calcul avec `rolloverAmount`, gestion dépassement > 100 %), la transmission de `envelopes` à `WidgetBridge.updateWidgetData`, et le parsing de `eparnio://quick-add?envelopeId=...&budgetId=...`.
+  * **Non-régression & Vérification :** Exécuter `npm run typecheck && npm test && npm run build`, tester le rendu et les taps (switch budget + ajout rapide par enveloppe) sur téléphone Android (One UI).
+  * **Documentation :** Mettre à jour `ROADMAP.md`, `ANDROID_APK_GUIDE.md` (passage à 3 widgets d'écran d'accueil) et `USER_GUIDE.md`.

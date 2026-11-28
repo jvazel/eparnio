@@ -55,6 +55,18 @@
                 android:resource="@xml/widget_quick_actions_info" />
         </receiver>
 
+        <receiver
+            android:name=".EnvelopesWidgetProvider"
+            android:exported="true"
+            android:label="Eparnio — Mes Enveloppes">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_envelopes_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

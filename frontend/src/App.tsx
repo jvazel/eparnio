@@ -12,7 +12,7 @@ import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { CheckingAccountCard } from './features/budget/CheckingAccountCard';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
 import { computeActiveAccountBalance } from './utils/activeBalance';
-import { syncAndroidWidgetData } from './utils/androidWidgetBridge';
+import { selectTopWidgetEnvelopes, syncAndroidWidgetData } from './utils/androidWidgetBridge';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
 import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
@@ -484,13 +484,22 @@ export function App() {
       (daysRemaining > 0 ? Math.max(0, remainingToLive / daysRemaining) : 0);
 
     void syncAndroidWidgetData({
+      budgetId: activeBudget.id,
       dailyBudget,
       remainingToLive,
       daysRemaining,
       budgetName: activeBudget.name,
-      isNegative: remainingToLive < 0
+      isNegative: remainingToLive < 0,
+      envelopes: selectTopWidgetEnvelopes(variableEnvelopes, 4)
     });
-  }, [canLoadApp, activeBudget, activePeriod, analyticsQuery.data, summary.remainingToLive]);
+  }, [
+    canLoadApp,
+    activeBudget,
+    activePeriod,
+    analyticsQuery.data,
+    summary.remainingToLive,
+    variableEnvelopes
+  ]);
 
   const selectedEnvelope = useMemo(
     () => variableEnvelopes.find((item) => item.id === selectedEnvelopeId) ?? null,

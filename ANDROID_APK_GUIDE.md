@@ -173,14 +173,15 @@ Envoyez simplement `Eparnio-v1.0.apk` aux personnes autorisées via :
 
 ---
 
-## 7. Ajouter les 2 widgets sur l’écran d’accueil Android
+## 7. Ajouter les 3 widgets sur l’écran d’accueil Android
 
-1. Ouvrez **Eparnio** une première fois et connectez-vous (cela synchronise votre budget du jour avec le widget).
+1. Ouvrez **Eparnio** une première fois et connectez-vous (cela synchronise votre budget du jour et vos enveloppes avec les widgets).
 2. Revenez sur l’écran d’accueil du téléphone Android.
 3. Faites un **appui long** sur un espace vide de l’écran d’accueil → tapez sur **Widgets**.
-4. Faites défiler jusqu’à **Eparnio** : vous verrez les 2 widgets :
-   * **Mon Budget du Jour (4×2)** : affiche votre budget quotidien (`Y € / jour`), votre reste à vivre et un bouton **`+`** d’ajout rapide.
-   * **Saisie Express (4×1)** : barre compacte avec les 3 raccourcis **`+` Dépense**, **`🎤` Dictée vocale** et **`📷` Scanner un ticket**.
+4. Faites défiler jusqu’à **Eparnio** : vous verrez les **3 widgets** :
+   * **Eparnio — Budget du jour (4×2)** : affiche votre budget quotidien (`Y € / jour`), votre reste à vivre, un bouton **`+`** d’ajout rapide et un **badge violet `Nom du budget  ⇄`** cliquable pour basculer entre vos budgets sans ouvrir l’app.
+   * **Eparnio — Ajout rapide (4×1)** : barre compacte avec les 3 raccourcis **`+ Dépense`**, **`🎤 Voix`** et **`📷 Ticket`**.
+   * **Eparnio — Mes Enveloppes (4×2)** : affiche vos **4 enveloppes prioritaires** avec leur montant restant, barre de progression et switch multi-budgets (`Nom du budget  ⇄`) ; un tap sur une enveloppe ouvre directement l’ajout de dépense dans cette enveloppe.
 5. Maintenez le doigt sur le widget choisi et déposez-le sur votre écran d’accueil.
 
 ---

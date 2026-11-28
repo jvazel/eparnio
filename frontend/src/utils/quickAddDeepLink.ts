@@ -10,6 +10,8 @@ export interface QuickAddPrefill {
   amount?: number;
   label?: string;
   envelopeName?: string;
+  envelopeId?: string;
+  budgetId?: string;
   date?: string;
   tags?: string[];
   notes?: string;
@@ -71,6 +73,8 @@ export function parseQuickAddUrlParams(
   const rawAmount = params.get('amount');
   const rawLabel = params.get('label')?.trim().slice(0, 160) || undefined;
   const rawEnvelope = params.get('envelope')?.trim().slice(0, 120) || undefined;
+  const rawEnvelopeId = params.get('envelopeId')?.trim().slice(0, 80) || undefined;
+  const rawBudgetId = params.get('budgetId')?.trim().slice(0, 80) || undefined;
   const rawDate = parseDateParam(params.get('date'));
   const rawTags = parseTagsParam(params.get('tags'));
   const rawNotes = params.get('notes')?.trim().slice(0, 300) || undefined;
@@ -105,7 +109,15 @@ export function parseQuickAddUrlParams(
 
   // Mode structuré (Apple Pay / Raccourcis / Widgets Android) ou raccourci d'icône vide
   const hasAnyStructuredField = Boolean(
-    mode || amount !== undefined || rawLabel || rawEnvelope || rawDate || rawTags || rawNotes
+    mode ||
+      amount !== undefined ||
+      rawLabel ||
+      rawEnvelope ||
+      rawEnvelopeId ||
+      rawBudgetId ||
+      rawDate ||
+      rawTags ||
+      rawNotes
   );
 
   return {
@@ -114,6 +126,8 @@ export function parseQuickAddUrlParams(
     ...(amount !== undefined ? { amount } : {}),
     ...(rawLabel ? { label: rawLabel } : {}),
     ...(rawEnvelope ? { envelopeName: rawEnvelope } : {}),
+    ...(rawEnvelopeId ? { envelopeId: rawEnvelopeId } : {}),
+    ...(rawBudgetId ? { budgetId: rawBudgetId } : {}),
     ...(rawDate ? { date: rawDate } : {}),
     ...(rawTags ? { tags: rawTags } : {}),
     ...(rawNotes ? { notes: rawNotes } : {})
