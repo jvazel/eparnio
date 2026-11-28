@@ -1,3 +1,4 @@
+import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /**
@@ -82,6 +83,7 @@ interface NativeCapacitorGlobal {
         eventName: 'appUrlOpen',
         listenerFunc: (event: { url: string }) => void
       ) => Promise<{ remove: () => Promise<void> }>;
+      getLaunchUrl?: () => Promise<{ url?: string } | null>;
     };
   };
 }
@@ -127,8 +129,11 @@ export async function syncAndroidWidgetData(payload: AndroidWidgetPayload): Prom
   }
 }
 
+let launchUrlConsumed = false;
+
 /**
- * Écoute les deep-links natifs Android (`eparnio://quick-add?...`) déclenchés par les widgets.
+ * Écoute les deep-links natifs Android (`eparnio://quick-add?...`) déclenchés par les widgets,
+ * y compris lors d'un démarrage à froid (cold start via `App.getLaunchUrl()`).
  */
 export function subscribeNativeAppUrlOpen(
   onUrlOpen: (url: string) => void
@@ -136,13 +141,27 @@ export function subscribeNativeAppUrlOpen(
   if (!isAndroidNativeApp()) {
     return () => {};
   }
-  const appPlugin = getCapacitorGlobal()?.Plugins?.App;
+  const appPlugin = getCapacitorGlobal()?.Plugins?.App ?? CapacitorApp;
   if (!appPlugin?.addListener) {
     return () => {};
   }
 
   let cleanup: (() => Promise<void>) | null = null;
   let cancelled = false;
+
+  if (!launchUrlConsumed && typeof appPlugin.getLaunchUrl === 'function') {
+    launchUrlConsumed = true;
+    void appPlugin
+      .getLaunchUrl()
+      .then((launch) => {
+        if (!cancelled && launch?.url) {
+          onUrlOpen(launch.url);
+        }
+      })
+      .catch(() => {
+        // Ignorer si getLaunchUrl n'est pas disponible
+      });
+  }
 
   void appPlugin
     .addListener('appUrlOpen', (event) => {

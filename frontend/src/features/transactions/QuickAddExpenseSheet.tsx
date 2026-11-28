@@ -25,6 +25,7 @@ import type {
 } from '../../services/transaction.service';
 import type { BudgetMember, EnvelopeItem, QuickTemplateItem } from '../../types/budget.types';
 import { formatCurrency } from '../../utils/format';
+import type { QuickAddPrefill } from '../../utils/quickAddDeepLink';
 
 function normalizeEnvelopeName(name: string): string {
   return name
@@ -36,6 +37,7 @@ function normalizeEnvelopeName(name: string): string {
 
 export interface QuickAddExpenseSheetProps {
   isOpen: boolean;
+  initialPrefill?: QuickAddPrefill | null;
   onClose: () => void;
   envelopes: EnvelopeItem[];
   isSharedBudget?: boolean;
@@ -57,6 +59,7 @@ export interface QuickAddExpenseSheetProps {
 
 export function QuickAddExpenseSheet({
   isOpen,
+  initialPrefill,
   onClose,
   envelopes,
   isSharedBudget = false,
@@ -86,6 +89,30 @@ export function QuickAddExpenseSheet({
   const [error, setError] = useState<string | null>(null);
   const [naturalInput, setNaturalInput] = useState('');
   const [parsedPreview, setParsedPreview] = useState<ParsedNaturalExpense | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !initialPrefill) return;
+    if (initialPrefill.envelopeId) {
+      const byId = envelopes.find((env) => env.id === initialPrefill.envelopeId);
+      if (byId) setSelectedEnvelopeId(byId.id);
+    } else if (initialPrefill.envelopeName) {
+      const target = normalizeEnvelopeName(initialPrefill.envelopeName);
+      const byName = envelopes.find((env) => normalizeEnvelopeName(env.name) === target);
+      if (byName) setSelectedEnvelopeId(byName.id);
+    }
+    if (initialPrefill.amount !== undefined) {
+      setAmountInput(String(initialPrefill.amount));
+    }
+    if (initialPrefill.label) {
+      setLabel(initialPrefill.label);
+    }
+    if (initialPrefill.date) {
+      setDate(initialPrefill.date);
+    }
+    if (initialPrefill.tags && initialPrefill.tags.length > 0) {
+      setTags(initialPrefill.tags);
+    }
+  }, [isOpen, initialPrefill, envelopes]);
 
   const applyNaturalExpense = useCallback(
     (rawText: string) => {

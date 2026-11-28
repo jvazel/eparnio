@@ -1299,8 +1299,8 @@
   * Ajouter `weeklyDigestEnabled` (`Boolean`, défaut `false`), `weeklyDigestDay` (`Number`, défaut `0`) et `weeklyDigestHour` (`String`, défaut `'18:00'`) dans le sous-schéma `notificationPreferences` de `userSchema` afin que les préférences du *Point du dimanche* ne soient plus ignorées en mode strict Mongoose.
 - [x] **Backend — Nettoyage de `account.history[]` lors de la suppression d'une opération patrimoniale (`backend/src/services/netWorth.service.ts`) :**
   * Dans `deleteAssetOperation`, retirer de `account.history[]` les points correspondant à la date de l'opération supprimée (ou reconstruire proprement le point du jour concerné à partir des opérations restantes) afin qu'aucun pic fantôme ne persiste sur le graphique d'évolution du patrimoine.
-- [ ] **Nettoyage du code mort résiduel (suite à l'Étape 65) :**
-  * Supprimer les composants UI orphelins `frontend/src/features/analytics/StreakBadgeCard.tsx` et `frontend/src/features/analytics/WeeklyRecapSheet.tsx` (à supprimer localement après vérification qu'aucun test ne les importe).
+- [x] **Nettoyage du code mort résiduel (suite à l'Étape 65) :**
+  * Supprimer les composants UI orphelins `frontend/src/features/analytics/StreakBadgeCard.tsx` et `frontend/src/features/analytics/WeeklyRecapSheet.tsx` (supprimés à l'Étape 72 après vérification qu'aucun test ne les importe).
 - [x] **Validation & Documentation :** Mise à jour de `ROADMAP.md`.
 
 
@@ -1378,3 +1378,20 @@
   * **Nouveaux tests Frontend (`frontend/src/__tests__/androidWidgetBridge.test.tsx`) :** Tester `selectTopWidgetEnvelopes` (tri, limite à 4, calcul avec `rolloverAmount`, gestion dépassement > 100 %), la transmission de `envelopes` à `WidgetBridge.updateWidgetData`, et le parsing de `eparnio://quick-add?envelopeId=...&budgetId=...`.
   * **Non-régression & Vérification :** Exécuter `npm run typecheck && npm test && npm run build`, tester le rendu et les taps (switch budget + ajout rapide par enveloppe) sur téléphone Android (One UI).
   * **Documentation :** Mettre à jour `ROADMAP.md`, `ANDROID_APK_GUIDE.md` (passage à 3 widgets d'écran d'accueil) et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 72 : Hygiène Technique, Nettoyage du Code Mort & Refactorisation Modulaire de `App.tsx` *(Maintenabilité)*
+
+> **Objectif :** Assainir la base de code avant les prochaines fonctionnalités (Mode Sombre, Confidentialité, etc.) en supprimant les composants orphelins et en découpant `frontend/src/App.tsx` (~1 900 lignes) en hooks métier dédiés, sans aucune régression fonctionnelle.
+
+- [x] **Nettoyage du Code Mort (reliquat Étape 68) :**
+  * Vérifier les références et supprimer les composants UI orphelins `frontend/src/features/analytics/StreakBadgeCard.tsx` et `frontend/src/features/analytics/WeeklyRecapSheet.tsx` (ainsi que leurs éventuels imports ou tests obsolètes).
+  * Cocher la case correspondante dans l'Étape 68 de `ROADMAP.md`.
+- [x] **Extraction de Hooks Métier depuis `frontend/src/App.tsx` (`frontend/src/hooks/`) :**
+  * **`useAndroidWidgetSync.ts` :** Isoler la logique de calcul et de synchronisation vers les widgets Android (`syncAndroidWidgetData`, `selectTopWidgetEnvelopes`, calcul `daysRemaining` / `dailyBudget`).
+  * **`useQuickAddDeepLink.ts` :** Isoler l'écoute des deep-links Web (`/quick-add`), `sessionStorage` en attente et natifs Android (`subscribeNativeAppUrlOpen`), incluant le basculement automatique sur `budgetId` et la pré-sélection par `envelopeId` dans `QuickAddExpenseSheet`.
+- [x] **Validation & Non-Régression Complète :**
+  * Exécuter `npm run typecheck && npm test && npm run build` (Frontend) et vérifier que les tests et le build PWA passent sans régression.
+  * Mettre à jour `ROADMAP.md`.

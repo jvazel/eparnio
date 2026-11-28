@@ -12,7 +12,9 @@ import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { CheckingAccountCard } from './features/budget/CheckingAccountCard';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
 import { computeActiveAccountBalance } from './utils/activeBalance';
-import { selectTopWidgetEnvelopes, syncAndroidWidgetData } from './utils/androidWidgetBridge';
+import { useAndroidWidgetSync } from './hooks/useAndroidWidgetSync';
+import { useQuickAddDeepLink } from './hooks/useQuickAddDeepLink';
+import type { QuickAddPrefill } from './utils/quickAddDeepLink';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
 import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
@@ -242,6 +244,7 @@ export function App() {
     () => user?.preferences?.defaultTab ?? 'depenses'
   );
   const [isQuickAddExpenseOpen, setIsQuickAddExpenseOpen] = useState(false);
+  const [quickAddPrefill, setQuickAddPrefill] = useState<QuickAddPrefill | null>(null);
   const [referenceDate, setReferenceDate] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -471,35 +474,26 @@ export function App() {
     enabled: canLoadApp && Boolean(activePeriod?.id) && activeTab === 'budget'
   });
 
-  useEffect(() => {
-    if (!canLoadApp || !activeBudget || !activePeriod) return;
-    const analyticsDaily = analyticsQuery.data?.analytics?.dailyBudget;
-    const endDateMs = new Date(activePeriod.endDate).getTime();
-    const daysRemaining =
-      analyticsDaily?.daysRemaining ??
-      Math.max(1, Math.ceil((endDateMs - Date.now()) / (1000 * 60 * 60 * 24)));
-    const remainingToLive = analyticsDaily?.remainingToLive ?? summary.remainingToLive;
-    const dailyBudget =
-      analyticsDaily?.dailyAmount ??
-      (daysRemaining > 0 ? Math.max(0, remainingToLive / daysRemaining) : 0);
-
-    void syncAndroidWidgetData({
-      budgetId: activeBudget.id,
-      dailyBudget,
-      remainingToLive,
-      daysRemaining,
-      budgetName: activeBudget.name,
-      isNegative: remainingToLive < 0,
-      envelopes: selectTopWidgetEnvelopes(variableEnvelopes, 4)
-    });
-  }, [
+  useAndroidWidgetSync({
     canLoadApp,
     activeBudget,
     activePeriod,
-    analyticsQuery.data,
-    summary.remainingToLive,
+    analyticsDaily: analyticsQuery.data?.analytics?.dailyBudget,
+    remainingToLive: summary.remainingToLive,
     variableEnvelopes
-  ]);
+  });
+
+  const availableBudgetIds = useMemo(() => budgets.map((b) => b.id), [budgets]);
+
+  useQuickAddDeepLink({
+    canLoadApp,
+    availableBudgetIds,
+    onSelectBudget: setActiveBudgetId,
+    onOpenQuickAdd: (prefill) => {
+      setQuickAddPrefill(prefill);
+      setIsQuickAddExpenseOpen(true);
+    }
+  });
 
   const selectedEnvelope = useMemo(
     () => variableEnvelopes.find((item) => item.id === selectedEnvelopeId) ?? null,
@@ -1820,7 +1814,11 @@ export function App() {
           />
           <QuickAddExpenseSheet
             isOpen={isQuickAddExpenseOpen}
-            onClose={() => setIsQuickAddExpenseOpen(false)}
+            initialPrefill={quickAddPrefill}
+            onClose={() => {
+              setIsQuickAddExpenseOpen(false);
+              setQuickAddPrefill(null);
+            }}
             envelopes={envelopes.filter((env) => env.pillar === 'variable_envelope')}
             isSharedBudget={activeBudget?.type === 'shared'}
             members={activeBudget?.members ?? []}
