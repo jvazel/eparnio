@@ -83,15 +83,19 @@ Depuis le dossier `frontend/` sur votre Mac :
 ```bash
 cd frontend
 npm run build
+# Uniquement la toute première fois (si le dossier frontend/android/ n'existe pas encore) :
+# npx cap add android && bash ./scripts/setup-android-widgets.sh
 npx cap sync android
 npx cap open android
 ```
 
 * `npm run build` compile le bundle web de secours.
-* `npx cap sync android` copie la configuration (`capacitor.config.ts`) et met à jour les plugins Android.
+* `npx cap sync android` copie la configuration (`capacitor.config.ts`, qui lit automatiquement `VITE_CAPACITOR_SERVER_URL` depuis `frontend/.env`) et met à jour les plugins Android.
 * `npx cap open android` ouvre automatiquement le dossier `frontend/android/` dans **Android Studio**.
 
-> **Patience à la 1re ouverture :** Android Studio va lancer **Gradle Sync** (barre de progression en bas à droite). Cela peut prendre 1 à 3 minutes la toute première fois le temps de télécharger les dépendances Android. Attendez que la barre disparaisse et qu’il n’y ait aucune erreur.
+> **Patience à la 1re ouverture :**
+> * Si Android Studio affiche *« Please Select Gradle JVM to Import Project »* (Gradle 8.x incompatible avec JVM 25), cliquez simplement sur **Use JVM 17**.
+> * Android Studio va ensuite lancer **Gradle Sync** (barre de progression en bas à droite). Cela peut prendre 1 à 3 minutes la toute première fois le temps de télécharger les dépendances Android. Attendez que la barre disparaisse et qu’il n’y ait aucune erreur.
 
 ---
 
@@ -213,5 +217,11 @@ Pour empêcher toute personne extérieure de créer un compte sur votre serveur 
   Vérifiez que l’`<intent-filter>` du schéma `eparnio://quick-add` est bien présent dans `frontend/android/app/src/main/AndroidManifest.xml` et que vous avez bien relancé `npx cap sync android` avant de compiler l’APK.
 * **Erreur « App not installed » lors d’une mise à jour :**
   L’APK a probablement été signé avec une clé `.jks` différente de la première version, ou le `versionCode` dans `build.gradle` est inférieur à la version déjà installée.
-* **Écran blanc au lancement de l’APK :**
-  Vérifiez que votre téléphone a bien accès à internet au premier lancement et que `server.url` dans `frontend/capacitor.config.ts` pointe exactement vers votre URL Vercel active (`https://...`).
+* **Écran blanc au lancement de l’APK ou connexion sans effet :**
+  Vérifiez que votre téléphone a bien accès à internet, que `VITE_CAPACITOR_SERVER_URL` est renseigné dans `frontend/.env`, et que `server.url` apparaît bien dans `frontend/android/app/src/main/assets/capacitor.config.json` après `npx cap sync android`. Pour inspecter la console et le réseau en direct sur votre téléphone branché en USB, ouvrez `chrome://inspect/#devices` dans Google Chrome sur Mac.
+* **Erreur `android platform has not been added yet` :**
+  Lancez `npx cap add android` puis `bash ./scripts/setup-android-widgets.sh` depuis `frontend/` avant `npx cap sync android`.
+* **Erreur `Gradle JVM version 25` dans Android Studio :**
+  Cliquez sur **Use JVM 17** dans la boîte de dialogue d’importation (ou sélectionnez un JDK 17 dans **Settings → Build, Execution, Deployment → Build Tools → Gradle**).
+* **Erreur `getDefaultProguardFile('proguard-android.txt') is no longer supported` :**
+  Remplacez `proguard-android.txt` par `proguard-android-optimize.txt` dans le `build.gradle` concerné (application ou module `@capacitor/*`).
