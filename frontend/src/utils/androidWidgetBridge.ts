@@ -1,3 +1,5 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
 /**
  * Pont sécurisé entre React et le plugin natif Android `WidgetBridgePlugin.kt`.
  * Sur navigateur Web / PWA (PC, iOS, Android Chrome), toutes les fonctions sont des no-op silencieux.
@@ -14,6 +16,8 @@ export interface AndroidWidgetPayload {
 interface NativeWidgetBridgePlugin {
   updateWidgetData: (payload: AndroidWidgetPayload) => Promise<void>;
 }
+
+const RegisteredWidgetBridge = registerPlugin<NativeWidgetBridgePlugin>('WidgetBridge');
 
 interface NativeCapacitorGlobal {
   isNativePlatform?: () => boolean;
@@ -35,7 +39,7 @@ function getCapacitorGlobal(): NativeCapacitorGlobal | undefined {
 
 export function isAndroidNativeApp(): boolean {
   try {
-    return Boolean(getCapacitorGlobal()?.isNativePlatform?.());
+    return Boolean(getCapacitorGlobal()?.isNativePlatform?.() || Capacitor.isNativePlatform());
   } catch {
     return false;
   }
@@ -49,7 +53,7 @@ export async function syncAndroidWidgetData(payload: AndroidWidgetPayload): Prom
   if (!isAndroidNativeApp()) {
     return false;
   }
-  const bridge = getCapacitorGlobal()?.Plugins?.WidgetBridge;
+  const bridge = getCapacitorGlobal()?.Plugins?.WidgetBridge ?? RegisteredWidgetBridge;
   if (!bridge?.updateWidgetData) {
     return false;
   }

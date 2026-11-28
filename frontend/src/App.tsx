@@ -12,6 +12,7 @@ import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { CheckingAccountCard } from './features/budget/CheckingAccountCard';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
 import { computeActiveAccountBalance } from './utils/activeBalance';
+import { syncAndroidWidgetData } from './utils/androidWidgetBridge';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
 import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
@@ -469,6 +470,27 @@ export function App() {
     queryFn: () => getPeriodAnalytics(activePeriod!.id),
     enabled: canLoadApp && Boolean(activePeriod?.id) && activeTab === 'budget'
   });
+
+  useEffect(() => {
+    if (!canLoadApp || !activeBudget || !activePeriod) return;
+    const analyticsDaily = analyticsQuery.data?.analytics?.dailyBudget;
+    const endDateMs = new Date(activePeriod.endDate).getTime();
+    const daysRemaining =
+      analyticsDaily?.daysRemaining ??
+      Math.max(1, Math.ceil((endDateMs - Date.now()) / (1000 * 60 * 60 * 24)));
+    const remainingToLive = analyticsDaily?.remainingToLive ?? summary.remainingToLive;
+    const dailyBudget =
+      analyticsDaily?.dailyAmount ??
+      (daysRemaining > 0 ? Math.max(0, remainingToLive / daysRemaining) : 0);
+
+    void syncAndroidWidgetData({
+      dailyBudget,
+      remainingToLive,
+      daysRemaining,
+      budgetName: activeBudget.name,
+      isNegative: remainingToLive < 0
+    });
+  }, [canLoadApp, activeBudget, activePeriod, analyticsQuery.data, summary.remainingToLive]);
 
   const selectedEnvelope = useMemo(
     () => variableEnvelopes.find((item) => item.id === selectedEnvelopeId) ?? null,
