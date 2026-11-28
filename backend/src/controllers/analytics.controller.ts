@@ -7,6 +7,7 @@ import { TransactionModel, type ITransaction } from '../models/Transaction.model
 import { UserModel } from '../models/User.model';
 import { assertPeriodAccess } from '../services/budgetAccess.service';
 import { computeBudgetAgeOfMoney } from '../services/ageOfMoney.service';
+import { computeBudgetEnvelopeComparisons } from '../services/envelopeComparison.service';
 import { recalculatePeriodSummary } from '../services/remainingToLive.service';
 import { roundCurrency } from '../services/zeroBasedBudget.service';
 
@@ -320,6 +321,11 @@ export async function getPeriodAnalytics(
         },
         memberBreakdown,
         ageOfMoney: await computeBudgetAgeOfMoney(budget._id.toString()),
+        envelopeComparisons: await computeBudgetEnvelopeComparisons(
+          budget._id,
+          period,
+          envelopes.filter((item) => item.pillar === 'variable_envelope')
+        ),
         fixedChargesVarianceSummary: await (async () => {
           const { computePeriodEnvelopesVariance } = await import(
             '../services/fixedChargeVariance.service'

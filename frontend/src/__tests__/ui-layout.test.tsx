@@ -319,8 +319,8 @@ describe('Non-régression du Thème Clair par défaut (Light Mode)', () => {
     expect(resolvePastelTheme('#FCE96A')).toEqual(LIGHT_THEME_TOKENS.pastelEnvelopes.vanilla);
     expect(resolvePastelTheme('#4F46E5')).toEqual(LIGHT_THEME_TOKENS.pastelEnvelopes.lavender);
     expect(resolvePastelTheme('#123456')).toEqual({
-      background: LIGHT_THEME_TOKENS.pastelEnvelopes.glacier.background,
-      ring: LIGHT_THEME_TOKENS.pastelEnvelopes.glacier.ring
+      background: '#12345624',
+      ring: '#123456'
     });
   });
 

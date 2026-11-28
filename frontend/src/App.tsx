@@ -1,7 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useAppModals } from './hooks/useAppModals';
 import { useBudgetMutations } from './hooks/useBudgetMutations';
+import { useBudgetQueries } from './hooks/useBudgetQueries';
 import type { TabId } from './components/layout/BottomNav';
 import { BudgetSwitcherOverlay } from './components/layout/BudgetSwitcher';
 import { OfflineBanner } from './components/pwa/OfflineBanner';
@@ -13,22 +14,17 @@ import { Card } from './components/ui/Card';
 import { MonthlyInsights } from './features/analytics/MonthlyInsights';
 import { CheckingAccountCard } from './features/budget/CheckingAccountCard';
 import { computeEmergencyFundAmount } from './features/analytics/SavingsHealthCard';
-import { computeActiveAccountBalance } from './utils/activeBalance';
 import { useAndroidWidgetSync } from './hooks/useAndroidWidgetSync';
 import { useQuickAddDeepLink } from './hooks/useQuickAddDeepLink';
 import { fetchBudgetNetWorth } from './services/netWorth.service';
 import { WeeklyDigestCard } from './features/analytics/WeeklyDigestCard';
 import { WeeklyDigestSheet } from './features/analytics/WeeklyDigestSheet';
 import { HabitMilestonesCard } from './features/analytics/HabitMilestonesCard';
-import { fetchBudgetWeeklyHabit } from './services/weeklyHabit.service';
-import { getTagsSummary } from './services/analytics.service';
 import { TagAnalyticsCard } from './features/analytics/TagAnalyticsCard';
 import { QuickAddExpenseSheet } from './features/transactions/QuickAddExpenseSheet';
 import { createQuickTemplate, deleteQuickTemplate } from './services/budget.service';
 import {
   dismissTransactionAnomaly,
-  getPeriodAnomalies,
-  getTransactionSuggestions,
   splitTransaction
 } from './services/transaction.service';
 import { AuthScreen } from './features/auth/AuthScreen';
@@ -100,14 +96,11 @@ const InvitePartnerSheet = lazy(() =>
   }))
 );
 import {
-  buildClientPeriodAnalytics,
-  fetchBudgetTrends,
-  getPeriodAnalytics
+  buildClientPeriodAnalytics
 } from './services/analytics.service';
 import {
   extractInviteCodeFromInput,
-  generateBudgetInvite,
-  listBudgets
+  generateBudgetInvite
 } from './services/budget.service';
 import {
   type CreateEnvelopePayload,
@@ -115,11 +108,9 @@ import {
 } from './services/envelope.service';
 import {
   type CreateGoalPayload,
-  type CreateGoalWithdrawalPayload,
-  listGoals
+  type CreateGoalWithdrawalPayload
 } from './services/goal.service';
 import {
-  getPeriodByMonth,
   syncRecurringFromPrevious
 } from './services/period.service';
 import {
@@ -303,135 +294,50 @@ export function App() {
     }
   }, [canLoadApp, joinInitialCode]);
 
-  const budgetsQuery = useQuery({
-    queryKey: ['budgets', user?.id],
-    queryFn: listBudgets,
-    enabled: canLoadApp
-  });
-
-  const budgets = budgetsQuery.data ?? [];
-
-  const activeBudget = useMemo(() => {
-    if (budgets.length === 0) return null;
-    return budgets.find((item) => item.id === activeBudgetId) ?? budgets[0] ?? null;
-  }, [budgets, activeBudgetId]);
-
-  const suggestionsQuery = useQuery({
-    queryKey: ['transaction-suggestions', activeBudget?.id],
-    queryFn: () => getTransactionSuggestions(activeBudget!.id),
-    enabled: Boolean(canLoadApp && activeBudget?.id)
-  });
-
-  useEffect(() => {
-    if (activeBudget && activeBudget.id !== activeBudgetId) {
-      setActiveBudgetId(activeBudget.id);
-    }
-  }, [activeBudget, activeBudgetId, setActiveBudgetId]);
-
   useEffect(() => {
     if (user?.preferences?.theme) {
       document.documentElement.dataset.theme = user.preferences.theme;
     }
   }, [user?.preferences?.theme]);
 
-  const referenceYear = referenceDate.getFullYear();
-  const referenceMonth = referenceDate.getMonth() + 1;
-  const periodQueryKey = useMemo(
-    () =>
-      [
-        'period',
-        activeBudget?.id ?? null,
-        activeBudget?.budgetStartDay ?? 1,
-        referenceYear,
-        referenceMonth
-      ] as const,
-    [activeBudget?.id, activeBudget?.budgetStartDay, referenceYear, referenceMonth]
-  );
-
-  const periodQuery = useQuery({
-    queryKey: periodQueryKey,
-    queryFn: () => getPeriodByMonth(activeBudget!.id, referenceYear, referenceMonth),
-    enabled: canLoadApp && Boolean(activeBudget?.id)
-  });
-
-  const activePeriod = periodQuery.data?.period ?? null;
-
-  const anomaliesQuery = useQuery({
-    queryKey: ['period-anomalies', activePeriod?.id],
-    queryFn: () => getPeriodAnomalies(activePeriod!.id),
-    enabled: Boolean(canLoadApp && activePeriod?.id)
-  });
-
-  const weeklyHabitQuery = useQuery({
-    queryKey: ['weekly-habit', activeBudget?.id],
-    queryFn: () => fetchBudgetWeeklyHabit(activeBudget!.id),
-    enabled: Boolean(canLoadApp && activeBudget?.id)
-  });
-  const envelopes = periodQuery.data?.envelopes ?? [];
-  const summary = activePeriod?.summary ?? EMPTY_SUMMARY;
-
-  const activeBalanceMetrics = useMemo(
-    () => computeActiveAccountBalance(envelopes, summary),
-    [envelopes, summary]
-  );
-
-  const incomes = useMemo(
-    () => envelopes.filter((item) => item.pillar === 'income'),
-    [envelopes]
-  );
-  const fixedCharges = useMemo(
-    () => envelopes.filter((item) => item.pillar === 'fixed_charge'),
-    [envelopes]
-  );
-  const variableEnvelopes = useMemo(
-    () => envelopes.filter((item) => item.pillar === 'variable_envelope'),
-    [envelopes]
-  );
-  const savingsEnvelopes = useMemo(
-    () => envelopes.filter((item) => item.pillar === 'savings'),
-    [envelopes]
-  );
-
-  const goalsQueryKey = useMemo(
-    () => ['goals', activeBudget?.id ?? null] as const,
-    [activeBudget?.id]
-  );
-
-  const goalsQuery = useQuery({
-    queryKey: goalsQueryKey,
-    queryFn: () => listGoals(activeBudget!.id),
-    enabled: canLoadApp && Boolean(activeBudget?.id)
-  });
-
-  const goals = goalsQuery.data?.goals ?? [];
-
-  const analyticsQueryKey = useMemo(
-    () => ['analytics', activePeriod?.id ?? null] as const,
-    [activePeriod?.id]
-  );
-
-  const trendsQuery = useQuery({
-    queryKey: ['trends', activeBudget?.id, 6],
-    queryFn: () => fetchBudgetTrends(activeBudget!.id, 6),
-    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
-  });
-
-  const netWorthQuery = useQuery({
-    queryKey: ['net-worth', activeBudget?.id],
-    queryFn: () => fetchBudgetNetWorth(activeBudget!.id),
-    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
-  });
-
-  const tagsSummaryQuery = useQuery({
-    queryKey: ['tags-summary', activeBudget?.id],
-    queryFn: () => getTagsSummary(activeBudget!.id),
-    enabled: Boolean(token && activeBudget?.id && activeTab === 'budget')
-  });
-
-  const analyticsQuery = useQuery({
-    queryKey: analyticsQueryKey,
-    queryFn: () => getPeriodAnalytics(activePeriod!.id),
-    enabled: canLoadApp && Boolean(activePeriod?.id) && activeTab === 'budget'
+  const {
+    budgets,
+    activeBudget,
+    availableBudgetIds,
+    suggestionsQuery,
+    referenceYear,
+    referenceMonth,
+    periodQueryKey,
+    periodQuery,
+    activePeriod,
+    anomaliesQuery,
+    weeklyHabitQuery,
+    envelopes,
+    summary,
+    activeBalanceMetrics,
+    incomes,
+    fixedCharges,
+    variableEnvelopes,
+    savingsEnvelopes,
+    goalsQueryKey,
+    goals,
+    analyticsQueryKey,
+    trendsQuery,
+    netWorthQuery,
+    tagsSummaryQuery,
+    analyticsQuery,
+    selectedEnvelope,
+    envelopeTransactionsQuery,
+    envelopeTransactions
+  } = useBudgetQueries({
+    canLoadApp,
+    userId: user?.id,
+    token,
+    activeBudgetId,
+    setActiveBudgetId,
+    activeTab,
+    referenceDate,
+    selectedEnvelopeId
   });
 
   useAndroidWidgetSync({
@@ -443,8 +349,6 @@ export function App() {
     variableEnvelopes
   });
 
-  const availableBudgetIds = useMemo(() => budgets.map((b) => b.id), [budgets]);
-
   useQuickAddDeepLink({
     canLoadApp,
     availableBudgetIds,
@@ -454,24 +358,6 @@ export function App() {
       setIsQuickAddExpenseOpen(true);
     }
   });
-
-  const selectedEnvelope = useMemo(
-    () => variableEnvelopes.find((item) => item.id === selectedEnvelopeId) ?? null,
-    [variableEnvelopes, selectedEnvelopeId]
-  );
-
-  const envelopeTransactionsQueryKey = useMemo(
-    () => ['transactions', activePeriod?.id ?? null, selectedEnvelope?.id ?? null] as const,
-    [activePeriod?.id, selectedEnvelope?.id]
-  );
-
-  const envelopeTransactionsQuery = useQuery({
-    queryKey: envelopeTransactionsQueryKey,
-    queryFn: () => listTransactions(activePeriod!.id, selectedEnvelope!.id),
-    enabled: canLoadApp && Boolean(activePeriod?.id && selectedEnvelope?.id)
-  });
-
-  const envelopeTransactions = envelopeTransactionsQuery.data?.transactions ?? [];
 
   const {
     createEnvelopeMutation,

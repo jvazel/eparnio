@@ -189,6 +189,12 @@ export interface SavingsWithdrawalItem {
   createdAt?: string;
 }
 
+export interface GoalProjection {
+  averageMonthlyContribution3m: number;
+  estimatedCompletionDate: string | null;
+  monthsToTarget: number | null;
+}
+
 export interface SavingsGoalItem {
   id: string;
   budgetId: string;
@@ -201,6 +207,7 @@ export interface SavingsGoalItem {
   deadline?: string;
   assetAccountId?: string;
   withdrawals?: SavingsWithdrawalItem[];
+  projection?: GoalProjection;
   order: number;
   variance?: {
     previousAmount: number;
@@ -279,6 +286,19 @@ export interface AgeOfMoneyAnalytics {
   deltaDays: number | null;
 }
 
+export interface EnvelopeComparisonItem {
+  envelopeId: string;
+  name: string;
+  icon: string;
+  color: string;
+  currentSpent: number;
+  previousMonthSpent: number | null;
+  average3mSpent: number | null;
+  deltaVsPrevious: number | null;
+  deltaVsAverage3m: number | null;
+  percentVsAverage3m: number | null;
+}
+
 export interface PeriodAnalytics {
   periodId: string;
   budgetId: string;
@@ -289,4 +309,5 @@ export interface PeriodAnalytics {
   zeroBased: ZeroBasedAnalytics;
   memberBreakdown: MemberBreakdownItem[];
   ageOfMoney?: AgeOfMoneyAnalytics;
+  envelopeComparisons?: EnvelopeComparisonItem[];
 }

@@ -110,6 +110,15 @@ Toutes les commandes suivantes s'exécutent depuis la racine `Eparnio/` :
 - **Apple Pay / Raccourcis & Web Share Target** (`ApplePayShortcutGuideSheet`, `/quick-add`) : saisie express en 1 tap sans connexion bancaire.
 - **Suppression de Compte RGPD** (`DELETE /api/auth/me`) & **Code-Splitting PWA** (chunk initial `295 Ko` / `73 Ko` gzip, zéro warning Vite).
 
+## Crons de Production (`cron-job.org` + Render Free Tier)
+
+Pour garantir l'envoi des notifications Web Push et éviter la mise en veille Render en journée, 2 cronjobs gratuits sont configurés sur [cron-job.org](https://cron-job.org) (Timezone `Europe/Paris`, timeout `30 s`) :
+
+| Cron | Méthode & Endpoint | Fréquence | Authentification |
+| :--- | :--- | :--- | :--- |
+| **Notifications Push** | `POST /api/notifications/cron/run` | Toutes les heures (`0 * * * *`) | Header `X-Cron-Secret: <CRON_SECRET>` |
+| **Keep-Alive Render** | `GET /api/health` | Toutes les 10 min de 7h à 23h (`*/10 7-23 * * *`) | Aucune |
+
 ## Documentation
 
 - [Cahier des charges & Design System](./SPECIFICATIONS_EPARNIO.md)

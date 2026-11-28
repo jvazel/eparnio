@@ -32,13 +32,25 @@ export interface SearchBudgetInput {
   budgetId: string;
   query: string;
   tag?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  minAmount?: number;
+  maxAmount?: number;
   type?: GlobalSearchFilterType;
   limit?: number;
+}
+
+export interface SearchBudgetSummary {
+  count: number;
+  totalAmount: number;
+  expensesTotal: number;
+  incomesTotal: number;
 }
 
 export interface SearchBudgetResult {
   items: GlobalSearchItem[];
   totalCount: number;
+  summary: SearchBudgetSummary;
 }
 
 function escapeRegExp(value: string): string {
@@ -58,6 +70,10 @@ export async function searchBudgetItems({
   budgetId,
   query,
   tag,
+  dateFrom,
+  dateTo,
+  minAmount,
+  maxAmount,
   type = 'all',
   limit = 30
 }: SearchBudgetInput): Promise<SearchBudgetResult> {
@@ -69,8 +85,16 @@ export async function searchBudgetItems({
       : '';
   const safeLimit = Math.min(Math.max(limit, 1), 50);
 
-  if (!trimmed && !normalizedTag && type !== 'notes') {
-    return { items: [], totalCount: 0 };
+  const hasRangeFilter = Boolean(
+    dateFrom || dateTo || minAmount !== undefined || maxAmount !== undefined
+  );
+
+  if (!trimmed && !normalizedTag && !hasRangeFilter && type !== 'notes') {
+    return {
+      items: [],
+      totalCount: 0,
+      summary: { count: 0, totalAmount: 0, expensesTotal: 0, incomesTotal: 0 }
+    };
   }
 
   const budgetObjectId = new Types.ObjectId(budgetId);
@@ -207,11 +231,42 @@ export async function searchBudgetItems({
     });
   }
 
-  results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const fromTs = dateFrom ? new Date(`${dateFrom.slice(0, 10)}T00:00:00.000Z`).getTime() : null;
+  const toTs = dateTo ? new Date(`${dateTo.slice(0, 10)}T23:59:59.999Z`).getTime() : null;
 
-  const sliced = results.slice(0, safeLimit);
+  const filteredResults = results.filter((item) => {
+    const ts = new Date(item.date).getTime();
+    if (fromTs !== null && Number.isFinite(fromTs) && ts < fromTs) return false;
+    if (toTs !== null && Number.isFinite(toTs) && ts > toTs) return false;
+    if (minAmount !== undefined && item.amount < minAmount) return false;
+    if (maxAmount !== undefined && item.amount > maxAmount) return false;
+    return true;
+  });
+
+  filteredResults.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  let expensesTotal = 0;
+  let incomesTotal = 0;
+  for (const item of filteredResults) {
+    if (item.kind === 'income') {
+      incomesTotal += item.amount;
+    } else {
+      expensesTotal += item.amount;
+    }
+  }
+  const totalAmount = Math.round((expensesTotal + incomesTotal) * 100) / 100;
+  expensesTotal = Math.round(expensesTotal * 100) / 100;
+  incomesTotal = Math.round(incomesTotal * 100) / 100;
+
+  const sliced = filteredResults.slice(0, safeLimit);
   return {
     items: sliced,
-    totalCount: sliced.length
+    totalCount: sliced.length,
+    summary: {
+      count: filteredResults.length,
+      totalAmount,
+      expensesTotal,
+      incomesTotal
+    }
   };
 }

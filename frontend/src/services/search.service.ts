@@ -25,18 +25,40 @@ export interface GlobalSearchItem {
   memberId?: string;
 }
 
+export interface SearchBudgetSummary {
+  count: number;
+  totalAmount: number;
+  expensesTotal: number;
+  incomesTotal: number;
+}
+
 export interface SearchBudgetResponse {
   items: GlobalSearchItem[];
   totalCount: number;
+  summary?: SearchBudgetSummary;
 }
 
 export async function searchBudgetItems(
   budgetId: string,
-  params: { q: string; type?: GlobalSearchFilterType; limit?: number }
+  params: {
+    q: string;
+    tag?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    type?: GlobalSearchFilterType;
+    limit?: number;
+  }
 ): Promise<SearchBudgetResponse> {
   const { data } = await apiClient.get<SearchBudgetResponse>(`/budgets/${budgetId}/search`, {
     params: {
       q: params.q,
+      ...(params.tag ? { tag: params.tag } : {}),
+      ...(params.dateFrom ? { dateFrom: params.dateFrom } : {}),
+      ...(params.dateTo ? { dateTo: params.dateTo } : {}),
+      ...(params.minAmount !== undefined ? { minAmount: params.minAmount } : {}),
+      ...(params.maxAmount !== undefined ? { maxAmount: params.maxAmount } : {}),
       type: params.type ?? 'all',
       limit: params.limit ?? 30
     }

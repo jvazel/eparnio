@@ -1467,3 +1467,54 @@
     * Extension de `frontend/src/__tests__/income-fixed.test.tsx` : affichage conditionnel du bouton `Pointer X charges échues`, tiroir de confirmation avec aperçu du *Solde estimé en compte*, désélection d'une charge et toast `Annuler` (modes clair & sombre).
     * Extension de `frontend/src/__tests__/useBudgetMutations.test.tsx` : Optimistic UI + rollback sur `bulkTogglePaidMutation`.
   * **Non-Régression & Documentation :** Exécuter `npm run typecheck`, `npm test --prefix backend`, `npm test --prefix frontend` et `npm run build` (`< 500 Ko`, 0 warning Vite), puis mettre à jour `ROADMAP.md`, `ARCHITECTURE.md` et `USER_GUIDE.md`.
+
+
+---
+
+## Étape 75 : Date Réelle Estimée d'Atteinte des Objectifs d'Épargne *(Rythme Réel sur 3 Mois — Zéro Recompilation Android)*
+
+> **Objectif :** Compléter la mensualité théorique (*Sinking Funds*) par une projection concrète basée sur la **moyenne réelle des versements des 3 derniers mois** afin de motiver l'utilisateur sur chaque objectif d'épargne (*« À ton rythme actuel de 120 €/mois : objectif atteint en mars 2028 »*).
+
+- [x] **Backend (`goal.controller.ts` / `goalProjection.service.ts`) :**
+  * Calculer pour chaque objectif de `GET /api/budgets/:budgetId/goals` :
+    * `averageMonthlyContribution3m` : moyenne des versements réels (`EnvelopeModel` `pillar: 'savings'`, `linkedGoalId: goal._id`) sur les **3 dernières périodes** du budget (hors retraits).
+    * `estimatedCompletionDate` (`string | null`, ISO `YYYY-MM-DD`) et `monthsToTarget` (`number | null`) lorsque `currentAmount < targetAmount` et `averageMonthlyContribution3m > 0`.
+- [x] **Frontend (`SavingsGoalsList.tsx`, `sinkingFund.ts`, `budget.types.ts`) :**
+  * Typer `projection?: { averageMonthlyContribution3m: number; estimatedCompletionDate: string | null; monthsToTarget: number | null }` sur `SavingsGoalItem`.
+  * Afficher sur chaque `SavingsGoalCard` (Modes Essentiel & Détaillé, **modes clair et sombre**) une mention sobre et motivante :
+    * Si `currentAmount < targetAmount` et rythme `> 0` : *« À ton rythme actuel (`X €/mois`) : objectif atteint en **mois année** »*.
+- [x] **Tests & Non-Régression :**
+  * Tests unitaires Backend (`backend/src/__tests__/goalProjection.test.ts`) sur le calcul de moyenne 3 mois (0 versement, objectif déjà atteint, rythme régulier, historique < 3 mois).
+  * Validation `npm run typecheck && npm run build` (0 modification Android) et mise à jour de `ROADMAP.md`.
+
+
+---
+
+## Étape 76 : Recherche Globale Enrichie (Plage de Dates, Montants, Tags `#`) & Somme Instantanée *(Zéro Recompilation Android)*
+
+> **Objectif :** Permettre de répondre en 2 secondes à des questions concrètes (*« Combien j'ai dépensé chez Carrefour ou avec `#vacances` cette année ? »*) directement depuis `GlobalSearchModal`.
+
+- [x] **Backend (`search.service.ts`, `search.controller.ts`, `budget.routes.ts`) :**
+  * Étendre `GET /api/budgets/:id/search` avec les paramètres optionnels validés par Zod : `dateFrom`, `dateTo`, `minAmount`, `maxAmount`, `tag` (normalisé sans `#`).
+  * Retourner en plus de `items[]` un agrégat `summary: { count: number; totalAmount: number; expensesTotal: number; incomesTotal: number }`.
+- [x] **Frontend (`GlobalSearchModal.tsx`, `search.service.ts`) :**
+  * Ajouter une barre de filtres repliable/compacte dans `GlobalSearchModal` : **Période** (*Ce mois*, *3 mois*, *Cette année*, *Personnalisée* `Du / Au`), **Montant** (`Min € / Max €`) et **Tag `#`** + bouton **Réinitialiser**.
+  * Afficher un bandeau de **Somme instantanée** en tête des résultats (*« X résultats · Total : Y € »*), compatible **modes clair et sombre** (Modes Essentiel & Détaillé).
+- [x] **Tests & Non-Régression :**
+  * Validation `npm run typecheck`, `search.test.ts` et `npm run build` (0 modification Android) et mise à jour de `ROADMAP.md`.
+
+
+---
+
+## Étape 77 : Comparaison par Enveloppe (vs Mois Précédent & Moyenne 3 Mois) *(Pilotage — Mode Détaillé — Zéro Recompilation Android)*
+
+> **Objectif :** Aider l'utilisateur à ajuster ses plafonds Base Zéro en comparant la consommation de chaque enveloppe variable au **mois précédent** et à sa **moyenne réelle sur 3 mois** (*« +32 € (+11 %) vs ta moyenne sur 3 mois »*).
+
+- [x] **Backend (`analytics.controller.ts` / `envelopeComparison.service.ts`) :**
+  * Calculer dans `GET /api/periods/:periodId/analytics` un tableau `envelopeComparisons[]` (chaîné par `previousEnvelopeId` avec fallback sur nom normalisé sur les 3 périodes précédentes) exposant pour chaque enveloppe variable :
+    * `envelopeId`, `currentSpent`, `previousMonthSpent`, `average3mSpent`, `deltaVsPrevious`, `deltaVsAverage3m`, `percentVsAverage3m`.
+- [x] **Frontend (`EnvelopeComparisonCard.tsx`, `MonthlyInsights.tsx`, `budget.types.ts`) :**
+  * Ajouter une carte synthétique **`EnvelopeComparisonCard.tsx`** dans **`Budget > Pilotage`** (Mode détaillé, modes clair & sombre) listant les plus forts écarts (hausses et économies) avec bascule rapide *Moy. 3 mois* / *Mois préc.*.
+- [x] **Tests & Non-Régression :**
+  * Tests unitaires Backend (`backend/src/__tests__/envelopeComparison.test.ts`) sur `computeEnvelopeComparisonItem` (hausse, économie, historique vide et division par 0 protégée).
+  * Validation `npm run typecheck && npm run build` (0 modification Android) et mise à jour de `ROADMAP.md`.

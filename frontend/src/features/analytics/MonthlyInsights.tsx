@@ -16,6 +16,7 @@ import { CashFlowSummaryCard } from './CashFlowSummaryCard';
 import { DailyBudgetCard } from './DailyBudgetCard';
 import { EnvelopeBreakdownCard } from './EnvelopeBreakdownCard';
 import { EnvelopesAtRiskCard } from './EnvelopesAtRiskCard';
+import { EnvelopeComparisonCard } from './EnvelopeComparisonCard';
 import { MemberBreakdownCard } from './MemberBreakdownCard';
 import { MonthVsEnvelopesCard } from './MonthVsEnvelopesCard';
 import { PaceProjectionCard } from './PaceProjectionCard';
@@ -456,6 +457,10 @@ export function MonthlyInsights({
               totalDays={analytics.dailyBudget.totalDays}
               daysRemaining={analytics.dailyBudget.daysRemaining}
             />
+
+            {analytics.envelopeComparisons && analytics.envelopeComparisons.length > 0 && (
+              <EnvelopeComparisonCard comparisons={analytics.envelopeComparisons} />
+            )}
 
             <SavingsHealthCard
               plannedIncome={analytics.cashFlow.plannedIncome}

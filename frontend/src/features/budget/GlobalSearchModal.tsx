@@ -1,8 +1,9 @@
-import { ChevronLeft, Clock, Search, X } from 'lucide-react';
+import { ChevronLeft, Clock, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type GlobalSearchFilterType,
   type GlobalSearchItem,
+  type SearchBudgetSummary,
   searchBudgetItems
 } from '../../services/search.service';
 import { formatCurrency } from '../../utils/format';
@@ -87,11 +88,52 @@ export function GlobalSearchModal({
 }: GlobalSearchModalProps) {
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<GlobalSearchFilterType>('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
   const [results, setResults] = useState<GlobalSearchItem[]>([]);
+  const [summary, setSummary] = useState<SearchBudgetSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const hasAdvancedFilter = Boolean(
+    dateFrom || dateTo || minAmount.trim() || maxAmount.trim() || tagFilter.trim()
+  );
+
+  const resetAdvancedFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setMinAmount('');
+    setMaxAmount('');
+    setTagFilter('');
+  };
+
+  const applyPeriodPreset = (preset: 'month' | '3months' | 'year') => {
+    const now = new Date();
+    const to = now.toISOString().slice(0, 10);
+    if (preset === 'month') {
+      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+        .toISOString()
+        .slice(0, 10);
+      setDateFrom(from);
+      setDateTo(to);
+    } else if (preset === '3months') {
+      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1))
+        .toISOString()
+        .slice(0, 10);
+      setDateFrom(from);
+      setDateTo(to);
+    } else {
+      const from = `${now.getUTCFullYear()}-01-01`;
+      setDateFrom(from);
+      setDateTo(to);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -113,8 +155,9 @@ export function GlobalSearchModal({
     if (!isOpen) return;
     const trimmed = query.trim();
 
-    if (!trimmed && activeFilter !== 'notes') {
+    if (!trimmed && !hasAdvancedFilter && activeFilter !== 'notes') {
       setResults([]);
+      setSummary(null);
       setIsLoading(false);
       return;
     }
@@ -123,15 +166,24 @@ export function GlobalSearchModal({
     setIsLoading(true);
     setErrorMessage(null);
 
+    const parsedMin = minAmount.trim() ? Number.parseFloat(minAmount.replace(',', '.')) : undefined;
+    const parsedMax = maxAmount.trim() ? Number.parseFloat(maxAmount.replace(',', '.')) : undefined;
+
     const debounceId = window.setTimeout(async () => {
       try {
         const response = await searchBudgetItems(budgetId, {
           q: trimmed,
+          ...(tagFilter.trim() ? { tag: tagFilter.trim() } : {}),
+          ...(dateFrom ? { dateFrom } : {}),
+          ...(dateTo ? { dateTo } : {}),
+          ...(parsedMin !== undefined && Number.isFinite(parsedMin) ? { minAmount: parsedMin } : {}),
+          ...(parsedMax !== undefined && Number.isFinite(parsedMax) ? { maxAmount: parsedMax } : {}),
           type: activeFilter,
-          limit: 30
+          limit: 50
         });
         if (!cancelled) {
           setResults(response.items);
+          setSummary(response.summary ?? null);
         }
       } catch (error) {
         if (!cancelled) {
@@ -141,6 +193,7 @@ export function GlobalSearchModal({
               : 'Impossible d’effectuer la recherche pour le moment.'
           );
           setResults([]);
+          setSummary(null);
         }
       } finally {
         if (!cancelled) {
@@ -153,7 +206,7 @@ export function GlobalSearchModal({
       cancelled = true;
       window.clearTimeout(debounceId);
     };
-  }, [isOpen, budgetId, query, activeFilter]);
+  }, [isOpen, budgetId, query, activeFilter, dateFrom, dateTo, minAmount, maxAmount, tagFilter, hasAdvancedFilter]);
 
   const memberMap = useMemo(() => {
     return new Map(members.map((m) => [m.userId, m]));
@@ -247,7 +300,102 @@ export function GlobalSearchModal({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilters((prev) => !prev)}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+              showAdvancedFilters || hasAdvancedFilter
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Filtres{hasAdvancedFilter ? ' •' : ''}</span>
+          </button>
         </div>
+
+        {showAdvancedFilters && (
+          <div className="mx-auto mt-3 max-w-md space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyPeriodPreset('month')}
+                className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm dark:bg-slate-900 dark:text-slate-200"
+              >
+                Ce mois
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPeriodPreset('3months')}
+                className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm dark:bg-slate-900 dark:text-slate-200"
+              >
+                3 mois
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPeriodPreset('year')}
+                className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm dark:bg-slate-900 dark:text-slate-200"
+              >
+                Cette année
+              </button>
+              {hasAdvancedFilter && (
+                <button
+                  type="button"
+                  onClick={resetAdvancedFilters}
+                  className="ml-auto text-[11px] font-semibold text-violet-600 dark:text-violet-400"
+                >
+                  Réinitialiser
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="date"
+                aria-label="Date de début"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <input
+                type="date"
+                aria-label="Date de fin"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Min €"
+                aria-label="Montant minimum"
+                value={minAmount}
+                onChange={(e) => setMinAmount(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Max €"
+                aria-label="Montant maximum"
+                value={maxAmount}
+                onChange={(e) => setMaxAmount(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <input
+                type="text"
+                placeholder="#tag"
+                aria-label="Filtrer par tag"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -260,7 +408,7 @@ export function GlobalSearchModal({
             <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
               Recherche en cours...
             </p>
-          ) : !query.trim() && activeFilter !== 'notes' ? (
+          ) : !query.trim() && !hasAdvancedFilter && activeFilter !== 'notes' ? (
             <div className="space-y-4">
               {recentSearches.length > 0 ? (
                 <div>
@@ -301,8 +449,19 @@ export function GlobalSearchModal({
               </p>
             </div>
           ) : (
-            groupedResults.map((group) => (
-              <section key={group.label} className="space-y-2">
+            <>
+              {summary && summary.count > 0 && (
+                <div className="flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50/80 px-4 py-2.5 text-xs dark:border-violet-800/70 dark:bg-violet-950/40">
+                  <span className="font-semibold text-violet-900 dark:text-violet-200">
+                    {summary.count} résultat{summary.count > 1 ? 's' : ''}
+                  </span>
+                  <span className="font-bold tabular-nums text-violet-700 dark:text-violet-300">
+                    Total : {formatCurrency(summary.totalAmount)}
+                  </span>
+                </div>
+              )}
+              {groupedResults.map((group) => (
+                <section key={group.label} className="space-y-2">
                 <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   {group.label}
                 </h3>
@@ -379,7 +538,8 @@ export function GlobalSearchModal({
                   })}
                 </div>
               </section>
-            ))
+              ))}
+            </>
           )}
         </div>
       </div>

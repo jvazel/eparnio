@@ -279,6 +279,21 @@ export function SavingsGoalCard({
         className="h-2"
       />
 
+      {goal.currentAmount < goal.targetAmount &&
+        goal.projection &&
+        goal.projection.averageMonthlyContribution3m > 0 &&
+        goal.projection.estimatedCompletionDate && (
+          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+            À ton rythme actuel ({formatCurrency(goal.projection.averageMonthlyContribution3m)}
+            /mois) : objectif atteint en{' '}
+            <span className="font-semibold text-violet-700 dark:text-violet-300">
+              {new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(
+                new Date(goal.projection.estimatedCompletionDate)
+              )}
+            </span>
+          </p>
+        )}
+
       <div className="flex items-center justify-between gap-3 pt-1">
         <button
           type="button"

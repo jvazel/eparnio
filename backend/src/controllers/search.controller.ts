@@ -14,6 +14,10 @@ export const searchBudgetParamsSchema = z.object({
 export const searchBudgetQuerySchema = z.object({
   q: z.string().max(120).optional().default(''),
   tag: z.string().max(40).optional(),
+  dateFrom: z.string().max(32).optional(),
+  dateTo: z.string().max(32).optional(),
+  minAmount: z.coerce.number().min(0).optional(),
+  maxAmount: z.coerce.number().min(0).optional(),
   type: z
     .enum(['all', 'variable_expense', 'fixed_charge', 'income', 'notes'])
     .optional()
@@ -29,7 +33,8 @@ export async function searchBudget(req: Request, res: Response): Promise<void> {
   }
 
   const { id } = req.params as z.infer<typeof searchBudgetParamsSchema>;
-  const { q, tag, type, limit } = searchBudgetQuerySchema.parse(req.query);
+  const { q, tag, dateFrom, dateTo, minAmount, maxAmount, type, limit } =
+    searchBudgetQuerySchema.parse(req.query);
 
   const budget = await BudgetModel.findOne({
     _id: new Types.ObjectId(id),
@@ -47,6 +52,10 @@ export async function searchBudget(req: Request, res: Response): Promise<void> {
     budgetId: id,
     query: q,
     ...(tag ? { tag } : {}),
+    ...(dateFrom ? { dateFrom } : {}),
+    ...(dateTo ? { dateTo } : {}),
+    ...(minAmount !== undefined ? { minAmount } : {}),
+    ...(maxAmount !== undefined ? { maxAmount } : {}),
     type: type as GlobalSearchFilterType,
     limit
   });

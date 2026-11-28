@@ -11,6 +11,7 @@ import {
   recalculatePeriodSummary,
   recalculateSavingsGoalCurrentAmount
 } from '../services/remainingToLive.service';
+import { computeBudgetGoalsProjections } from '../services/goalProjection.service';
 import { roundCurrency } from '../services/zeroBasedBudget.service';
 
 const objectIdSchema = z
@@ -117,9 +118,14 @@ export async function listGoals(
       createdAt: 1
     });
 
+    const projectionsByGoalId = await computeBudgetGoalsProjections(budget._id, goals);
+
     res.status(200).json({
       status: 'ok',
-      goals: goals.map(toSavingsGoalResponse)
+      goals: goals.map((goal) => ({
+        ...toSavingsGoalResponse(goal),
+        projection: projectionsByGoalId.get(goal._id.toString())
+      }))
     });
   } catch (err) {
     next(err);

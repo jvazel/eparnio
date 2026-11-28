@@ -372,7 +372,7 @@ describe('API Authentification JWT & Multi-Budgets (/api/auth & /api/budgets)', 
         .set('Authorization', `Bearer ${tokenA}`);
       expect(deleteOk.status).toBe(200);
 
-      // JWT portant un userId inexistant retourne 404 sur /me
+      // JWT portant un userId inexistant retourne 401 sur /me (Étape 58 : révocation stricte)
       const ghostToken = signAccessToken({
         id: new mongoose.Types.ObjectId().toString(),
         email: 'ghost@eparnio.fr'
@@ -380,7 +380,7 @@ describe('API Authentification JWT & Multi-Budgets (/api/auth & /api/budgets)', 
       const ghostMe = await request(app)
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${ghostToken}`);
-      expect(ghostMe.status).toBe(404);
+      expect(ghostMe.status).toBe(401);
     });
   });
 

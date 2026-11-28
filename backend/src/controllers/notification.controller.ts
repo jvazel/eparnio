@@ -195,7 +195,8 @@ export async function runNotificationCron(
   next: NextFunction
 ): Promise<void> {
   try {
-    const expectedSecret = process.env.CRON_SECRET || env.CRON_SECRET;
+    const expectedSecret =
+      process.env.CRON_SECRET !== undefined ? process.env.CRON_SECRET : env.CRON_SECRET;
     if (!expectedSecret) {
       res.status(503).json({ message: 'CRON_SECRET non configuré sur le serveur.' });
       return;

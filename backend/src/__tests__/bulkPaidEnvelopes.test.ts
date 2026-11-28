@@ -102,6 +102,7 @@ describe('Étape 74 — Pointage groupé des charges fixes & Cron Push sécuris�
   });
 
   it('protège POST /api/notifications/cron/run par CRON_SECRET (503 / 401 / 200)', async () => {
+    process.env.CRON_SECRET = '';
     const res503 = await request(app).post('/api/notifications/cron/run');
     expect(res503.status).toBe(503);
 

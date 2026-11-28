@@ -11,6 +11,7 @@ import type { BudgetSpace, UserProfile } from '../types/budget.types';
 
 vi.mock('../services/auth.service', () => ({
   browserSupportsWebAuthn: () => false,
+  fetchAuthConfig: vi.fn().mockResolvedValue({ registrationRequiresInviteCode: false }),
   registerUser: vi.fn(),
   loginUser: vi.fn(),
   fetchMe: vi.fn(),
